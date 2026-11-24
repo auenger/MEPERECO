@@ -1,0 +1,60 @@
+{
+  "nav": {
+    "inbox": "收件箱",
+    "chat": "聊天",
+    "my_tasks": "我的 task",
+    "tasks": "Tasks",
+    "projects": "项目",
+    "resources": "资源",
+    "workflows": "工作流",
+    "autopilots": "自动化",
+    "agents": "智能体",
+    "squads": "蜂群",
+    "usage": "用量",
+    "runtimes": "运行时",
+    "skills": "Skills",
+    "settings": "设置"
+  },
+  "tab": {
+    "task": "Task",
+    "project": "项目",
+    "autopilot": "自动化",
+    "agent": "智能体",
+    "member": "成员",
+    "squad": "小队",
+    "skill": "Skill",
+    "machine": "机器",
+    "runtime": "运行时",
+    "attachment": "附件",
+    "create_agent": "创建智能体",
+    "unknown": "未知页面",
+    "browser": "浏览器"
+  },
+  "workspace_loader": {
+    "loading_workspace": "正在加载工作区...",
+    "loading_named_prefix": "正在加载"
+  },
+  "sidebar": {
+    "brand_name": "Silieco",
+    "brand_tagline": "Human + Agent Work OS",
+    "create_project": "创建项目",
+    "view_projects": "查看全部项目",
+    "unpin_tooltip": "取消固定",
+    "workspaces_label": "工作区",
+    "create_workspace": "创建工作区",
+    "pending_invitations_label": "待处理的邀请",
+    "invitation_workspace_fallback": "工作区",
+    "invitation_join": "加入",
+    "invitation_decline": "拒绝",
+    "log_out": "退出登录",
+    "new_task": "新建 task",
+    "new_task_shortcut": "C",
+    "pinned_label": "固定",
+    "workspace_group": "工作区",
+    "configure_group": "配置",
+    "unread_overflow": "99+",
+    "project_files": "工作目录文件",
+    "project_runs": "SOP 运行",
+    "no_project_runs": "暂无 SOP 运行"
+  }
+}

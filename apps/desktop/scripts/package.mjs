@@ -1,0 +1,391 @@
+#!/usr/bin/env node
+import { execFileSync, spawnSync } from "node:child_process";
+import { readFileSync, rmSync } from "node:fs";
+import { delimiter, dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const desktopRoot = resolve(here, "..");
+const bundleCliScript = resolve(here, "bundle-cli.mjs");
+
+const PLATFORM_CONFIG = {
+  mac: {
+    aliases: new Set(["--mac", "--macos", "-m"]),
+    builderFlag: "--mac",
+    runtimePlatform: "darwin",
+    label: "macOS",
+  },
+  win: {
+    aliases: new Set(["--win", "--windows", "-w"]),
+    builderFlag: "--win",
+    runtimePlatform: "win32",
+    label: "Windows",
+  },
+  linux: {
+    aliases: new Set(["--linux", "-l"]),
+    builderFlag: "--linux",
+    runtimePlatform: "linux",
+    label: "Linux",
+  },
+};
+
+const ARCH_FLAGS = new Map([
+  ["--x64", "x64"],
+  ["--arm64", "arm64"],
+  ["--ia32", "ia32"],
+  ["--armv7l", "armv7l"],
+  ["--universal", "universal"],
+]);
+
+const SUPPORTED_CLI_ARCHS = new Set(["x64", "arm64"]);
+const MAC_ALL_PLATFORM_TARGETS = [
+  { platform: "mac", arch: "arm64" },
+  { platform: "mac", arch: "x64" },
+  { platform: "win", arch: "x64" },
+  { platform: "win", arch: "arm64" },
+  { platform: "linux", arch: "x64" },
+  { platform: "linux", arch: "arm64" },
+];
+
+/**
+ * Strip the leading `--` that npm/pnpm insert to separate their own
+ * flags from the ones meant for the underlying script.  Without this,
+ * `pnpm package -- --mac --arm64 --publish always` forwards the bare
+ * `--` into electron-builder's argv, which terminates option parsing
+ * and turns `--publish always` into ignored positional arguments.
+ */
+export function stripLeadingSeparator(argv) {
+  if (argv.length > 0 && argv[0] === "--") return argv.slice(1);
+  return argv;
+}
+
+export function deriveVersion() {
+  return process.env.SILIECO_BUILD_VERSION?.replace(/^v/, "") || JSON.parse(readFileSync(resolve(desktopRoot, "package.json"), "utf8")).version;
+}
+
+function uniqueOrdered(values) {
+  return [...new Set(values)];
+}
+
+export function envWithLocalBins(env = process.env, root = desktopRoot) {
+  const pathKey =
+    Object.keys(env).find((key) => key.toUpperCase() === "PATH") ?? "PATH";
+  const existingPath = env[pathKey] ?? "";
+  const localBins = uniqueOrdered([
+    resolve(root, "node_modules", ".bin"),
+    resolve(root, "..", "..", "node_modules", ".bin"),
+  ]);
+  const mergedPath = uniqueOrdered([
+    ...localBins,
+    ...String(existingPath)
+      .split(delimiter)
+      .filter(Boolean),
+  ]).join(delimiter);
+  return { ...env, [pathKey]: mergedPath };
+}
+
+function hostPlatformKey(platform = process.platform) {
+  if (platform === "darwin") return "mac";
+  if (platform === "win32") return "win";
+  if (platform === "linux") return "linux";
+  throw new Error(`[package] unsupported host platform: ${platform}`);
+}
+
+function hostArchKey(arch = process.arch) {
+  if (SUPPORTED_CLI_ARCHS.has(arch)) return arch;
+  throw new Error(
+    `[package] unsupported host architecture for Desktop CLI bundling: ${arch}`,
+  );
+}
+
+function expandPlatformShorthand(token) {
+  if (!/^-[mwl]{2,}$/.test(token)) return null;
+  const expanded = [];
+  for (const char of token.slice(1)) {
+    if (char === "m") expanded.push("mac");
+    if (char === "w") expanded.push("win");
+    if (char === "l") expanded.push("linux");
+  }
+  return uniqueOrdered(expanded);
+}
+
+function platformKeyForToken(token) {
+  for (const [platform, config] of Object.entries(PLATFORM_CONFIG)) {
+    if (config.aliases.has(token)) return platform;
+  }
+  return null;
+}
+
+function platformTargetsTemplate() {
+  return { mac: [], win: [], linux: [] };
+}
+
+export function parsePackageArgs(argv) {
+  const sharedArgs = [];
+  const platformTargets = platformTargetsTemplate();
+  const requestedPlatforms = [];
+  const requestedArchs = [];
+  let allPlatforms = false;
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--all-platforms") {
+      allPlatforms = true;
+      continue;
+    }
+
+    const expandedPlatforms = expandPlatformShorthand(token);
+    if (expandedPlatforms) {
+      requestedPlatforms.push(...expandedPlatforms);
+      continue;
+    }
+
+    const platform = platformKeyForToken(token);
+    if (platform) {
+      requestedPlatforms.push(platform);
+      while (i + 1 < argv.length && !argv[i + 1].startsWith("-")) {
+        platformTargets[platform].push(argv[i + 1]);
+        i += 1;
+      }
+      continue;
+    }
+
+    const arch = ARCH_FLAGS.get(token);
+    if (arch) {
+      requestedArchs.push(arch);
+      continue;
+    }
+
+    sharedArgs.push(token);
+  }
+
+  return {
+    allPlatforms,
+    sharedArgs,
+    platformTargets,
+    requestedPlatforms: uniqueOrdered(requestedPlatforms),
+    requestedArchs: uniqueOrdered(requestedArchs),
+  };
+}
+
+export function resolveBuildMatrix(parsed, platform = process.platform, arch = process.arch) {
+  if (parsed.allPlatforms) {
+    if (parsed.requestedPlatforms.length > 0 || parsed.requestedArchs.length > 0) {
+      throw new Error(
+        "[package] --all-platforms cannot be combined with explicit platform or arch flags",
+      );
+    }
+    if (platform !== "darwin") {
+      throw new Error(
+        `[package] --all-platforms is only supported on macOS hosts (current: ${platform})`,
+      );
+    }
+    return MAC_ALL_PLATFORM_TARGETS.map((target) => ({ ...target }));
+  }
+
+  const platforms =
+    parsed.requestedPlatforms.length > 0
+      ? parsed.requestedPlatforms
+      : [hostPlatformKey(platform)];
+  const archs =
+    parsed.requestedArchs.length > 0
+      ? parsed.requestedArchs
+      : [hostArchKey(arch)];
+
+  const unsupported = archs.filter((value) => !SUPPORTED_CLI_ARCHS.has(value));
+  if (unsupported.length > 0) {
+    throw new Error(
+      `[package] unsupported Desktop CLI architecture(s): ${unsupported.join(", ")}. ` +
+        "Use --x64 or --arm64.",
+    );
+  }
+
+  return platforms.flatMap((targetPlatform) =>
+    archs.map((targetArch) => ({
+      platform: targetPlatform,
+      arch: targetArch,
+    })),
+  );
+}
+
+function formatTarget(target) {
+  return `${PLATFORM_CONFIG[target.platform].label} ${target.arch}`;
+}
+
+export function builderArgsForTarget(
+  target,
+  parsed,
+  version,
+  {
+    disableMacNotarize = false,
+    hostPlatform = process.platform,
+    useScopedOutputDir = false,
+  } = {},
+) {
+  const builderArgs = [];
+  if (version) builderArgs.push(`-c.extraMetadata.version=${version}`);
+  if (disableMacNotarize) builderArgs.push("-c.mac.notarize=false");
+  builderArgs.push(PLATFORM_CONFIG[target.platform].builderFlag);
+  const requestedTargets = parsed.platformTargets[target.platform];
+  if (
+    target.platform === "linux" &&
+    hostPlatform !== "linux" &&
+    requestedTargets.length === 0
+  ) {
+    // electron-builder only guarantees AppImage/Snap when cross-building
+    // Linux from macOS/Windows. Keep `package:all` portable by defaulting
+    // to AppImage unless the caller explicitly requests Linux targets.
+    builderArgs.push("AppImage");
+  } else {
+    builderArgs.push(...requestedTargets);
+  }
+  builderArgs.push(`--${target.arch}`);
+  builderArgs.push(...parsed.sharedArgs);
+  if (useScopedOutputDir) {
+    builderArgs.push(
+      `-c.directories.output=dist/${target.platform}-${target.arch}`,
+    );
+  }
+  // electron-builder only adds an architecture suffix to Linux update
+  // metadata. Windows x64/arm64 would both publish `latest.yml`, while macOS
+  // arm64/x64 would both publish `latest-mac.yml`. Keep the established x64
+  // Windows and arm64 macOS feeds unchanged for installed clients, and route
+  // the additional architectures to explicit channels. updater.ts pins the
+  // matching channel at runtime.
+  if (target.platform === "win" && target.arch === "arm64") {
+    builderArgs.push("-c.publish.channel=latest-arm64");
+  }
+  if (target.platform === "mac" && target.arch === "x64") {
+    // Scope the Electron 39 platform floor to the new Intel package so this
+    // change does not rewrite established Apple Silicon bundle metadata.
+    builderArgs.push("-c.mac.minimumSystemVersion=12.0.0");
+    builderArgs.push("-c.publish.channel=latest-x64");
+  }
+  return builderArgs;
+}
+
+function main() {
+  const passthrough = stripLeadingSeparator(process.argv.slice(2));
+  const parsed = parsePackageArgs(passthrough);
+  const buildMatrix = resolveBuildMatrix(parsed);
+  console.log(
+    `[package] build matrix → ${buildMatrix.map(formatTarget).join(", ")}`,
+  );
+
+  // Step 0: start every release from an empty output directory. Stale
+  // artifacts from a prior run would otherwise be repacked into this run's
+  // app.asar (see the `!dist/**` note in electron-builder.yml). This clean
+  // is belt-and-braces only — it does NOT by itself prevent the same-run
+  // cross-arch contamination that broke the Intel DMG, because the first
+  // arch writes into dist/ mid-run before the next arch is packaged; the
+  // `!dist/**` files exclusion is what actually guarantees isolation.
+  const distDir = resolve(desktopRoot, "dist");
+  rmSync(distDir, { recursive: true, force: true });
+  console.log(`[package] cleaned output dir → ${distDir}`);
+
+  // Step 1: build the Electron main/preload/renderer bundles. Without
+  // this step electron-builder silently packages whatever is already in
+  // out/, which on a fresh checkout (or after a partial build) ships an
+  // app that white-screens because the renderer bundle is missing.
+  //
+  // CI invokes this script via `node scripts/package.mjs`, so we cannot
+  // rely on pnpm/npm to inject package-local binaries into PATH.
+  //
+  // `shell: true` is required on Windows: `node_modules/.bin/electron-vite`
+  // ships as a `.cmd` shim there, and Node's `spawnSync` does not honour
+  // PATHEXT when spawning a bare command without a shell — it would fail
+  // with `ENOENT`. On POSIX hosts the shim is a real executable so going
+  // through the shell is harmless. See
+  // https://nodejs.org/api/child_process.html#spawning-bat-and-cmd-files-on-windows
+  const viteResult = spawnSync("electron-vite", ["build"], {
+    stdio: "inherit",
+    cwd: desktopRoot,
+    env: envWithLocalBins(),
+    shell: true,
+  });
+  if (viteResult.error) {
+    console.error(
+      "[package] failed to spawn electron-vite:",
+      viteResult.error.message,
+    );
+    process.exit(1);
+  }
+  if (viteResult.status !== 0) {
+    process.exit(viteResult.status ?? 1);
+  }
+
+  // Step 2: derive the version that should be written into the app.
+  const version = deriveVersion();
+  if (version) {
+    console.log(`[package] Desktop version → ${version} (source configuration)`);
+  } else {
+    console.warn(
+      "[package] no explicit build version; falling back to package.json",
+    );
+  }
+
+  const disableMacNotarize = !process.env.APPLE_TEAM_ID;
+  if (disableMacNotarize) {
+    console.warn(
+      "[package] APPLE_TEAM_ID not set — skipping notarization (local dev build). " +
+        "Set APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID for a release build.",
+    );
+  }
+
+  const useScopedOutputDir = buildMatrix.length > 1;
+
+  // Step 3: for each requested target, build the matching CLI into
+  // resources/bin/ and package that target in isolation.
+  for (const target of buildMatrix) {
+    console.log(`[package] bundling CLI → ${formatTarget(target)}`);
+    execFileSync(
+      "node",
+      [
+        bundleCliScript,
+        "--target-platform",
+        PLATFORM_CONFIG[target.platform].runtimePlatform,
+        "--target-arch",
+        target.arch,
+      ],
+      {
+        stdio: "inherit",
+        cwd: desktopRoot,
+      },
+    );
+
+    const builderArgs = builderArgsForTarget(target, parsed, version, {
+      disableMacNotarize,
+      hostPlatform: process.platform,
+      useScopedOutputDir,
+    });
+
+    // Step 4: invoke electron-builder for the current target only.
+    // `shell: true` for the same Windows `.cmd` shim reason as the
+    // electron-vite invocation above.
+    const result = spawnSync("electron-builder", builderArgs, {
+      stdio: "inherit",
+      cwd: desktopRoot,
+      env: envWithLocalBins(),
+      shell: true,
+    });
+
+    if (result.error) {
+      console.error(
+        "[package] failed to spawn electron-builder:",
+        result.error.message,
+      );
+      process.exit(1);
+    }
+    if (result.status !== 0) {
+      process.exit(result.status ?? 1);
+    }
+  }
+}
+
+// Only run when invoked as a CLI, not when imported by a test file.
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main();
+}

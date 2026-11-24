@@ -1,0 +1,57 @@
+# Dependencies and caches
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+.expo/
+*.tsbuildinfo
+__pycache__/
+
+# Generated application output (desktop/build contains source icons)
+/apps/desktop/out/
+/apps/desktop/dist/
+/apps/desktop/resources/bin/
+/apps/web/out/
+/core/bin/
+/core/server
+/core/silieco
+coverage/
+test-results/
+playwright-report/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.mobileprovision
+
+# Runtime data
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/backups/
+/uploads/
+/data/
+/tmp/
+
+# Native build caches
+Pods/
+.gradle/
+DerivedData/
+/android/local.properties
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo

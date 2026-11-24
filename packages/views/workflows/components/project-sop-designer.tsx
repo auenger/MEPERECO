@@ -1,0 +1,2341 @@
+"use client";
+
+import { WorkflowMarkdownEditor } from "./workflow-markdown-editor";
+import { WorkflowEditorNavigation, WorkflowEditorTabs, type WorkflowEditorTab } from "./workflow-editor-navigation";
+import { workflowOperationDialogClassName } from "./workflow-dialog";
+import { StageExecutionFields, validReworkPolicyDraft, validRetryPolicyDraft } from "./stage-execution-fields";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  Archive,
+  Bot,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleDot,
+  Clock3,
+  Copy,
+  FileCheck2,
+  FileInput,
+  FileOutput,
+  GitBranch,
+  History,
+  LayoutTemplate,
+  LoaderCircle,
+  Play,
+  Plus,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Trash2,
+  UserCheck,
+  UserRound,
+  Wrench,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { useWorkspaceId } from "@silieco/core/hooks";
+import { workspaceMCPServersOptions } from "@silieco/core/mcp";
+import { useWorkspacePaths } from "@silieco/core/paths";
+import type {
+  Agent,
+  MemberWithUser,
+  SkillSummary,
+  Workflow,
+  WorkflowGateType,
+  WorkflowInstance,
+} from "@silieco/core/types";
+import {
+  agentListOptions,
+  memberListOptions,
+  skillListOptions,
+} from "@silieco/core/workspace/queries";
+import {
+  useCreateWorkflow,
+  useCreateWorkflowInstance,
+  useArchiveWorkflowInstance,
+  useArchiveWorkflow,
+  workflowInstancesOptions,
+  workflowListOptions,
+} from "@silieco/core/workflows";
+import { Badge } from "@silieco/ui/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@silieco/ui/components/ui/alert-dialog";
+import { Button } from "@silieco/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@silieco/ui/components/ui/dialog";
+import { Input } from "@silieco/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@silieco/ui/components/ui/select";
+import { Switch } from "@silieco/ui/components/ui/switch";
+import { Textarea } from "@silieco/ui/components/ui/textarea";
+import { cn } from "@silieco/ui/lib/utils";
+import { SkillPickerList } from "../../agents/components/skill-picker-list";
+import { ActorAvatar } from "../../common/actor-avatar";
+import { ReadonlyContent } from "../../editor";
+import { matchesPinyin } from "../../editor/extensions/pinyin-match";
+import { useT } from "../../i18n";
+import { useNavigation } from "../../navigation";
+import {
+  PickerEmpty,
+  PickerItem,
+  PickerSection,
+  PropertyPicker,
+} from "../../tasks/components/pickers/property-picker";
+import { WorkflowRunPlanDialog } from "./workflow-run-plan-dialog";
+import { StageMCPSelector } from "./stage-mcp-selector";
+
+const WorkflowChatBridge = lazy(() => import("./workflow-chat-bridge"));
+
+type StageStatus = string;
+type CanonicalStageStatus = "backlog" | "todo" | "in_progress" | "in_review" | "done" | "blocked";
+type DeciderType = "human" | "self_agent" | "agent";
+type EvaluationMode = "on_task_change" | "manual" | "scheduled";
+interface SopStageDraft {
+  executionMode?: string;
+  executorId?: string | null;
+  inputSpec?: Record<string, unknown>;
+  inputBindings?: Record<string, unknown>;
+  stableKey?: string;
+  rollbackStageKey?: string | null;
+  outputSpec?: Record<string, unknown>;
+  reworkPolicy?: Record<string, unknown>;
+  retryPolicy?: Record<string, unknown>;
+  completionRule?: Record<string, unknown>;
+  id: string;
+  name: string;
+  description: string;
+  statuses: StageStatus[];
+  evaluationMode: EvaluationMode;
+  schedule: string;
+  input: string;
+  output: string;
+  skills: string[];
+  allowedMcpServerIds: string[] | null;
+  gateEnabled: boolean;
+  deciderType: DeciderType;
+  decider: string;
+  requireHuman: boolean;
+  humanDecider: string;
+}
+interface SopTemplate {
+  id: string;
+  name: string;
+  description: string;
+  source: "preset" | "blank";
+  stages: Array<Omit<SopStageDraft, "id">>;
+}
+
+const DEFAULT_STATUSES: StageStatus[] = ["todo", "in_progress", "done"];
+const ALL_STATUSES: CanonicalStageStatus[] = ["backlog", "todo", "in_progress", "in_review", "done", "blocked"];
+function stage(
+  name: string,
+  input: string,
+  output: string,
+  skills: string,
+  gate: Partial<Omit<SopStageDraft, "id" | "name" | "input" | "output" | "skills">> = {},
+): Omit<SopStageDraft, "id"> {
+  return {
+    name,
+    description: "",
+    statuses: gate.statuses ?? DEFAULT_STATUSES,
+    evaluationMode: "on_task_change",
+    schedule: "",
+    input,
+    output,
+    skills: skills.split(",").map((value) => value.trim()).filter(Boolean),
+    allowedMcpServerIds: null,
+    gateEnabled: gate.gateEnabled ?? false,
+    deciderType: gate.deciderType ?? "human",
+    decider: gate.decider ?? "",
+    requireHuman: gate.requireHuman ?? false,
+    humanDecider: "",
+  };
+}
+
+export const SOP_TEMPLATES: SopTemplate[] = [
+  {
+    id: "system-development",
+    name: "系统研发 SOP",
+    description: "以四个阶段完成需求输入与整理、研发设计、任务实现及本地测试验收；每个阶段通过可追溯的 Markdown 产物交接项目上下文、决策和验证证据。",
+    source: "preset",
+    stages: [
+      {
+        ...stage(
+          "需求的输入和整理",
+          `## 原始材料
+- 当前 Task 的目标、需求说明、讨论记录，以及上传的 Office、PDF、Markdown、图片等附件；列出文件名、版本、来源与提供人。
+- 原文件作为来源保留，分析内容另行整理；扫描件、图片或表格无法完整读取时，注明缺失页、工作表或字段并提出补充请求。
+
+## 项目上下文
+- 阅读 Project 描述、绑定目录中的 README、项目规范、相关模块和现有设计文档，记录实际读取的路径与当前代码版本。
+- 说明业务背景、目标用户、现有流程和已知约束；无法访问目录或缺少资料时列为待确认项，不凭空补全。
+
+## 整理原则
+- 区分用户明确提出的需求、已有系统事实、分析推断及待确认问题；每条关键需求能够追溯到材料位置或讨论记录。`,
+          `## 产物存放与引用
+- Markdown 产物必须实际写入 Project 绑定的项目目录，优先遵循已有文档组织和命名规范；没有约定时使用 docs/features/<需求或任务标识>/，同一需求的各阶段沿用同一目录。
+- 在当前 Task 的交付记录中列出相对项目根目录的文件路径、用途与版本或更新时间；后续阶段按这些路径读取和更新，并使用相对链接关联来源与前置产物。
+- 检查现有文件再写入，避免不同需求或运行覆盖同名文档。项目目录未绑定、不可访问或不可写时，说明阻塞并请求补齐，不将仅在聊天回复中给出的内容标记为已交付。
+
+## 必交产物
+- **requirements.md**：写明背景与业务目标、用户角色、核心场景、功能需求、非功能需求、范围内与范围外事项、依赖和约束。
+- **source-index.md**：登记原始材料、版本、文件或附件位置、相关章节/页码/工作表，以及需求引用关系。
+- **open-questions.md**：逐项列出歧义、缺失信息、负责人、建议选项和是否阻塞研发；没有问题也应明确记录。
+
+## 质量与交接标准
+- 为需求分配稳定编号（如 REQ-001），为验收条件分配编号（如 AC-001），说明可观察的输入、行为、结果和异常情况。
+- 优先级、边界条件及权限、数据、安全或性能要求需具体到可讨论、可验证；未知指标标注待确认。
+- 进入研发设计前应确认目标和本次范围；影响方案的阻塞问题未解决时保持阻塞，并附用户确认记录或待确认清单。`,
+          "",
+        ),
+        description: `## 阶段目标
+把分散的原始材料整理成可追溯、可确认、可用于设计的需求基线，同时保留原文及其来源。
+
+## 执行内容
+1. 盘点附件和讨论，结合 Project 描述与绑定目录了解系统现状，提取业务场景、功能边界和非功能约束。
+2. 合并重复诉求，明确冲突和遗漏，为需求与验收条件编号，形成范围、优先级和待确认问题。
+3. 与需求提出方核对关键结论；将确认事实与假设分开记录，给下一阶段交付需求基线和来源索引。`,
+      },
+      {
+        ...stage(
+          "需求转研发设计",
+          `## 需求基线
+- 上一阶段的 requirements.md、source-index.md、open-questions.md，以及关键范围和问题的确认记录。
+- 确认 REQ 与 AC 编号可引用；仍存在影响数据、接口或权限设计的阻塞问题时，先补充澄清。
+
+## 研发上下文
+- 可访问的 Project 绑定目录、仓库版本、开发规范、现有架构、相关代码、数据模型、接口与测试入口。
+- 复用已有组件和约定；记录外部依赖、兼容性要求、运行环境及本次改动涉及的模块。`,
+          `## 产物存放与引用
+- Markdown 产物必须实际写入 Project 绑定的项目目录，优先遵循已有文档组织和命名规范；没有约定时使用 docs/features/<需求或任务标识>/，同一需求的各阶段沿用同一目录。
+- 在当前 Task 的交付记录中列出相对项目根目录的文件路径、用途与版本或更新时间；后续阶段按这些路径读取和更新，并使用相对链接关联来源与前置产物。
+- 检查现有文件再写入，避免不同需求或运行覆盖同名文档。项目目录未绑定、不可访问或不可写时，说明阻塞并请求补齐，不将仅在聊天回复中给出的内容标记为已交付。
+
+## 必交产物
+- **development-design.md**：描述总体方案、模块职责、主要调用或数据流、接口输入输出与错误处理、数据结构与状态变化、权限边界及异常路径。
+- 涉及页面时补充交互、空状态、加载和错误反馈；涉及数据变更时说明迁移、历史数据与回滚；不适用的部分说明原因。
+- **development-tasks.md**：拆出可独立验证的研发任务，逐项写明目标、关联 REQ/AC、涉及路径、实现边界、依赖顺序、预期产物和完成条件。
+- **test-plan.md**：按 AC 编号规划正常、异常、边界及回归场景，注明执行环境、测试数据、验证方式和通过标准。
+
+## 设计通过标准
+- 说明关键方案的选择理由、风险和待验证假设，覆盖每条范围内需求；对暂不实现的内容给出明确决定。
+- 任务拆分应覆盖设计与验收条件，不能只有任务标题；如建立子 Task，记录对应编号与依赖关系。
+- 方案经负责人确认后交接实现；关键技术假设无法验证或范围发生变化时，更新需求与设计记录。`,
+          "",
+          { gateEnabled: true, deciderType: "human", requireHuman: true },
+        ),
+        description: `## 阶段目标
+将需求基线转换为可实现的研发方案和可执行的任务清单，让开发者明确改哪里、为什么改、如何验证。
+
+## 执行内容
+1. 阅读相关代码和规范，分析模块、接口、数据、权限及兼容性影响，确定最小可交付方案。
+2. 给出具体设计和关键决策，按依赖关系划分任务，并把需求编号、设计项、研发任务和测试场景关联起来。
+3. 评审实现风险与验收可行性，确认方案后进入实现；设计和需求有冲突时回到澄清，不将未确认假设当作结论。`,
+      },
+      {
+        ...stage(
+          "研发任务实现",
+          `## 已确认的交接材料
+- requirements.md、development-design.md、development-tasks.md、test-plan.md，以及设计评审和问题确认记录。
+- 当前研发 Task 或子 Task 的编号、依赖任务结果、对应 REQ/AC、实现范围和完成条件。
+
+## 开发环境
+- Project 绑定的代码目录、目标分支和基线提交、项目规范、相关 Skill、构建及聚焦测试命令。
+- 检查已有本地修改和依赖环境，明确本次任务涉及的路径；缺少执行权限、依赖或前置产物时记录阻塞原因。`,
+          `## 产物存放与引用
+- Markdown 产物必须实际写入 Project 绑定的项目目录，优先遵循已有文档组织和命名规范；没有约定时使用 docs/features/<需求或任务标识>/，同一需求的各阶段沿用同一目录。
+- 在当前 Task 的交付记录中列出相对项目根目录的文件路径、用途与版本或更新时间；后续阶段按这些路径读取和更新，并使用相对链接关联来源与前置产物。
+- 检查现有文件再写入，避免不同需求或运行覆盖同名文档。项目目录未绑定、不可访问或不可写时，说明阻塞并请求补齐，不将仅在聊天回复中给出的内容标记为已交付。
+
+## 必交产物
+- **实现代码与必要配置**：按设计完成对应模块，保持接口、权限和错误处理一致；按改动风险补充有意义的单元或集成测试。
+- **implementation-notes.md**：逐项记录研发任务完成情况、关联 REQ/AC、实际变更路径、关键实现、设计偏差及其确认记录。
+- **验证与运行交接**：记录已执行的构建/聚焦测试命令和结果、本地启动方式、所需配置及测试数据准备方式；敏感信息用配置项名称引用。
+
+## 完成标准
+- 每个研发任务有明确的代码或文档产物及可验证结果；未完成、失败和阻塞事项单独列出，不能直接标记已完成。
+- 涉及迁移或兼容性变化时交付对应脚本、执行顺序与恢复说明，更新受影响的项目文档。
+- 为下一阶段提供可定位的代码版本或变更清单；需求变更先同步基线和设计，不在实现中扩大范围。
+- 提交、推送和服务器部署按任务授权执行；本阶段的聚焦自测结果作为交接证据，最终本地验收由下一阶段完成。`,
+          "",
+          { statuses: ["todo", "in_progress", "in_review", "done", "blocked"] },
+        ),
+        description: `## 阶段目标
+依据已确认方案按任务完成可运行、可验证、可交接的实现，持续记录需求与代码之间的对应关系。
+
+## 执行内容
+1. 按依赖顺序开展研发任务，复用项目已有能力，并遵守绑定目录中的开发规范和架构边界。
+2. 实现业务逻辑、界面或接口，处理异常与权限，执行与改动匹配的聚焦检查并修复问题。
+3. 汇总代码变更、任务状态和剩余风险，准备本地启动和验证所需资料，将实现交给测试验收阶段。`,
+      },
+      {
+        ...stage(
+          "研发任务本地测试和验收",
+          `## 待验收实现
+- 可定位的代码版本或完整变更清单、implementation-notes.md、研发任务及子 Task 的完成情况。
+- requirements.md 中的 AC 验收条件、已确认设计、test-plan.md，以及实现阶段的测试结果和已知问题。
+
+## 本地验证准备
+- 可复现的启动命令、依赖与配置说明、测试账号/角色、测试数据及清理方式；涉及迁移时先验证迁移与恢复步骤。
+- 明确本地验证覆盖的服务、前后端连接目标和环境差异；测试数据与操作范围必须清楚，无法模拟的条件单独说明。`,
+          `## 产物存放与引用
+- Markdown 产物必须实际写入 Project 绑定的项目目录，优先遵循已有文档组织和命名规范；没有约定时使用 docs/features/<需求或任务标识>/，同一需求的各阶段沿用同一目录。
+- 在当前 Task 的交付记录中列出相对项目根目录的文件路径、用途与版本或更新时间；后续阶段按这些路径读取和更新，并使用相对链接关联来源与前置产物。
+- 检查现有文件再写入，避免不同需求或运行覆盖同名文档。项目目录未绑定、不可访问或不可写时，说明阻塞并请求补齐，不将仅在聊天回复中给出的内容标记为已交付。
+
+## 必交产物
+- **verification-report.md**：注明代码版本、测试环境、实际命令与结果，按 AC 编号逐项填写通过/失败/未验证，附日志、截图或操作证据的位置。
+- 覆盖主要用户路径、异常和边界情况、角色权限及相关回归；记录构建、类型检查、单元/集成测试和界面操作验证中实际执行的项目。
+- **acceptance-summary.md**：总结本次范围、需求和任务覆盖情况、遗留问题、风险、验收结论、验收人及确认时间；标明本地测试结果与其他环境验证的边界。
+
+## 验收通过标准
+- 范围内 AC 有逐项证据且全部通过，阻塞缺陷已修复并复测；无法执行的检查说明原因、影响和后续处理，不得记为通过。
+- 测试失败应记录复现步骤、预期/实际结果和对应研发任务，退回实现修复后重复相关验收与回归。
+- 非阻塞遗留项需有负责人和明确处理决定，最终由人工确认验收结论；未经确认不结束运行。
+- 交付本地运行说明和产物索引，验收完成不代表已完成服务器部署。`,
+          "",
+          { statuses: ["todo", "in_progress", "in_review", "done", "blocked"], gateEnabled: true, deciderType: "human", requireHuman: true },
+        ),
+        description: `## 阶段目标
+在明确的本地环境中验证实现是否满足需求和设计，以实际证据完成验收，形成可复现的交付记录。
+
+## 执行内容
+1. 准备环境与数据，按测试计划启动系统并执行必要的自动化检查和用户流程验证。
+2. 对照 AC 逐项核验功能、异常、权限和回归结果，区分通过、失败与未验证，保留命令和操作证据。
+3. 推动缺陷回到实现阶段修复并复测，汇总遗留风险，由验收负责人确认最终结果。`,
+      },
+    ],
+  },
+  {
+    id: "feature-development",
+    name: "Feature 研发工作流",
+    description: "面向第一版交付的轻量 Feature 流程：用 Task 和 Markdown 产物串联需求、拆分、开发、验证与归档。",
+    source: "preset",
+    stages: [
+      {
+        ...stage(
+          "需求输入与分析",
+          "当前 Task / 原始需求 / 用户反馈 / 业务目标",
+          "feature-brief.md 或 Task 内的等价需求说明",
+          "silieco-new-feature",
+        ),
+        description: "把当前大 Task 收敛为目标、范围、约束、验收条件和待确认问题。",
+      },
+      {
+        ...stage(
+          "PRD 产出",
+          "已确认的 feature-brief.md / Task 需求说明",
+          "PRD.md（含验收条件与候选开发切片）",
+          "silieco-enrich-feature",
+        ),
+        description: "输出足够支撑第一版开发的轻量 PRD，不强制额外生成 task.md 和 checklist.md。",
+      },
+      {
+        ...stage(
+          "PRD 校验",
+          "PRD.md / 项目与仓库上下文",
+          "spec-review.md（pass 或 block）",
+          "silieco-review-spec",
+          {
+            statuses: ["todo", "in_review", "done", "blocked"],
+            gateEnabled: true,
+            deciderType: "human",
+            requireHuman: true,
+          },
+        ),
+        description: "只检查会阻碍第一版实现或验收的问题，通过人工 Gate 确认范围。",
+      },
+      {
+        ...stage(
+          "原型或 MVP",
+          "已通过校验的 PRD.md",
+          "prototype-decision.md + 可选 Prototype / MVP",
+          "silieco-prototype-feature",
+          {
+            statuses: ["todo", "in_progress", "in_review", "done", "blocked"],
+            gateEnabled: true,
+            deciderType: "human",
+            requireHuman: true,
+          },
+        ),
+        description: "先判断是否需要原型；仅在存在关键不确定性时产出最小 Demo 或技术 Spike。",
+      },
+      {
+        ...stage(
+          "Feature 拆分与开发准备",
+          "当前大 Task / PRD.md / 原型结论",
+          "已关联的开发子 Task / 分组顺序 / 覆盖摘要",
+          "silieco-split-feature",
+        ),
+        description: "把大 Task 拆成父子关联的小 Task，用子任务 Stage 屏障表达并行组与先后顺序。",
+      },
+      {
+        ...stage(
+          "开发实现",
+          "当前开发子 Task / PRD.md / 前置子 Task 结果",
+          "代码 / 聚焦测试 / 实现交接说明",
+          "silieco-run-feature",
+          {
+            statuses: ["todo", "in_progress", "in_review", "done", "blocked"],
+          },
+        ),
+        description: "每个子 Task 独立执行开发前检查和实现；不在本 Stage 重复执行最终验收。",
+      },
+      {
+        ...stage(
+          "本地化测试与验收",
+          "待验收实现 / PRD 验收条件 / 子 Task 结果",
+          "verification-report.md 或 Task 验收记录",
+          "silieco-verify-feature",
+          {
+            statuses: ["todo", "in_progress", "in_review", "done", "blocked"],
+            gateEnabled: true,
+            deciderType: "human",
+            requireHuman: true,
+          },
+        ),
+        description: "按改动范围执行本地检查并验证验收条件；失败保持 block，不进入完成阶段。",
+      },
+      {
+        ...stage(
+          "完成与归档",
+          "通过验收的实现 / 子 Task 状态 / verification-report.md",
+          "completion-summary.md / Release Notes / 后续项",
+          "silieco-complete-feature",
+          {
+            statuses: ["todo", "in_review", "done", "blocked"],
+            gateEnabled: true,
+            deciderType: "human",
+            requireHuman: true,
+          },
+        ),
+        description: "汇总子 Task 和验证结果，准备交付记录；合并、推送与发布仍按授权执行。",
+      },
+    ],
+  },
+];
+
+function blankSopTemplate(): SopTemplate {
+  return {
+    id: "blank",
+    name: "空白 SOP",
+    description: "",
+    source: "blank",
+    stages: [stage("", "", "", "")],
+  };
+}
+
+let stageSequence = 0;
+function cloneStages(template: SopTemplate) {
+  return template.stages.map((item, index) => ({
+    ...item,
+    statuses: [...item.statuses],
+    id: `sop-stage-${++stageSequence}`,
+    stableKey: `stage_${index + 1}`,
+    rollbackStageKey: index > 0 ? `stage_${index}` : null,
+  }));
+}
+function resolvedGateType(item: SopStageDraft): WorkflowGateType {
+  if (!item.gateEnabled) return "none";
+  if (item.deciderType === "human") return "human";
+  return item.requireHuman ? "hybrid" : "agent";
+}
+
+function objectString(value: Record<string, unknown>, key: string): string {
+  return typeof value[key] === "string" ? value[key] : "";
+}
+
+function normalizeSkillRefs(
+  refs: readonly string[],
+  workspaceSkills: readonly SkillSummary[],
+): string[] {
+  return refs.map((ref) => {
+    const match = workspaceSkills.find(
+      (skill) => skill.id === ref || skill.name === ref,
+    );
+    return match?.id ?? ref;
+  });
+}
+
+function resolveStageActors(
+  drafts: SopStageDraft[],
+  members: readonly MemberWithUser[],
+  agents: readonly Agent[],
+): SopStageDraft[] {
+  const defaultHuman =
+    members.find((member) => member.role === "owner") ?? members[0];
+  const activeAgents = agents.filter((agent) => !agent.archived_at);
+  const defaultAgent = activeAgents[0];
+
+  return drafts.map((draft) => {
+    const humanExists = members.some(
+      (member) => member.user_id === draft.decider,
+    );
+    const agentExists = activeAgents.some((agent) => agent.id === draft.decider);
+    const finalHumanExists = members.some(
+      (member) => member.user_id === draft.humanDecider,
+    );
+    return {
+      ...draft,
+      decider:
+        draft.deciderType === "human"
+          ? humanExists
+            ? draft.decider
+            : (defaultHuman?.user_id ?? "")
+          : draft.deciderType === "agent"
+            ? agentExists
+              ? draft.decider
+              : (defaultAgent?.id ?? "")
+            : "@self",
+      requireHuman:
+        draft.deciderType === "human" ? true : draft.requireHuman,
+      humanDecider:
+        draft.requireHuman && draft.deciderType !== "human"
+          ? finalHumanExists
+            ? draft.humanDecider
+            : (defaultHuman?.user_id ?? "")
+          : draft.humanDecider,
+    };
+  });
+}
+
+function gateIsConfigured(
+  draft: SopStageDraft,
+  members: readonly MemberWithUser[],
+  agents: readonly Agent[],
+): boolean {
+  if (!draft.gateEnabled) return true;
+  if (
+    draft.deciderType === "human" &&
+    !members.some((member) => member.user_id === draft.decider)
+  ) {
+    return false;
+  }
+  if (
+    draft.deciderType === "agent" &&
+    !agents.some((agent) => !agent.archived_at && agent.id === draft.decider)
+  ) {
+    return false;
+  }
+  return !(
+    draft.deciderType !== "human" &&
+    draft.requireHuman &&
+    !members.some((member) => member.user_id === draft.humanDecider)
+  );
+}
+
+function ArtifactMarkdownEditor({
+  label,
+  helper,
+  placeholder,
+  value,
+  onChange,
+}: {
+  editorKey: string;
+  icon: React.ReactNode;
+  label: string;
+  helper: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return <WorkflowMarkdownEditor label={label} value={value} onChange={onChange} placeholder={placeholder} helper={helper} />;
+}
+
+function StageSkillSelector({
+  skills,
+  selectedRefs,
+  loading,
+  onChange,
+}: {
+  skills: readonly SkillSummary[];
+  selectedRefs: readonly string[];
+  loading: boolean;
+  onChange: (next: string[]) => void;
+}) {
+  const { t } = useT("workflows");
+  const [expanded, setExpanded] = useState(false);
+  const selectedIds = useMemo(
+    () =>
+      new Set(
+        skills
+          .filter((skill) =>
+            selectedRefs.some(
+              (ref) => ref === skill.id || ref === skill.name,
+            ),
+          )
+          .map((skill) => skill.id),
+      ),
+    [selectedRefs, skills],
+  );
+  const unresolved = selectedRefs.filter(
+    (ref) => !skills.some((skill) => skill.id === ref || skill.name === ref),
+  );
+
+  const toggle = (skill: SkillSummary) => {
+    const withoutSkill = selectedRefs.filter(
+      (ref) => ref !== skill.id && ref !== skill.name,
+    );
+    onChange(
+      selectedIds.has(skill.id)
+        ? withoutSkill
+        : [...withoutSkill, skill.id],
+    );
+  };
+
+  const originLabel = (skill: SkillSummary) => {
+    const origin = skill.config.origin;
+    if (!origin || typeof origin !== "object" || Array.isArray(origin)) return null;
+    const data = origin as Record<string, unknown>;
+    const source = typeof data.type === "string" ? data.type : null;
+    const revision = typeof data.revision === "string" ? data.revision.slice(0, 8) : null;
+    return [source, revision].filter(Boolean).join(" · ") || null;
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-caption font-medium">
+          <Wrench className="size-3.5 text-muted-foreground" />
+          {t(($) => $.designer.required_skills)}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1.5 px-2 text-caption"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? <X className="size-3" /> : <ChevronDown className="size-3" />}
+          {expanded
+            ? t(($) => $.designer.collapse_skills)
+            : t(($) => $.designer.choose_skills)}
+        </Button>
+      </div>
+      <div className="mt-1.5 rounded-lg border border-border/80 bg-muted/10 p-2.5">
+        {selectedIds.size === 0 && unresolved.length === 0 ? (
+          <p className="text-caption text-muted-foreground">
+            {t(($) => $.designer.no_skills_selected)}
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {skills
+              .filter((skill) => selectedIds.has(skill.id))
+              .map((skill) => {
+                const origin = originLabel(skill);
+                return (
+                  <Badge key={skill.id} variant="secondary" className="gap-1.5">
+                    <FileCheck2 className="size-3" />
+                    {skill.name}
+                    {origin && <span className="font-mono text-micro text-muted-foreground">{origin}</span>}
+                  </Badge>
+                );
+              })}
+            {unresolved.map((ref) => (
+              <Badge key={ref} variant="outline" className="gap-1.5">
+                {ref}
+                <button
+                  type="button"
+                  className="rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={t(($) => $.designer.remove_skill, { name: ref })}
+                  onClick={() => onChange(selectedRefs.filter((value) => value !== ref))}
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
+        {expanded && (
+          <div className="mt-2.5 border-t border-border/70 pt-2.5">
+            <SkillPickerList
+              skills={skills}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              loading={loading}
+              emptyMessage={t(($) => $.designer.no_workspace_skills)}
+              noMatchMessage={t(($) => $.designer.no_skill_matches)}
+            />
+          </div>
+        )}
+        <p className="mt-2 text-micro text-muted-foreground">
+          {t(($) => $.designer.skill_snapshot_hint)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function GateActorPicker({
+  kind,
+  value,
+  members,
+  agents,
+  onChange,
+}: {
+  kind: "human" | "agent";
+  value: string;
+  members: readonly MemberWithUser[];
+  agents: readonly Agent[];
+  onChange: (id: string) => void;
+}) {
+  const { t } = useT("workflows");
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const query = filter.trim().toLowerCase();
+  const matches = (name: string) =>
+    !query || name.toLowerCase().includes(query) || matchesPinyin(name, query);
+  const activeAgents = agents.filter((agent) => !agent.archived_at);
+  const filteredMembers = members.filter((member) => matches(member.name));
+  const filteredAgents = activeAgents.filter((agent) => matches(agent.name));
+  const selectedMember = members.find((member) => member.user_id === value);
+  const selectedAgent = activeAgents.find((agent) => agent.id === value);
+  const selected = kind === "human" ? selectedMember : selectedAgent;
+
+  return (
+    <PropertyPicker
+      open={open}
+      onOpenChange={setOpen}
+      width="w-72"
+      align="start"
+      searchable
+      searchPlaceholder={
+        kind === "human"
+          ? t(($) => $.designer.search_human)
+          : t(($) => $.designer.search_agent)
+      }
+      onSearchChange={setFilter}
+      triggerRender={
+        <button
+          type="button"
+          className="flex min-h-10 w-full items-center gap-2 rounded-lg border border-border/80 bg-background px-3 py-2 text-left transition-colors hover:border-brand/35 hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      }
+      trigger={
+        selected ? (
+          <>
+            <ActorAvatar
+              actorType={kind === "human" ? "member" : "agent"}
+              actorId={kind === "human" ? selectedMember!.user_id : selectedAgent!.id}
+              size="sm"
+              showStatusDot={kind === "agent"}
+            />
+            <span className="min-w-0 flex-1 truncate text-body font-medium">
+              {selected.name}
+            </span>
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+          </>
+        ) : (
+          <>
+            {kind === "human" ? (
+              <UserRound className="size-4 text-muted-foreground" />
+            ) : (
+              <Bot className="size-4 text-muted-foreground" />
+            )}
+            <span className="min-w-0 flex-1 text-body text-muted-foreground">
+              {kind === "human"
+                ? t(($) => $.designer.select_human)
+                : t(($) => $.designer.select_agent)}
+            </span>
+            <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+          </>
+        )
+      }
+    >
+      {kind === "human" ? (
+        filteredMembers.length > 0 ? (
+          <PickerSection label={t(($) => $.designer.space_members)}>
+            {filteredMembers.map((member) => (
+              <PickerItem
+                key={member.user_id}
+                selected={member.user_id === value}
+                onClick={() => {
+                  onChange(member.user_id);
+                  setOpen(false);
+                }}
+              >
+                <ActorAvatar actorType="member" actorId={member.user_id} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{member.name}</span>
+                  <span className="block truncate text-caption text-muted-foreground">
+                    {member.email}
+                  </span>
+                </span>
+              </PickerItem>
+            ))}
+          </PickerSection>
+        ) : (
+          <PickerEmpty />
+        )
+      ) : filteredAgents.length > 0 ? (
+        <PickerSection label={t(($) => $.designer.space_agents)}>
+          {filteredAgents.map((agent) => (
+            <PickerItem
+              key={agent.id}
+              selected={agent.id === value}
+              onClick={() => {
+                onChange(agent.id);
+                setOpen(false);
+              }}
+            >
+              <ActorAvatar actorType="agent" actorId={agent.id} size="sm" showStatusDot />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{agent.name}</span>
+                {agent.description && (
+                  <span className="block truncate text-caption text-muted-foreground">
+                    {agent.description}
+                  </span>
+                )}
+              </span>
+            </PickerItem>
+          ))}
+        </PickerSection>
+      ) : (
+        <PickerEmpty />
+      )}
+    </PropertyPicker>
+  );
+}
+
+function updateArtifactDescription(spec: Record<string, unknown> | undefined, value: string) {
+  const updated = { ...spec };
+  if (value.trim()) updated.default_artifact = value.trim();
+  else delete updated.default_artifact;
+  return updated;
+}
+
+function stagesFromWorkflow(workflow: Workflow): SopStageDraft[] {
+  return (workflow.current_version?.stages ?? []).map((item) => {
+    const completionRule = item.completion_rule ?? {};
+    const inputSpec = item.input_spec ?? {};
+    const outputSpec = item.output_spec ?? {};
+    const gate = item.gate ?? {};
+    const mode = completionRule.evaluation_mode;
+    const allowedStatuses = completionRule.allowed_task_statuses;
+    const gateType = gate.type;
+    const deciderType = gate.decider_type;
+    return {
+      id: `sop-stage-${++stageSequence}`,
+      executionMode: item.execution_mode ?? "manual",
+      executorId: item.executor_id ?? null,
+      inputSpec: { ...inputSpec },
+      inputBindings: { ...item.input_bindings },
+      stableKey: item.stable_key,
+      rollbackStageKey: item.rollback_stage_key ?? null,
+      outputSpec: { ...outputSpec },
+      completionRule: { ...completionRule }, reworkPolicy:{...item.rework_policy}, retryPolicy:{...item.retry_policy},
+      name: item.name,
+      description: item.description ?? "",
+      statuses: Array.isArray(allowedStatuses)
+        ? allowedStatuses.filter((value): value is string => typeof value === "string")
+        : [...DEFAULT_STATUSES],
+      evaluationMode:
+        mode === "manual" || mode === "scheduled"
+          ? mode
+          : "on_task_change",
+      schedule: objectString(completionRule, "schedule"),
+      input: objectString(inputSpec, "default_artifact"),
+      output: objectString(outputSpec, "default_artifact"),
+      skills: [...item.required_skills],
+      allowedMcpServerIds: item.allowed_mcp_server_ids ?? null,
+      gateEnabled: gateType !== undefined && gateType !== "none",
+      deciderType:
+        deciderType === "self_agent" || deciderType === "agent"
+          ? deciderType
+          : "human",
+      decider: objectString(gate, "decider"),
+      requireHuman: gate.require_human === true,
+      humanDecider: objectString(gate, "human_decider"),
+    };
+  });
+}
+
+export function ProjectSopDesigner({
+  projectId,
+  workflowId,
+}: {
+  projectId?: string;
+  workflowId?: string;
+}) {
+  const { t } = useT("workflows");
+  const workspaceId = useWorkspaceId();
+  const paths = useWorkspacePaths();
+  const navigation = useNavigation();
+  const { data: availableWorkflows = [], isLoading } = useQuery(
+    workflowListOptions(workspaceId, projectId),
+  );
+  const workflows = useMemo(
+    () =>
+      projectId
+        ? availableWorkflows
+        : availableWorkflows.filter((workflow) => !workflow.project_id),
+    [availableWorkflows, projectId],
+  );
+  const { data: runs = [] } = useQuery(
+    workflowInstancesOptions(workspaceId, undefined, projectId),
+  );
+  const { data: workspaceSkills = [], isLoading: skillsLoading } = useQuery(
+    skillListOptions(workspaceId),
+  );
+  const { data: workspaceMCP } = useQuery(workspaceMCPServersOptions(workspaceId));
+  const { data: members = [] } = useQuery(memberListOptions(workspaceId));
+  const { data: agents = [] } = useQuery(agentListOptions(workspaceId));
+  const createWorkflow = useCreateWorkflow();
+  const createInstance = useCreateWorkflowInstance();
+  const archiveInstance = useArchiveWorkflowInstance();
+  const deleteWorkflow = useArchiveWorkflow(true);
+  const [workflowToDelete, setWorkflowToDelete] = useState<Workflow>();
+  const { data: allRuns, isError: runsCheckFailed } = useQuery(
+    workflowInstancesOptions(workspaceId),
+  );
+  const [startingWorkflowId, setStartingWorkflowId] = useState<string>();
+  const [workflowToStart, setWorkflowToStart] = useState<{
+    id: string;
+    name: string;
+  }>();
+  const [runName, setRunName] = useState("");
+  const [runInputsText, setRunInputsText] = useState("{}");
+  const startingRun = useRef(false);
+  const runInputs = useMemo(() => {
+    try {
+      const parsed: unknown = JSON.parse(runInputsText);
+      return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+    } catch { return null; }
+  }, [runInputsText]);
+  const [runToArchive, setRunToArchive] = useState<WorkflowInstance>();
+  const [runToAdjust, setRunToAdjust] = useState<WorkflowInstance>();
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string>();
+  const [workflowPreviewOpen, setWorkflowPreviewOpen] = useState(false);
+  const [previewStageId, setPreviewStageId] = useState<string>();
+  const [editing, setEditing] = useState(false);
+  const [editingScope, setEditingScope] = useState<"space" | "project">("space");
+  const [sourceWorkflowName, setSourceWorkflowName] = useState<string>();
+  const [templateName, setTemplateName] = useState("");
+  const [templateSource, setTemplateSource] = useState<SopTemplate["source"]>("blank");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [stages, setStages] = useState<SopStageDraft[]>([]);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantVisited, setAssistantVisited] = useState(false);
+  const [editorTab, setEditorTab] = useState<WorkflowEditorTab>("content");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  const selectedWorkflow = workflows.find(
+    (workflow) => workflow.id === selectedWorkflowId,
+  );
+  const selectedHasRuns = allRuns?.some((run) => run.workflow_id === selectedWorkflow?.id) === true;
+  const canManageSelected = selectedWorkflow && (projectId ? selectedWorkflow.project_id === projectId : !selectedWorkflow.project_id);
+  const spaceWorkflows = workflows.filter((workflow) => !workflow.project_id);
+  const projectWorkflows = workflows.filter(
+    (workflow) => workflow.project_id === projectId,
+  );
+  const activeRuns = runs.filter((run) => !run.archived_at);
+  const archivedRuns = runs.filter((run) => Boolean(run.archived_at));
+  const invalidRollback = stages.some((stage) => !validReworkPolicyDraft(stage.reworkPolicy) || !validRetryPolicyDraft(stage.retryPolicy)) || stages.some((item, index) => item.rollbackStageKey && !stages.slice(0, index).some((previous) => previous.stableKey === item.rollbackStageKey));
+  const invalidGateCount = stages.filter(
+    (stage) => !gateIsConfigured(stage, members, agents),
+  ).length;
+
+  useEffect(() => {
+    const preferred = workflowId ?? selectedWorkflowId;
+    if (preferred && workflows.some((workflow) => workflow.id === preferred)) {
+      if (preferred !== selectedWorkflowId) setSelectedWorkflowId(preferred);
+      return;
+    }
+    setSelectedWorkflowId(workflows[0]?.id);
+  }, [selectedWorkflowId, workflowId, workflows]);
+
+  const begin = (
+    template: SopTemplate,
+    scope: "space" | "project" = "space",
+  ) => {
+    const nextStages = resolveStageActors(
+      cloneStages(template),
+      members,
+      agents,
+    );
+    setAssistantOpen(false);
+    setAssistantVisited(false);
+    setTemplateName(template.name);
+    setTemplateSource(template.source);
+    setName(template.source === "blank" ? "" : template.name);
+    setDescription(template.source === "blank" ? "" : template.description);
+    setEditingScope(scope);
+    setSourceWorkflowName(undefined);
+    setStages(nextStages);
+    setExpanded(new Set());
+    setEditing(true);
+  };
+  const customize = (workflow: Workflow) => {
+    const nextStages = resolveStageActors(
+      stagesFromWorkflow(workflow),
+      members,
+      agents,
+    );
+    if (!projectId || nextStages.length === 0) return;
+    setAssistantOpen(false);
+    setAssistantVisited(false);
+    setTemplateName(workflow.name);
+    setTemplateSource("blank");
+    setName(`${workflow.name} Project 版`);
+    setDescription(workflow.description ?? "");
+    setEditingScope("project");
+    setSourceWorkflowName(workflow.name);
+    setStages(nextStages);
+    setExpanded(new Set());
+    setEditing(true);
+  };
+  const updateStage = (id: string, patch: Partial<Omit<SopStageDraft, "id">>) =>
+    setStages((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
+  const moveStage = (index: number, delta: -1 | 1) =>
+    setStages((current) => {
+      const target = index + delta;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next;
+    });
+  const addStage = () => {
+    const item = cloneStages(blankSopTemplate())[0]!;
+    let number = 1;
+    while (stages.some((candidate) => candidate.stableKey === `stage_${number}`)) number++;
+    item.stableKey = `stage_${number}`;
+    setStages((current) => [...current, item]);
+    setExpanded(new Set([item.id]));
+    setEditorTab("content");
+  };
+  const addCustomStatus = (event: KeyboardEvent<HTMLInputElement>, item: SopStageDraft) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const value = event.currentTarget.value.trim();
+    if (!value || item.statuses.includes(value)) return;
+    updateStage(item.id, { statuses: [...item.statuses, value] });
+    event.currentTarget.value = "";
+  };
+  const publish = () => {
+    const validStages = stages.filter((item) => item.name.trim());
+    if (!name.trim() || validStages.length === 0 || invalidRollback || invalidGateCount > 0 || validStages.some((stage) => stage.executionMode === "agent" && !agents.some((agent) => agent.id === stage.executorId && !agent.archived_at))) return;
+    const reservedKeys = new Set(validStages.flatMap((item) => item.stableKey ? [item.stableKey] : []));
+    const stageKeys = validStages.map((item, index) => {
+      if (item.stableKey) return item.stableKey;
+      let number = index + 1;
+      while (reservedKeys.has(`stage_${number}`)) number++;
+      const key = `stage_${number}`;
+      reservedKeys.add(key);
+      return key;
+    });
+    createWorkflow.mutate(
+      {
+        ...(editingScope === "project" && projectId
+          ? { project_id: projectId }
+          : {}),
+        name: name.trim(),
+        description: description.trim() || null,
+        publish: true,
+        stages: validStages.map((item, index) => ({
+          stable_key: stageKeys[index]!,
+          name: item.name.trim(),
+          description: item.description.trim() || null,
+          execution_mode: item.executionMode ?? "manual",
+          executor_id: item.executorId ?? null,
+          rework_policy: item.reworkPolicy ?? {}, retry_policy: item.retryPolicy ?? {},
+          completion_rule: item.executionMode === "agent" ? (item.completionRule ?? {type:"validated_result"}) : {
+            type: "all_tasks_terminal",
+            evaluation_mode: item.evaluationMode,
+            ...(item.evaluationMode === "scheduled" && item.schedule.trim()
+              ? { schedule: item.schedule.trim() }
+              : {}),
+            allowed_task_statuses: item.statuses,
+          },
+          input_bindings: item.inputBindings ?? {},
+          input_spec: updateArtifactDescription(item.inputSpec, item.input),
+          output_spec: updateArtifactDescription(item.outputSpec, item.output),
+          required_skills: normalizeSkillRefs(item.skills, workspaceSkills),
+          allowed_mcp_server_ids: item.allowedMcpServerIds,
+          gate: {
+            type: resolvedGateType(item),
+            decider_type: item.deciderType,
+            decider: item.decider.trim() || null,
+            require_human:
+              item.deciderType === "human" ? true : item.requireHuman,
+            human_decider:
+              item.deciderType === "human"
+                ? item.decider.trim() || null
+                : item.requireHuman
+                  ? item.humanDecider.trim() || null
+                  : null,
+          },
+          rollback_stage_key: item.rollbackStageKey ?? null,
+        })),
+      },
+      {
+        onSuccess: () => {
+          toast.success(t(($) => $.designer.created));
+          setEditing(false);
+          setSourceWorkflowName(undefined);
+        },
+        onError: (error) => toast.error(error instanceof Error ? error.message : t(($) => $.designer.create_failed)),
+      },
+    );
+  };
+  const prepareStartWorkflow = (workflowId: string, workflowName: string) => {
+    if (!projectId) return;
+    const sequence =
+      runs.filter((run) => run.workflow_id === workflowId).length + 1;
+    setRunInputsText("{}");
+    setWorkflowToStart({ id: workflowId, name: workflowName });
+    setRunName(
+      t(($) => $.designer.run_default_name, {
+        name: workflowName,
+        sequence,
+      }),
+    );
+  };
+  const startWorkflow = () => {
+    const title = runName.trim();
+    if (!workflowToStart || !title || !projectId || !runInputs || startingRun.current || createInstance.isPending) return;
+    startingRun.current = true;
+    setStartingWorkflowId(workflowToStart.id);
+    createInstance.mutate(
+      {
+        workflowId: workflowToStart.id,
+        data: {
+          title,
+          project_id: projectId,
+          inputs: runInputs,
+          start: true,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(t(($) => $.designer.run_started));
+          setWorkflowToStart(undefined);
+          setRunName("");
+        },
+        onError: (error) =>
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : t(($) => $.designer.run_failed),
+          ),
+        onSettled: () => { startingRun.current = false; setStartingWorkflowId(undefined); },
+      },
+    );
+  };
+
+  const archiveRun = () => {
+    if (!runToArchive) return;
+    archiveInstance.mutate(runToArchive.id, {
+      onSuccess: () => {
+        toast.success(t(($) => $.designer.run_archived));
+        setRunToArchive(undefined);
+      },
+      onError: (error) =>
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t(($) => $.designer.archive_failed),
+        ),
+    });
+  };
+
+  if (!editing) {
+    return (
+      <>
+        <div className="min-h-0 flex-1 overflow-y-auto bg-background">
+          <div className="mx-auto w-full max-w-5xl px-5 py-5">
+          <header className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <GitBranch className="size-4 text-brand" />
+                <h2 className="text-title-sm font-semibold">{t(($) => $.designer.library_title)}</h2>
+                <Badge variant="secondary">{workflows.length}</Badge>
+              </div>
+              <p className="mt-1 max-w-2xl text-body text-muted-foreground">
+                {projectId
+                  ? t(($) => $.designer.library_description)
+                  : t(($) => $.page.description)}
+              </p>
+            </div>
+            <Button size="sm" onClick={() => begin(blankSopTemplate())}>
+              <Plus className="size-3.5" />
+              {t(($) => $.page.create)}
+            </Button>
+          </header>
+
+          {projectId && (
+            <section className="mt-6 rounded-xl border border-border/80 bg-muted/10 p-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Play className="size-4 text-brand" />
+                  <h3 className="text-body font-semibold">
+                    {t(($) => $.designer.project_runs)}
+                  </h3>
+                </div>
+                <Badge variant="secondary">{activeRuns.length}</Badge>
+              </div>
+              <p className="mt-1 text-caption text-muted-foreground">
+                {t(($) => $.designer.project_runs_hint)}
+              </p>
+              {activeRuns.length === 0 ? (
+                <div className="mt-3 rounded-lg border border-dashed border-border px-3 py-5 text-center text-caption text-muted-foreground">
+                  {t(($) => $.designer.no_project_runs)}
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {activeRuns.map((run: WorkflowInstance) => {
+                    const workflow = workflows.find(
+                      (item) => item.id === run.workflow_id,
+                    );
+                    const runProjectId = run.project_id ?? projectId;
+                    const canOpenRun =
+                      Boolean(runProjectId) &&
+                      (run.status === "active" || run.status === "waiting" || run.status === "completed");
+                    const currentStageName =
+                      run.current_stage_name ??
+                      workflow?.current_version?.stages.find(
+                        (stage) => stage.id === run.current_stage_id,
+                      )?.name;
+                    return (
+                      <article
+                        key={run.id}
+                        className="flex min-h-20 items-start gap-3 rounded-lg border border-border/80 bg-background p-3"
+                      >
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/8 text-brand">
+                          {run.status === "completed" ? (
+                            <Check className="size-4" />
+                          ) : (
+                            <Clock3 className="size-4" />
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-body font-semibold">
+                                {run.title}
+                              </p>
+                              <p className="truncate text-caption text-muted-foreground">
+                                {workflow?.name ?? t(($) => $.designer.unknown_sop)}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <Badge variant="outline">
+                                {t(($) => $.designer.run_status[run.status])}
+                              </Badge>
+                              {run.can_edit && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  title={t(($) => $.designer.run_plan_action)}
+                                  aria-label={t(($) => $.designer.run_plan_action)}
+                                  onClick={() => setRunToAdjust(run)}
+                                >
+                                  <SlidersHorizontal className="size-3.5" />
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-xs"
+                                disabled={run.task_count > 0}
+                                title={
+                                  run.task_count > 0
+                                    ? t(($) => $.designer.archive_blocked, {
+                                        count: run.task_count,
+                                      })
+                                    : t(($) => $.designer.archive_run)
+                                }
+                                aria-label={t(($) => $.designer.archive_run)}
+                                onClick={() => setRunToArchive(run)}
+                              >
+                                <Archive className="size-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="mt-1.5 flex items-center gap-1.5 text-caption text-muted-foreground">
+                            <CircleDot className="size-3" />
+                            {currentStageName ?? t(($) => $.designer.no_current_stage)}
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-micro text-muted-foreground">
+                            <span>
+                              {t(($) => $.designer.run_task_count, {
+                                count: run.task_count,
+                              })}
+                            </span>
+                            {run.stage_count > 0 && run.current_stage_index !== null && (
+                              <span>
+                                {t(($) => $.designer.run_plan_progress, {
+                                  current: run.current_stage_index + 1,
+                                  total: run.stage_count,
+                                })}
+                              </span>
+                            )}
+                            {run.source_version > 0 && (
+                              <span>
+                                {t(($) => $.designer.run_plan_source_version, {
+                                  version: run.source_version,
+                                })}
+                              </span>
+                            )}
+                            {run.revision > 1 && (
+                              <span>
+                                {t(($) => $.designer.run_plan_revision, {
+                                  revision: run.revision,
+                                })}
+                              </span>
+                            )}
+                          </div>
+                          {canOpenRun && runProjectId && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              className="mt-1 h-auto px-0 text-caption"
+                              onClick={() =>
+                                navigation.push(
+                                  paths.projectWorkflowRun(runProjectId, run.id),
+                                )
+                              }
+                            >
+                              {t(($) => $.designer.open_run_board)}
+                              <ChevronRight className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+              {archivedRuns.length > 0 && (
+                <details className="mt-3 rounded-lg border border-border/70 bg-background">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-caption font-medium text-muted-foreground hover:text-foreground">
+                    <History className="size-3.5" />
+                    <span>{t(($) => $.designer.archived_runs)}</span>
+                    <Badge variant="secondary" className="ml-auto">
+                      {archivedRuns.length}
+                    </Badge>
+                    <ChevronDown className="size-3.5" />
+                  </summary>
+                  <div className="grid gap-2 border-t border-border/70 p-2 sm:grid-cols-2">
+                    {archivedRuns.map((run) => {
+                      const workflow = workflows.find(
+                        (item) => item.id === run.workflow_id,
+                      );
+                      const archivedBy = members.find(
+                        (member) => member.user_id === run.archived_by,
+                      );
+                      return (
+                        <article
+                          key={run.id}
+                          className="rounded-lg bg-muted/25 px-3 py-2.5"
+                        >
+                          <div className="flex items-start gap-2">
+                            <Archive className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-caption font-semibold">
+                                {run.title}
+                              </p>
+                              <p className="truncate text-micro text-muted-foreground">
+                                {workflow?.name ??
+                                  t(($) => $.designer.unknown_sop)}
+                              </p>
+                              <p className="mt-1 text-micro text-muted-foreground">
+                                {t(($) => $.designer.archived_record, {
+                                  name:
+                                    archivedBy?.name ??
+                                    t(($) => $.designer.unknown_member),
+                                  time: run.archived_at
+                                    ? new Date(run.archived_at).toLocaleString()
+                                    : "—",
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
+
+          <section className="mt-6">
+            <div className="mb-2 flex items-center gap-2">
+              <LayoutTemplate className="size-4 text-muted-foreground" />
+              <h3 className="text-body font-semibold">{t(($) => $.designer.templates)}</h3>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              {SOP_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className="group flex min-h-24 items-start gap-3 rounded-xl border border-border/80 p-3 text-left hover:border-brand/35 hover:bg-brand/5"
+                  onClick={() => begin(template)}
+                >
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-brand/10 group-hover:text-brand">
+                    {template.source === "blank" ? <Plus className="size-4" /> : <GitBranch className="size-4" />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-body font-semibold">{template.name}</span>
+                      <span className="text-micro text-muted-foreground">{t(($) => $.designer.stage_count, { count: template.stages.length })}</span>
+                    </span>
+                    <span className="mt-1 block text-caption leading-5 text-muted-foreground">{template.description}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-7 pb-8">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <GitBranch className="size-4 text-muted-foreground" />
+                <h3 className="text-body font-semibold">
+                  {projectId
+                    ? t(($) => $.designer.existing)
+                    : t(($) => $.designer.space_assets)}
+                </h3>
+              </div>
+              <span className="text-caption text-muted-foreground">
+                {projectId
+                  ? t(($) => $.designer.project_available_hint)
+                  : t(($) => $.designer.space_asset_hint)}
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="grid gap-3 lg:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.7fr)]">
+                <div className="h-64 animate-pulse rounded-xl bg-muted/50" />
+                <div className="h-64 animate-pulse rounded-xl bg-muted/50" />
+              </div>
+            ) : workflows.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border px-4 py-7 text-center">
+                <p className="text-body font-medium">{t(($) => $.page.empty_title)}</p>
+                <p className="mt-1 text-caption text-muted-foreground">{t(($) => $.designer.empty_existing)}</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {[
+                  { label: t(($) => $.designer.space_assets), items: spaceWorkflows },
+                  { label: t(($) => $.designer.project_variants), items: projectId ? projectWorkflows : [] },
+                ].filter((group) => group.items.length > 0).map((group) => (
+                  <div key={group.label}>
+                    <div className="mb-2 flex items-center gap-2 text-caption font-medium text-muted-foreground">
+                      <span>{group.label}</span><Badge variant="secondary">{group.items.length}</Badge>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {group.items.map((workflow) => (
+                        <button key={workflow.id} type="button" aria-haspopup="dialog" onClick={() => { setSelectedWorkflowId(workflow.id); setPreviewStageId(undefined); setWorkflowPreviewOpen(true); }} className="flex min-h-24 min-w-0 items-start gap-3 rounded-lg border border-border/80 bg-background p-3 text-left transition-colors hover:border-brand/40 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/8 text-brand"><GitBranch className="size-4" /></span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-start justify-between gap-2">
+                              <span className="min-w-0 truncate text-body font-semibold">{workflow.name}</span>
+                              <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                            </span>
+                            <span className="mt-1 line-clamp-2 break-words text-caption text-muted-foreground">{workflow.description || t(($) => $.designer.no_description)}</span>
+                            <span className="mt-2 flex flex-wrap items-center gap-2 text-micro text-muted-foreground">
+                              <span>{t(($) => $.designer.stage_count, { count: workflow.current_version?.stages.length ?? 0 })}</span>
+                              <Badge variant="outline">{t(($) => $.detail.version, { version: workflow.current_version?.version ?? 1 })}</Badge>
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          </div>
+        </div>
+        <Dialog open={workflowPreviewOpen && Boolean(selectedWorkflow)} onOpenChange={setWorkflowPreviewOpen}>
+          <DialogContent className="flex h-[85dvh] max-h-[90dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+            <DialogHeader className="shrink-0 border-b border-border/70 px-5 py-4 pr-12">
+              <DialogTitle>{selectedWorkflow?.name}</DialogTitle>
+              <DialogDescription>{t(($) => $.designer.preview_description)}</DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+                  {selectedWorkflow ? (
+                    <div>
+                      <header className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-title-sm font-semibold">{selectedWorkflow.name}</h3>
+                            <Badge variant={selectedWorkflow.project_id ? "outline" : "secondary"}>
+                              {selectedWorkflow.project_id
+                                ? t(($) => $.designer.project_variant)
+                                : t(($) => $.designer.space_asset)}
+                            </Badge>
+                            <Badge variant="outline">
+                              {t(($) => $.detail.version, {
+                                version: selectedWorkflow.current_version?.version ?? 1,
+                              })}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 max-w-2xl text-body leading-6 text-muted-foreground">
+                            {selectedWorkflow.description || t(($) => $.designer.no_description)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {canManageSelected && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive hover:text-destructive"
+                              disabled={!allRuns || runsCheckFailed || selectedHasRuns || deleteWorkflow.isPending}
+                              title={selectedHasRuns ? t(($) => $.designer.delete_sop_blocked) : t(($) => $.designer.delete_sop)}
+                              onClick={() => setWorkflowToDelete(selectedWorkflow)}
+                            >
+                              <Trash2 className="size-3.5" />
+                              {t(($) => $.designer.delete_sop)}
+                            </Button>
+                          )}
+                          {projectId && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={!selectedWorkflow.current_version?.stages.length}
+                              onClick={() => { setWorkflowPreviewOpen(false); customize(selectedWorkflow); }}
+                            >
+                              <Copy className="size-3.5" />
+                              {t(($) => $.designer.customize_for_project)}
+                            </Button>
+                          )}
+                          {projectId && (
+                            <Button
+                              size="sm"
+                              disabled={
+                                selectedWorkflow.status !== "published" ||
+                                createInstance.isPending
+                              }
+                              onClick={() =>
+                                prepareStartWorkflow(
+                                  selectedWorkflow.id,
+                                  selectedWorkflow.name,
+                                )
+                              }
+                            >
+                              {startingWorkflowId === selectedWorkflow.id ? (
+                                <LoaderCircle className="size-3.5 animate-spin" />
+                              ) : (
+                                <Play className="size-3.5" />
+                              )}
+                              {t(($) => $.designer.start_run)}
+                            </Button>
+                          )}
+                        </div>
+                      </header>
+
+                      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 rounded-lg bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+                        <span>{t(($) => $.designer.stage_count, { count: selectedWorkflow.current_version?.stages.length ?? 0 })}</span>
+                        <span>{t(($) => $.designer.active_runs, {
+                          count: runs.filter(
+                            (run) =>
+                              !run.archived_at &&
+                              run.workflow_id === selectedWorkflow.id &&
+                              run.status !== "completed" &&
+                              run.status !== "cancelled",
+                          ).length,
+                        })}</span>
+                        <span>{t(($) => $.detail[selectedWorkflow.status as keyof typeof $.detail])}</span>
+                      </div>
+
+                      <div className="mt-5 border-t border-border/70 pt-4">
+                        <p className="mb-3 text-caption text-muted-foreground">{t(($) => $.designer.preview_stage_hint)}</p>
+                        <div className="flex flex-wrap gap-2" role="group" aria-label={t(($) => $.designer.stage_list, { count: selectedWorkflow.current_version?.stages.length ?? 0 })}>
+                          {(selectedWorkflow.current_version?.stages ?? []).map((stage, index) => {
+                            const active = stage.id === (previewStageId ?? selectedWorkflow.current_version?.stages[0]?.id);
+                            return (
+                              <button key={stage.id} type="button" aria-pressed={active} onClick={() => setPreviewStageId(stage.id)} className={cn("flex min-h-9 max-w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-caption transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "border-brand/40 bg-brand/8 text-brand" : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground")}>
+                                <span className="shrink-0 font-mono text-micro">{index + 1}</span>
+                                <span className="min-w-0 break-words">{stage.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div className="mt-5 space-y-2">
+                        {(selectedWorkflow.current_version?.stages ?? []).map((stage, index) => {
+                          if (stage.id !== (previewStageId ?? selectedWorkflow.current_version?.stages[0]?.id)) return null;
+                          const completionRule = stage.completion_rule ?? {};
+                          const gate = stage.gate ?? {};
+                          const inputSpec = stage.input_spec ?? {};
+                          const outputSpec = stage.output_spec ?? {};
+                          const evaluationMode = completionRule.evaluation_mode;
+                          const schedule = objectString(completionRule, "schedule");
+                          const gateType = gate.type ?? "none";
+                          const input = objectString(inputSpec, "default_artifact");
+                          const output = objectString(outputSpec, "default_artifact");
+                          const deciderType = objectString(gate, "decider_type");
+                          const deciderId = objectString(gate, "decider");
+                          const humanDeciderId = objectString(gate, "human_decider");
+                          const deciderName =
+                            deciderType === "human"
+                              ? members.find((member) => member.user_id === deciderId)?.name
+                              : deciderType === "agent"
+                                ? agents.find((agent) => agent.id === deciderId)?.name
+                                : deciderType === "self_agent"
+                                  ? t(($) => $.designer.current_agent)
+                                  : undefined;
+                          const humanDeciderName = members.find(
+                            (member) => member.user_id === humanDeciderId,
+                          )?.name;
+                          const skillNames = (stage.required_skills ?? []).map(
+                            (ref) =>
+                              workspaceSkills.find(
+                                (skill) => skill.id === ref || skill.name === ref,
+                              )?.name ?? ref,
+                          );
+                          return (
+                            <section key={stage.id} className="rounded-lg border border-border/80 bg-muted/10 px-3 py-3">
+                              <div className="flex items-start gap-3">
+                                <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand text-caption font-semibold text-brand-foreground">
+                                  {index + 1}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h4 className="text-body font-semibold">{stage.name}</h4>
+                                    <Badge variant="outline">
+                                      <CircleDot className="size-3" />
+                                      {t(($) => $.designer.evaluation[evaluationMode === "manual" || evaluationMode === "scheduled" ? evaluationMode : "on_task_change"])}
+                                    </Badge>
+                                    {schedule && (
+                                      <Badge variant="outline">
+                                        <CalendarClock className="size-3" />
+                                        {schedule}
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline">
+                                      <ShieldCheck className="size-3" />
+                                      {t(($) => $.stage[`gate_${gateType}` as keyof typeof $.stage])}
+                                    </Badge>
+                                  </div>
+                                  {stage.description && (
+                                    <p className="mt-1 text-caption leading-5 text-muted-foreground">{stage.description}</p>
+                                  )}
+                                  <div className="mt-2 grid gap-2 text-caption sm:grid-cols-2">
+                                    <div className="min-w-0 rounded-md bg-background px-2.5 py-2">
+                                      <span className="text-micro font-medium text-muted-foreground">{t(($) => $.designer.default_input)}</span>
+                                      {input ? (
+                                        <ReadonlyContent content={input} className="mt-1 text-caption" />
+                                      ) : (
+                                        <p className="mt-0.5 font-medium">{t(($) => $.designer.not_configured)}</p>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0 rounded-md bg-background px-2.5 py-2">
+                                      <span className="text-micro font-medium text-muted-foreground">{t(($) => $.designer.default_output)}</span>
+                                      {output ? (
+                                        <ReadonlyContent content={output} className="mt-1 text-caption" />
+                                      ) : (
+                                        <p className="mt-0.5 font-medium">{t(($) => $.designer.not_configured)}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    {skillNames.length > 0 ? (
+                                      skillNames.map((skill) => (
+                                        <Badge key={skill} variant="secondary" className="gap-1">
+                                          <Wrench className="size-3" />
+                                          {skill}
+                                        </Badge>
+                                      ))
+                                    ) : (
+                                      <Badge variant="outline">
+                                        {t(($) => $.designer.no_skills_selected)}
+                                      </Badge>
+                                    )}
+                                    {gateType !== "none" && deciderName && (
+                                      <Badge variant="outline" className="gap-1">
+                                        <UserCheck className="size-3" />
+                                        {deciderName}
+                                      </Badge>
+                                    )}
+                                    {gate.require_human === true &&
+                                      humanDeciderName &&
+                                      humanDeciderName !== deciderName && (
+                                        <Badge variant="outline" className="gap-1">
+                                          <UserRound className="size-3" />
+                                          {t(($) => $.designer.final_confirmation_by, {
+                                            name: humanDeciderName,
+                                          })}
+                                        </Badge>
+                                      )}
+                                  </div>
+                                </div>
+                              </div>
+                            </section>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+            </div>
+            <DialogFooter className="m-0 shrink-0 border-t border-border/70 bg-muted/15 px-5 py-3">
+              <Button variant="outline" onClick={() => setWorkflowPreviewOpen(false)}>{t(($) => $.designer.preview_close)}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={Boolean(workflowToStart)}
+          onOpenChange={(open) => {
+            if (open || createInstance.isPending) return;
+            setWorkflowToStart(undefined);
+            setRunName("");
+          }}
+        >
+          <DialogContent className={workflowOperationDialogClassName}>
+            <DialogHeader>
+              <DialogTitle>{t(($) => $.designer.run_dialog_title)}</DialogTitle>
+              <DialogDescription>
+                {t(($) => $.designer.run_dialog_description, {
+                  name: workflowToStart?.name ?? "",
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <label className="space-y-1.5 text-caption font-medium">
+              <span>{t(($) => $.designer.run_name)}</span>
+              <Input
+                autoFocus
+                value={runName}
+                disabled={createInstance.isPending}
+                placeholder={t(($) => $.designer.run_name_placeholder)}
+                onChange={(event) => setRunName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    startWorkflow();
+                  }
+                }}
+              />
+            </label>
+            <label className="space-y-1.5 text-caption font-medium">
+              <span>{t(($) => $.execution_config.run_inputs)}</span>
+              <Textarea className="min-h-32 font-mono" value={runInputsText} disabled={createInstance.isPending} onChange={(event) => setRunInputsText(event.target.value)} />
+              <span className="block text-micro font-normal text-muted-foreground">{t(($) => $.execution_config.run_inputs_hint)}</span>
+            </label>
+            {!runInputs && <p role="alert" className="text-caption text-destructive">{t(($) => $.input_recovery.invalid)}</p>}
+            <DialogFooter className="border-t pt-4">
+              <Button
+                variant="outline"
+                disabled={createInstance.isPending}
+                onClick={() => {
+                  setWorkflowToStart(undefined);
+                  setRunName("");
+                }}
+              >
+                {t(($) => $.designer.cancel_run)}
+              </Button>
+              <Button
+                disabled={createInstance.isPending || !runName.trim() || !runInputs}
+                onClick={startWorkflow}
+              >
+                {createInstance.isPending ? (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                ) : (
+                  <Play className="size-3.5" />
+                )}
+                {createInstance.isPending
+                  ? t(($) => $.designer.starting_run)
+                  : t(($) => $.designer.confirm_start)}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {runToAdjust && (
+          <WorkflowRunPlanDialog
+            instanceId={runToAdjust.id}
+            sourceName={
+              workflows.find((workflow) => workflow.id === runToAdjust.workflow_id)?.name ??
+              t(($) => $.designer.unknown_sop)
+            }
+            open
+            onOpenChange={(open) => {
+              if (!open) setRunToAdjust(undefined);
+            }}
+          />
+        )}
+        <AlertDialog open={Boolean(workflowToDelete)} onOpenChange={(open) => { if (!open && !deleteWorkflow.isPending) setWorkflowToDelete(undefined); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t(($) => $.designer.delete_sop)}</AlertDialogTitle>
+              <AlertDialogDescription>{t(($) => $.designer.delete_sop_description, { name: workflowToDelete?.name ?? "" })}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteWorkflow.isPending}>{t(($) => $.designer.archive_cancel)}</AlertDialogCancel>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteWorkflow.isPending} onClick={(event) => {
+                event.preventDefault();
+                if (!workflowToDelete || deleteWorkflow.isPending) return;
+                deleteWorkflow.mutate(workflowToDelete.id, {
+                  onSuccess: () => {
+                    setWorkflowToDelete(undefined);
+                    setWorkflowPreviewOpen(false);
+                    setSelectedWorkflowId(undefined);
+                    toast.success(t(($) => $.designer.delete_sop_success));
+                  },
+                  onError: () => toast.error(t(($) => $.designer.delete_sop_failed)),
+                });
+              }}>
+                {deleteWorkflow.isPending && <LoaderCircle className="size-3.5 animate-spin" />}
+                {t(($) => $.designer.delete_sop_confirm)}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog
+          open={Boolean(runToArchive)}
+          onOpenChange={(open) => {
+            if (!open && !archiveInstance.isPending) setRunToArchive(undefined);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t(($) => $.designer.archive_dialog_title)}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(($) => $.designer.archive_dialog_description, {
+                  name: runToArchive?.title ?? "",
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={archiveInstance.isPending}>
+                {t(($) => $.designer.archive_cancel)}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={archiveInstance.isPending}
+                onClick={archiveRun}
+              >
+                {archiveInstance.isPending && (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                )}
+                {t(($) => $.designer.archive_confirm)}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
+      <header className="flex min-h-14 items-center gap-3 border-b border-border/70 px-5 py-2">
+        <Button variant="ghost" size="icon-sm" aria-label={t(($) => $.create.cancel)} onClick={() => setEditing(false)}><ArrowLeft /></Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-body font-semibold">{t(($) => $.designer.editor_title)}</h2>
+            <Badge variant="secondary" className="hidden sm:inline-flex">{templateName}</Badge>
+          </div>
+          <p className="hidden text-caption text-muted-foreground md:block">{t(($) => $.designer.editor_hint)}</p>
+        </div>
+        <Button type="button" variant="outline" size="sm" aria-label={t(($) => $.editor.assistant)} onClick={() => { setAssistantVisited(true); setAssistantOpen((open) => !open); }}><Bot className="size-3.5" /><span className="hidden sm:inline">{t(($) => $.editor.assistant)}</span></Button>
+        <Button
+          size="sm"
+          disabled={
+            createWorkflow.isPending ||
+            !name.trim() ||
+            !stages.some((item) => item.name.trim()) ||
+            stages.some((item) => item.name.trim() && item.executionMode === "agent" && !agents.some((agent) => agent.id === item.executorId && !agent.archived_at)) ||
+            invalidRollback || invalidGateCount > 0
+          }
+          onClick={publish}
+        >
+          <Sparkles className="size-3.5" />
+          {createWorkflow.isPending ? t(($) => $.designer.publishing) : t(($) => $.designer.publish)}
+        </Button>
+      </header>
+
+      <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
+        <WorkflowEditorNavigation stages={stages} selected={[...expanded][0] ?? "overview"}
+          onSelect={(id) => { setExpanded(id === "overview" ? new Set() : new Set([id])); setEditorTab("content"); }} onAdd={addStage} disabled={createWorkflow.isPending} />
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-5 py-5 md:px-8 md:py-6">
+          <div className={expanded.size === 0 ? "space-y-5" : "hidden"}>
+            <label className="block space-y-1.5 text-caption font-medium">
+              <span>{t(($) => $.create.name)}</span>
+              <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t(($) => $.create.name_placeholder)} autoFocus />
+            </label>
+            <WorkflowMarkdownEditor label={t(($) => $.create.description)} value={description} onChange={setDescription} placeholder={t(($) => $.create.description_placeholder)} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+                <span className="block text-micro font-medium text-muted-foreground">{t(($) => $.designer.source)}</span>
+                <span className="mt-0.5 block text-caption font-medium">
+                  {sourceWorkflowName
+                    ? t(($) => $.designer.source_inherited, {
+                        name: sourceWorkflowName,
+                      })
+                    : templateSource === "preset"
+                      ? t(($) => $.designer.source_preset)
+                      : t(($) => $.designer.source_user)}
+                </span>
+              </div>
+              <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2">
+                <span className="block text-micro font-medium text-muted-foreground">{t(($) => $.designer.scope)}</span>
+                <span className="mt-0.5 block text-caption font-medium">
+                  {editingScope === "project"
+                    ? t(($) => $.designer.scope_project)
+                    : t(($) => $.designer.scope_space)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className={expanded.size === 0 ? "mb-4 mt-6" : "hidden"}>
+            <h3 className="text-body font-semibold">{t(($) => $.designer.stage_list, { count: stages.length })}</h3>
+            <p className="text-caption text-muted-foreground">{t(($) => $.designer.stage_list_hint)}</p>
+            {invalidGateCount > 0 && (
+              <p className="mt-2 flex items-center gap-1.5 rounded-lg border border-border bg-muted px-3 py-2 text-caption text-muted-foreground">
+                <ShieldCheck className="size-3.5 shrink-0" />
+                {t(($) => $.designer.incomplete_gates, {
+                  count: invalidGateCount,
+                })}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2.5">
+            {stages.map((item, index) => {
+              const open = expanded.has(item.id);
+              if (!open) return null;
+              const defaultHumanId =
+                (members.find((member) => member.role === "owner") ?? members[0])
+                  ?.user_id ?? "";
+              const defaultAgentId =
+                agents.find((agent) => !agent.archived_at)?.id ?? "";
+              const gateConfigured = gateIsConfigured(item, members, agents);
+              return (
+                <section key={item.id} className="min-w-0 space-y-4">
+                  <div className="flex min-h-11 items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-micro font-semibold"
+                      aria-label={t(($) => $.editor.content)}
+                    >{index + 1}</button>
+                    <Input
+                      value={item.name}
+                      onChange={(event) => updateStage(item.id, { name: event.target.value })}
+                      placeholder={t(($) => $.create.stage_placeholder)}
+                      className="h-8 border-transparent bg-transparent px-1 text-body font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
+                    />
+                    {item.gateEnabled && <ShieldCheck className="size-3.5 shrink-0 text-muted-foreground" />}
+                    <Button type="button" variant="ghost" size="icon-xs" disabled={index === 0} title={t(($) => $.designer.move_up)} onClick={() => moveStage(index, -1)}><ArrowUp /></Button>
+                    <Button type="button" variant="ghost" size="icon-xs" disabled={index === stages.length - 1} title={t(($) => $.designer.move_down)} onClick={() => moveStage(index, 1)}><ArrowDown /></Button>
+                    <Button type="button" variant="ghost" size="icon-xs" disabled={stages.length === 1} title={t(($) => $.designer.delete_stage)} className="text-muted-foreground hover:text-destructive" onClick={() => { setStages((current) => current.filter((value) => value.id !== item.id)); setExpanded(new Set()); }}><Trash2 /></Button>
+                  </div>
+
+                  {open && (
+                    <div className="space-y-5">
+                      <WorkflowEditorTabs value={editorTab} onChange={setEditorTab} />
+                      <div className={editorTab === "execution" ? "space-y-4" : "hidden"}>
+                      <StageExecutionFields value={item} rollbackStages={stages.slice(0, index).filter((stage) => stage.stableKey).map((stage) => ({stableKey: stage.stableKey!, name: stage.name}))} precedingStages={stages.slice(0, index).filter((stage) => stage.executionMode === "agent" && stage.stableKey).map((stage) => ({stableKey: stage.stableKey!, name: stage.name}))} agents={agents} disabled={createWorkflow.isPending} onChange={(patch) => updateStage(item.id, patch)} />
+                      </div>
+                      <div className={editorTab === "content" ? "space-y-5" : "hidden"}>
+                        <WorkflowMarkdownEditor label={t(($) => $.designer.stage_description)} value={item.description} onChange={(description) => updateStage(item.id, { description })} placeholder={t(($) => $.designer.stage_description_placeholder)} />
+                      </div>
+                      <div className={editorTab === "execution" ? "space-y-4" : "hidden"}>
+
+                      {item.executionMode !== "agent" && <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="space-y-1.5 text-caption font-medium">
+                          <span>{t(($) => $.designer.evaluation_label)}</span>
+                          <Select
+                            items={([
+                              "on_task_change",
+                              "manual",
+                              "scheduled",
+                            ] as EvaluationMode[]).map((mode) => ({
+                              value: mode,
+                              label: t(($) => $.designer.evaluation[mode]),
+                            }))}
+                            value={item.evaluationMode}
+                            onValueChange={(value) => {
+                              if (value) {
+                                updateStage(item.id, {
+                                  evaluationMode: value as EvaluationMode,
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(["on_task_change", "manual", "scheduled"] as EvaluationMode[]).map((mode) => (
+                                <SelectItem key={mode} value={mode}>
+                                  {t(($) => $.designer.evaluation[mode])}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className="block text-micro font-normal leading-4 text-muted-foreground">
+                            {t(($) => $.designer.evaluation_hint[item.evaluationMode])}
+                          </span>
+                          {item.evaluationMode === "scheduled" && (
+                            <span className="block space-y-1 pt-1">
+                              <span className="block text-micro font-medium text-muted-foreground">
+                                {t(($) => $.designer.schedule_label)}
+                              </span>
+                              <Input
+                                value={item.schedule}
+                                placeholder={t(($) => $.designer.schedule_placeholder)}
+                                onChange={(event) =>
+                                  updateStage(item.id, {
+                                    schedule: event.target.value,
+                                  })
+                                }
+                              />
+                            </span>
+                          )}
+                        </label>
+                        <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5">
+                          <span className="block text-caption font-medium">{t(($) => $.designer.completion_rule)}</span>
+                          <span className="mt-1 block text-caption leading-5 text-muted-foreground">
+                            {t(($) => $.designer.completion_all_tasks)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="mb-1.5 block text-caption font-medium">{t(($) => $.designer.statuses)}</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {ALL_STATUSES.map((status) => {
+                            const active = item.statuses.includes(status);
+                            return (
+                              <button
+                                key={status}
+                                type="button"
+                                className={cn("flex h-7 items-center gap-1.5 rounded-md border px-2 text-caption", active ? "border-brand/40 bg-brand/8 text-foreground" : "border-border text-muted-foreground hover:bg-muted")}
+                                onClick={() => updateStage(item.id, { statuses: active ? item.statuses.filter((value) => value !== status) : [...item.statuses, status] })}
+                              >
+                                {active && <Check className="size-3" />}
+                                {t(($) => $.designer.status[status])}
+                              </button>
+                            );
+                          })}
+                          {item.statuses
+                            .filter((status) => !ALL_STATUSES.includes(status as CanonicalStageStatus))
+                            .map((status) => (
+                              <button
+                                key={status}
+                                type="button"
+                                className="flex h-7 items-center gap-1.5 rounded-md border border-brand/40 bg-brand/8 px-2 text-caption text-foreground"
+                                title={t(($) => $.designer.remove_status)}
+                                onClick={() => updateStage(item.id, {
+                                  statuses: item.statuses.filter((value) => value !== status),
+                                })}
+                              >
+                                <Check className="size-3" />
+                                {status}
+                              </button>
+                            ))}
+                          <Input className="h-7 w-36 text-caption" placeholder={t(($) => $.designer.custom_status)} onKeyDown={(event) => addCustomStatus(event, item)} />
+                        </div>
+                      </div>
+
+                      </>}
+
+                      </div>
+                      <div className={editorTab === "content" ? "grid gap-5 lg:grid-cols-2" : "hidden"}>
+                        <ArtifactMarkdownEditor
+                          editorKey={`${item.id}-input`}
+                          icon={<FileInput className="size-3.5 text-muted-foreground" />}
+                          label={t(($) => $.designer.default_input)}
+                          helper={t(($) => $.designer.input_markdown_hint)}
+                          placeholder={t(($) => $.designer.input_placeholder)}
+                          value={item.input}
+                          onChange={(input) => updateStage(item.id, { input })}
+                        />
+                        <ArtifactMarkdownEditor
+                          editorKey={`${item.id}-output`}
+                          icon={<FileOutput className="size-3.5 text-muted-foreground" />}
+                          label={t(($) => $.designer.default_output)}
+                          helper={t(($) => $.designer.output_markdown_hint)}
+                          placeholder={t(($) => $.designer.output_placeholder)}
+                          value={item.output}
+                          onChange={(output) => updateStage(item.id, { output })}
+                        />
+                      </div>
+
+                      <div className={editorTab === "execution" ? "space-y-5" : "hidden"}>
+                      <StageSkillSelector
+                        skills={workspaceSkills}
+                        selectedRefs={item.skills}
+                        loading={skillsLoading}
+                        onChange={(skills) => updateStage(item.id, { skills })}
+                      />
+
+                      <StageMCPSelector
+                        servers={workspaceMCP?.servers ?? []}
+                        selectedIds={item.allowedMcpServerIds}
+                        onChange={(allowedMcpServerIds) => updateStage(item.id, { allowedMcpServerIds })}
+                      />
+
+                      </div>
+                      <div className={editorTab === "review" ? "space-y-4" : "hidden"}>
+                      <div
+                        className={cn(
+                          "rounded-lg border p-4",
+                          item.gateEnabled
+                            ? gateConfigured
+                              ? "border-border bg-muted/20"
+                              : "border-destructive/40 bg-destructive/5"
+                            : "border-dashed border-border bg-muted/10",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="size-4 text-muted-foreground" />
+                              <span className="text-body font-semibold">
+                                {t(($) => $.designer.gate)}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-caption leading-5 text-muted-foreground">
+                              {t(($) => $.designer.gate_hint)}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={item.gateEnabled}
+                            aria-label={t(($) => $.designer.gate)}
+                            onCheckedChange={(checked) =>
+                              updateStage(item.id, { gateEnabled: checked })
+                            }
+                          />
+                        </div>
+                        {item.gateEnabled && (
+                          <div className="mt-3 space-y-3 border-t border-border/70 pt-3">
+                            <div
+                              role="radiogroup"
+                              aria-label={t(($) => $.designer.decision_mode)}
+                              className="grid gap-2 md:grid-cols-3"
+                            >
+                              {(["human", "self_agent", "agent"] as DeciderType[]).map((type) => {
+                                const active = item.deciderType === type;
+                                return (
+                                  <button
+                                    key={type}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={active}
+                                    className={cn(
+                                      "min-h-20 rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                      active
+                                        ? "border-brand/45 bg-brand/8"
+                                        : "border-border/80 bg-background hover:border-brand/25 hover:bg-muted/30",
+                                    )}
+                                    onClick={() =>
+                                      updateStage(item.id, {
+                                        deciderType: type,
+                                        decider:
+                                          type === "human"
+                                            ? defaultHumanId
+                                            : type === "agent"
+                                              ? defaultAgentId
+                                              : "@self",
+                                        requireHuman: type === "human",
+                                        humanDecider:
+                                          type === "human"
+                                            ? defaultHumanId
+                                            : item.humanDecider || defaultHumanId,
+                                      })
+                                    }
+                                  >
+                                    <span className="flex items-center gap-2">
+                                      <span
+                                        className={cn(
+                                          "flex size-7 items-center justify-center rounded-md",
+                                          active
+                                            ? "bg-brand text-brand-foreground"
+                                            : "bg-muted text-muted-foreground",
+                                        )}
+                                      >
+                                        {type === "human" ? (
+                                          <UserRound className="size-3.5" />
+                                        ) : type === "self_agent" ? (
+                                          <Bot className="size-3.5" />
+                                        ) : (
+                                          <UserCheck className="size-3.5" />
+                                        )}
+                                      </span>
+                                      <span className="text-caption font-semibold">
+                                        {t(($) => $.designer.decider[type])}
+                                      </span>
+                                    </span>
+                                    <span className="mt-1.5 block text-micro leading-4 text-muted-foreground">
+                                      {t(($) => $.designer.decider_hint[type])}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {item.deciderType === "human" && (
+                              <div>
+                                <label className="mb-1.5 block text-caption font-medium">
+                                  {t(($) => $.designer.human_decider)}
+                                </label>
+                                <GateActorPicker
+                                  kind="human"
+                                  value={item.decider}
+                                  members={members}
+                                  agents={agents}
+                                  onChange={(decider) =>
+                                    updateStage(item.id, {
+                                      decider,
+                                      humanDecider: decider,
+                                    })
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {item.deciderType === "agent" && (
+                              <div>
+                                <label className="mb-1.5 block text-caption font-medium">
+                                  {t(($) => $.designer.agent_decider)}
+                                </label>
+                                <GateActorPicker
+                                  kind="agent"
+                                  value={item.decider}
+                                  members={members}
+                                  agents={agents}
+                                  onChange={(decider) =>
+                                    updateStage(item.id, { decider })
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {item.deciderType === "self_agent" && (
+                              <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-background px-3 py-2.5">
+                                <Bot className="mt-0.5 size-4 shrink-0 text-brand" />
+                                <p className="text-caption leading-5 text-muted-foreground">
+                                  {t(($) => $.designer.self_agent_hint)}
+                                </p>
+                              </div>
+                            )}
+
+                            {item.deciderType !== "human" && (
+                              <div className="rounded-lg border border-border/80 bg-background p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-caption font-medium">
+                                      {t(($) => $.designer.require_human)}
+                                    </p>
+                                    <p className="mt-1 text-micro leading-4 text-muted-foreground">
+                                      {t(($) => $.designer.require_human_hint)}
+                                    </p>
+                                  </div>
+                                  <Switch
+                                    checked={item.requireHuman}
+                                    aria-label={t(($) => $.designer.require_human)}
+                                    onCheckedChange={(requireHuman) =>
+                                      updateStage(item.id, {
+                                        requireHuman,
+                                        humanDecider:
+                                          requireHuman && !item.humanDecider
+                                            ? defaultHumanId
+                                            : item.humanDecider,
+                                      })
+                                    }
+                                  />
+                                </div>
+                                {item.requireHuman && (
+                                  <div className="mt-3 border-t border-border/70 pt-3">
+                                    <label className="mb-1.5 block text-caption font-medium">
+                                      {t(($) => $.designer.final_human_decider)}
+                                    </label>
+                                    <GateActorPicker
+                                      kind="human"
+                                      value={item.humanDecider}
+                                      members={members}
+                                      agents={agents}
+                                      onChange={(humanDecider) =>
+                                        updateStage(item.id, { humanDecider })
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {!gateConfigured && (
+                              <p role="alert" className="text-caption text-destructive">
+                                {t(($) => $.designer.gate_actor_required)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+          <button type="button" className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border text-caption font-medium text-brand hover:border-brand/40 hover:bg-brand/5" onClick={addStage}>
+            <Plus className="size-3.5" />
+            {t(($) => $.create.add_stage)}
+          </button>
+        </div>
+        </div>
+        {assistantVisited && <div>
+          <Suspense fallback={<div className="p-4 text-caption text-muted-foreground">{t(($) => $.editor.thinking)}</div>}>
+            <WorkflowChatBridge open={assistantOpen} projectId={projectId} selection={[...expanded].join(", ") || "overview"} revision={JSON.stringify({ name, description, stages })} onRestore={() => { setName(name); setDescription(description); setStages(stages); }}
+              draft={{ name, description, stages: stages.map(({ id, name, description, input, output }) => ({ id, name, description, input, output })) }}
+              onApply={(draft) => {
+                const changed = stages.find((stage) => {
+                  const patch = draft.stages.find((item) => item.id === stage.id);
+                  return patch && ["name", "description", "input", "output"].some((field) => patch[field as keyof typeof patch] !== stage[field as keyof typeof stage]);
+                });
+                if (changed) { setExpanded(new Set([changed.id])); setEditorTab("content"); }
+                setName(draft.name); setDescription(draft.description);
+                setStages((current) => {
+                  const updated = current.map((stage) => {
+                    const patch = draft.stages.find((item) => item.id === stage.id);
+                    return patch ? { ...stage, name: patch.name, description: patch.description, input: patch.input, output: patch.output } : stage;
+                  });
+                  for (const proposed of draft.stages.filter((item) => !item.id)) {
+                    const stage = cloneStages(blankSopTemplate())[0]!;
+                    let number = 1;
+                    while (updated.some((item) => item.stableKey === `stage_${number}`)) number++;
+                    updated.push({ ...stage, ...proposed, id: stage.id, stableKey: `stage_${number}` });
+                  }
+                  return updated;
+                });
+              }} />
+          </Suspense>
+        </div>}
+      </div>
+    </div>
+  );
+}
