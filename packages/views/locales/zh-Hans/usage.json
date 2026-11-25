@@ -96,5 +96,14 @@
   },
   "duration": {
     "less_than_minute": "<1分钟"
+  },
+  "pricing": {
+    "unpriced": "待计价",
+    "actual": "实际费用",
+    "estimated": "预估费用",
+    "unknown_tokens": "Token 待计价",
+    "covered": "计价已覆盖",
+    "notice": "已知金额不代表总费用；请配置未识别模型的价格。",
+    "settings": "模型计价设置"
   }
 }

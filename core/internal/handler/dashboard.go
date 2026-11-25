@@ -143,13 +143,14 @@ func parseProjectIDParam(w http.ResponseWriter, r *http.Request) (pgtype.UUID, b
 // stay on the wire so the client can disambiguate bare model ids that collide
 // across providers (e.g. Cursor's `auto`).
 type DashboardUsageDailyResponse struct {
-	Date             string `json:"date"`
-	Provider         string `json:"provider"`
-	Model            string `json:"model"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	Pricing          ModelCost `json:"pricing"`
+	Date             string    `json:"date"`
+	Provider         string    `json:"provider"`
+	Model            string    `json:"model"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	CacheReadTokens  int64     `json:"cache_read_tokens"`
+	CacheWriteTokens int64     `json:"cache_write_tokens"`
 	// Cost split: `CostUSDTicks` is what the provider itself charged for the
 	// rows behind this aggregate (1e-10 USD), and the `Uncosted*` token
 	// counts are the tokens from rows the provider did NOT price. The client
@@ -182,6 +183,15 @@ func (h *Handler) GetDashboardUsageDaily(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list usage")
 		return
+	}
+	rules, err := h.loadModelPricing(r.Context(), parseUUID(workspaceID))
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	for i := range resp {
+		v := &resp[i]
+		v.Pricing = rules.cost(v.Provider, v.Model, v.CostUSDTicks, v.InputTokens, v.OutputTokens, v.CacheReadTokens, v.CacheWriteTokens, v.UncostedInputTokens, v.UncostedOutputTokens, v.UncostedCacheReadTokens, v.UncostedCacheWriteTokens)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -227,13 +237,14 @@ func (h *Handler) listDashboardUsageDaily(
 // rides along for the same cross-provider pricing disambiguation as the daily
 // response; the client folds by agent_id and sums cost.
 type DashboardUsageByAgentResponse struct {
-	AgentID          string `json:"agent_id"`
-	Provider         string `json:"provider"`
-	Model            string `json:"model"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	Pricing          ModelCost `json:"pricing"`
+	AgentID          string    `json:"agent_id"`
+	Provider         string    `json:"provider"`
+	Model            string    `json:"model"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	CacheReadTokens  int64     `json:"cache_read_tokens"`
+	CacheWriteTokens int64     `json:"cache_write_tokens"`
 	// Cost split: `CostUSDTicks` is what the provider itself charged for the
 	// rows behind this aggregate (1e-10 USD), and the `Uncosted*` token
 	// counts are the tokens from rows the provider did NOT price. The client
@@ -274,7 +285,17 @@ func (h *Handler) GetDashboardUsageByAgent(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusInternalServerError, "failed to list usage by agent")
 		return
 	}
-	writeJSON(w, http.StatusOK, foldRestrictedUsageByAgent(resp, restricted))
+	resp = foldRestrictedUsageByAgent(resp, restricted)
+	rules, err := h.loadModelPricing(r.Context(), parseUUID(workspaceID))
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	for i := range resp {
+		v := &resp[i]
+		v.Pricing = rules.cost(v.Provider, v.Model, v.CostUSDTicks, v.InputTokens, v.OutputTokens, v.CacheReadTokens, v.CacheWriteTokens, v.UncostedInputTokens, v.UncostedOutputTokens, v.UncostedCacheReadTokens, v.UncostedCacheWriteTokens)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // providerModelKey keeps the restricted bucket split by (provider, model) so

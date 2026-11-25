@@ -669,6 +669,7 @@ type GithubPullRequest struct {
 	ChecksRollupState   pgtype.Text        `json:"checks_rollup_state"`
 	SnapshotHeadSha     string             `json:"snapshot_head_sha"`
 	SnapshotFetchedAt   pgtype.Timestamptz `json:"snapshot_fetched_at"`
+	ExternalRepoID      pgtype.Text        `json:"external_repo_id"`
 }
 
 type GithubPullRequestCheckRun struct {
@@ -842,6 +843,22 @@ type Project struct {
 	Priority    string             `json:"priority"`
 	StartDate   pgtype.Date        `json:"start_date"`
 	DueDate     pgtype.Date        `json:"due_date"`
+	RepoMode    string             `json:"repo_mode"`
+}
+
+type ProjectRepoBinding struct {
+	ResourceID     pgtype.UUID        `json:"resource_id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	ProjectID      pgtype.UUID        `json:"project_id"`
+	CloneKey       pgtype.Text        `json:"clone_key"`
+	CloneHost      pgtype.Text        `json:"clone_host"`
+	ClonePath      pgtype.Text        `json:"clone_path"`
+	ConnectionKind pgtype.Text        `json:"connection_kind"`
+	ConnectionID   pgtype.UUID        `json:"connection_id"`
+	RepositoryPath pgtype.Text        `json:"repository_path"`
+	ExternalRepoID pgtype.Text        `json:"external_repo_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ProjectResource struct {
@@ -1179,6 +1196,18 @@ type VcsPullRequest struct {
 	ChangedFiles    int32              `json:"changed_files"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ExternalRepoID  pgtype.Text        `json:"external_repo_id"`
+}
+
+type VcsRepoCommitStatus struct {
+	ConnectionID   pgtype.UUID        `json:"connection_id"`
+	RepositoryPath string             `json:"repository_path"`
+	Sha            string             `json:"sha"`
+	Context        string             `json:"context"`
+	State          string             `json:"state"`
+	TargetUrl      pgtype.Text        `json:"target_url"`
+	Description    pgtype.Text        `json:"description"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type VerificationCode struct {

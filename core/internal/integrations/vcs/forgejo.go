@@ -92,6 +92,7 @@ type fjPullRequestPayload struct {
 		} `json:"head"`
 	} `json:"pull_request"`
 	Repository struct {
+		ID       int64  `json:"id"`
 		Name     string `json:"name"`
 		FullName string `json:"full_name"`
 		Owner    struct {
@@ -114,6 +115,7 @@ func (p forgejoProvider) ParsePullRequest(body []byte) (PullRequestEvent, error)
 	}
 	return PullRequestEvent{
 		Action:          d.Action,
+		RepoID:          positiveRepoID(d.Repository.ID),
 		RepoOwner:       owner,
 		RepoName:        d.Repository.Name,
 		Number:          d.PullRequest.Number,
@@ -136,6 +138,10 @@ func (p forgejoProvider) ParsePullRequest(body []byte) (PullRequestEvent, error)
 }
 
 type fjStatusPayload struct {
+	Repository struct {
+		ID       int64  `json:"id"`
+		FullName string `json:"full_name"`
+	} `json:"repository"`
 	SHA         string `json:"sha"`
 	Context     string `json:"context"`
 	State       string `json:"state"`
@@ -158,6 +164,8 @@ func (p forgejoProvider) ParseCIStatus(body []byte) (CIStatusEvent, error) {
 		updatedAt = d.CreatedAt
 	}
 	return CIStatusEvent{
+		RepoPath:    d.Repository.FullName,
+		RepoID:      positiveRepoID(d.Repository.ID),
 		SHA:         d.SHA,
 		Context:     d.Context,
 		State:       normalizeForgejoState(d.State),

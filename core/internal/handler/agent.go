@@ -294,11 +294,13 @@ type WorkflowNextStageData struct {
 type ConnectedAppData = runtimeapps.ConnectedApp
 
 type AgentRunResponse struct {
-	ID          string `json:"id"`
-	AgentID     string `json:"agent_id"`
-	RuntimeID   string `json:"runtime_id"`
-	TaskID      string `json:"task_id"`
-	WorkspaceID string `json:"workspace_id"`
+	RepoMode         string `json:"repo_mode,omitempty"`
+	RepoScopeVersion int    `json:"repo_scope_version,omitempty"`
+	ID               string `json:"id"`
+	AgentID          string `json:"agent_id"`
+	RuntimeID        string `json:"runtime_id"`
+	TaskID           string `json:"task_id"`
+	WorkspaceID      string `json:"workspace_id"`
 	// WorkspaceContext is the workspace-level system prompt set in workspace
 	// settings (`workspace.context` DB column). Injected into the agent brief
 	// as `## Workspace Context` so every agent running in this workspace —

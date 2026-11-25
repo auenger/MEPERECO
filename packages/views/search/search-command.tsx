@@ -74,6 +74,8 @@ type NavKey =
   | "myTasks"
   | "tasks"
   | "projects"
+  | "resources"
+  | "git"
   | "agents"
   | "runtimes"
   | "skills"
@@ -148,6 +150,8 @@ export function SearchCommand() {
     { key: "myTasks", label: t(($) => $.pages.my_tasks), keywords: ["my", "tasks", "assigned", "我的"] },
     { key: "tasks", label: t(($) => $.pages.tasks), keywords: ["tasks", "tasks", "bugs"] },
     { key: "projects", label: t(($) => $.pages.projects), keywords: ["projects", "kanban", "项目"] },
+    { key: "resources", label: t(($) => $.pages.resources), keywords: ["resources", "files", "assets", "工作资源", "工作文件", "资源库"] },
+    { key: "git", label: t(($) => $.pages.git), keywords: ["git", "repositories", "PR", "仓库"] },
     { key: "agents", label: t(($) => $.pages.agents), keywords: ["agents", "bots", "ai"] },
     { key: "runtimes", label: t(($) => $.pages.runtimes), keywords: ["runtimes", "environments"] },
     { key: "skills", label: t(($) => $.pages.skills), keywords: ["skills", "library"] },

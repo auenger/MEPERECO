@@ -326,11 +326,23 @@ const updaterAPI = {
     ipcRenderer.invoke("updater:check"),
 };
 
+const desktopConfigAPI = {
+  restart: (): Promise<void> => ipcRenderer.invoke("desktop-config:restart"),
+  read: (): Promise<string | null> => ipcRenderer.invoke("desktop-config:read"),
+  write: (
+    apiUrl: string,
+  ): Promise<
+    | { ok: true; apiUrl: string }
+    | { ok: false; error: string }
+  > => ipcRenderer.invoke("desktop-config:write", apiUrl),
+};
+
 if (process.contextIsolated) {
   contextBridge.exposeInMainWorld("electron", electronAPI);
   contextBridge.exposeInMainWorld("desktopAPI", desktopAPI);
   contextBridge.exposeInMainWorld("daemonAPI", daemonAPI);
   contextBridge.exposeInMainWorld("updater", updaterAPI);
+  contextBridge.exposeInMainWorld("desktopConfig", desktopConfigAPI);
 } else {
   // @ts-expect-error - fallback for non-isolated context
   window.electron = electronAPI;
@@ -340,4 +352,6 @@ if (process.contextIsolated) {
   window.daemonAPI = daemonAPI;
   // @ts-expect-error - fallback for non-isolated context
   window.updater = updaterAPI;
+  // @ts-expect-error - fallback for non-isolated context
+  window.desktopConfig = desktopConfigAPI;
 }

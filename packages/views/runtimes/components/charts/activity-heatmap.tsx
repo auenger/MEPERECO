@@ -1,3 +1,4 @@
+import { formatModelMoney, usePricingCurrency } from "../../pricing-currency";
 import { useMemo } from "react";
 import type { RuntimeUsage } from "@silieco/core/types";
 import { useCustomPricingStore } from "@silieco/core/runtimes/custom-pricing-store";
@@ -28,10 +29,7 @@ function getHeatmapColor(level: number): string {
   return `color-mix(in oklch, var(--color-chart-1) ${opacities[level - 1]}, transparent)`;
 }
 
-function fmtMoney(n: number): string {
-  if (n >= 100) return `$${n.toFixed(0)}`;
-  return `$${n.toFixed(2)}`;
-}
+
 
 function fmtDate(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleString("en", {
@@ -58,6 +56,7 @@ export function ActivityHeatmap({
   tz: string;
 }) {
   const { t } = useT("runtimes");
+  const currency=usePricingCurrency();
   // Memo dep — estimateCost (called inside the body below) consults the
   // user-override store, so saving a custom rate must invalidate the cells.
   const pricings = useCustomPricingStore((s) => s.pricings);
@@ -242,7 +241,7 @@ export function ActivityHeatmap({
               >
                 <title>
                   {c.date}:{" "}
-                  {c.cost > 0 ? `$${c.cost.toFixed(2)}` : "No activity"}
+                  {c.cost > 0 ? formatModelMoney(c.cost,currency) : "No activity"}
                 </title>
               </rect>
             ))}
@@ -270,6 +269,8 @@ export function ActivityHeatmap({
 // hero pattern (label → big value → sub) but at smaller scale to stay
 // secondary. 4 columns on desktop, 2 on narrow screens.
 function InsightsRow({ insights }: { insights: Insights }) {
+  const currency=usePricingCurrency();
+  const fmtMoney=(n:number)=>formatModelMoney(n,currency);
   const {
     busiestDay,
     busyDayName,

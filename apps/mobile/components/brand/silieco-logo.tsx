@@ -1,30 +1,24 @@
-/**
- * Silieco four-square mark. 1:1 vector copy of the web favicon —
- * keep this file and the SVG in sync.
- *
- * react-native-svg does not resolve CSS `currentColor`, so callers must pass
- * `color` explicitly. For theme-aware usage, pair with `useColorScheme` +
- * `THEME` token from `@/lib/theme`.
- */
-import Svg, { Path, Rect } from "react-native-svg";
+/** MEPER Studio app tile, sourced from MEPER-Studio-Logo/meper-studio-app.svg. */
+import Svg, { Defs, LinearGradient, Stop, Path, Rect, G } from "react-native-svg";
 
 interface SiliecoLogoProps {
   size?: number;
-  color?: string;
 }
 
-export function SiliecoLogo({ size = 48, color }: SiliecoLogoProps) {
+export function SiliecoLogo({ size = 48 }: SiliecoLogoProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Rect width="64" height="64" rx="14" fill={color ?? "#0b0d12"} />
-      <Path
-        d="M18 18h12v12H18zM34 18h12v12H34zM18 34h12v12H18zM34 34h12v12H34z"
-        fill="#f3f6fb"
-      />
-      <Path
-        d="M34 18h12v12H34zM18 34h12v12H18z"
-        fill="#3978f6"
-      />
+    <Svg width={size} height={size} viewBox="0 0 256 256">
+      <Defs>
+        <LinearGradient id="tile" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop stopColor="#248DF2" />
+          <Stop offset="1" stopColor="#123DAE" />
+        </LinearGradient>
+      </Defs>
+      <Rect width="256" height="256" rx="58.112" fill="url(#tile)" />
+      <G transform="translate(35.84 32.256) scale(1.7715199999999998)">
+        <Path fill="#FFFFFF" d="M7 86V24L20 17L46 43L34 55L27 48V86Z" />
+        <Path fill="#FFFFFF" d="M41 61L83 17L96 24V86H76V49L55 75Z" />
+      </G>
     </Svg>
   );
 }

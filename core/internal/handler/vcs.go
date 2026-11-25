@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/silieco-ai/silieco/core/internal/integrations/vcs"
 	"github.com/silieco-ai/silieco/core/internal/middleware"
@@ -255,10 +256,33 @@ func (h *Handler) DeleteVCSConnection(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.Queries.DeleteVCSConnection(r.Context(), db.DeleteVCSConnectionParams{
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove connection")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	var locked pgtype.UUID
+	if err = tx.QueryRow(r.Context(), `SELECT id FROM workspace WHERE id=$1 FOR KEY SHARE`, wsUUID).Scan(&locked); err != nil {
+		writeError(w, http.StatusNotFound, "workspace not found")
+		return
+	}
+	if err = tx.QueryRow(r.Context(), `SELECT id FROM vcs_connection WHERE id=$1 AND workspace_id=$2 FOR UPDATE`, idUUID, wsUUID).Scan(&locked); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "failed to lock connection")
+		return
+	}
+	if err := h.Queries.WithTx(tx).DeleteVCSConnection(r.Context(), db.DeleteVCSConnectionParams{
 		ID:          idUUID,
 		WorkspaceID: wsUUID,
 	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove connection")
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to remove connection")
 		return
 	}

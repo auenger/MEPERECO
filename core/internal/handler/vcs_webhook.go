@@ -140,13 +140,19 @@ func (h *Handler) HandleVCSWebhook(w http.ResponseWriter, r *http.Request) {
 		if pr, err := provider.ParsePullRequest(body); err != nil {
 			slog.Warn("vcs: bad pull_request payload", "provider", conn.Provider, "err", err)
 		} else {
-			h.mirrorVCSPullRequest(r.Context(), conn, pr)
+			if err := h.mirrorVCSPullRequest(r.Context(), conn, pr); err != nil {
+				writeError(w, http.StatusServiceUnavailable, "PR mirror unavailable; retry delivery")
+				return
+			}
 		}
 	case vcs.EventCIStatus:
 		if st, err := provider.ParseCIStatus(body); err != nil {
 			slog.Warn("vcs: bad status payload", "provider", conn.Provider, "err", err)
 		} else {
-			h.mirrorVCSCIStatus(r.Context(), conn, st)
+			if err := h.mirrorVCSCIStatus(r.Context(), conn, st); err != nil {
+				writeError(w, http.StatusServiceUnavailable, "CI mirror unavailable; retry delivery")
+				return
+			}
 		}
 	default:
 		// Acknowledge unmodelled events so the provider doesn't flag the hook.
@@ -154,16 +160,17 @@ func (h *Handler) HandleVCSWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnection, ev vcs.PullRequestEvent) {
+func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnection, ev vcs.PullRequestEvent) error {
 	if ev.RepoOwner == "" || ev.RepoName == "" || ev.Number == 0 {
 		slog.Warn("vcs: pull_request missing repo identity", "provider", conn.Provider)
-		return
+		return nil
 	}
 
 	pr, err := h.Queries.UpsertVCSPullRequest(ctx, db.UpsertVCSPullRequestParams{
 		WorkspaceID:     conn.WorkspaceID,
 		ConnectionID:    conn.ID,
 		Provider:        conn.Provider,
+		ExternalRepoID:  ptrToText(strPtrOrNil(ev.RepoID)),
 		RepoOwner:       ev.RepoOwner,
 		RepoName:        ev.RepoName,
 		PrNumber:        ev.Number,
@@ -184,7 +191,7 @@ func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnectio
 	})
 	if err != nil {
 		slog.Warn("vcs: upsert pr failed", "err", err)
-		return
+		return err
 	}
 
 	// Out-of-order guard for the link metadata. UpsertVCSPullRequest keeps the
@@ -199,7 +206,7 @@ func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnectio
 	// now(), which is never strictly after the stored value, so it proceeds.)
 	evUpdatedAt := parseGHTimeRequired(ev.UpdatedAt)
 	if pr.PrUpdatedAt.Valid && evUpdatedAt.Valid && pr.PrUpdatedAt.Time.After(evUpdatedAt.Time) {
-		return
+		return nil
 	}
 
 	workspaceID := uuidToString(conn.WorkspaceID)
@@ -233,15 +240,17 @@ func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnectio
 	preserveCloseIntent := !ev.Terminal() && (ev.State == "merged" || ev.State == "closed")
 	prefix := h.getTaskPrefix(ctx, conn.WorkspaceID)
 	reevalTasks := make([]db.Task, 0, len(idents))
+	var linkErr error
 	for _, id := range idents {
 		task, ok := h.lookupTaskByIdentifier(ctx, conn.WorkspaceID, prefix, id)
 		if !ok {
 			continue
 		}
 		_, declared := closingIdents[id]
-		closeIntent := declared && !preserveCloseIntent
+		eligible := h.taskGitRepositoryEligible(ctx, task, "vcs", conn.ID, conn.InstanceUrl, ev.RepoOwner+"/"+ev.RepoName, ev.RepoID)
+		closeIntent := declared && !preserveCloseIntent && eligible
 		_, qualifies := qualifyingIdents[id]
-		referenceOnly := !qualifies
+		referenceOnly := !qualifies || !eligible
 		if err := h.Queries.LinkTaskToVCSPullRequest(ctx, db.LinkTaskToVCSPullRequestParams{
 			TaskID:              task.ID,
 			PullRequestID:       pr.ID,
@@ -252,10 +261,13 @@ func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnectio
 			LinkedByID:          pgtype.UUID{},
 		}); err != nil {
 			slog.Warn("vcs: link failed", "err", err)
+			linkErr = err
 			continue
 		}
 		linkedTaskIDs = append(linkedTaskIDs, uuidToString(task.ID))
-		reevalTasks = append(reevalTasks, task)
+		if eligible {
+			reevalTasks = append(reevalTasks, task)
+		}
 	}
 
 	if ev.State == "merged" || ev.State == "closed" {
@@ -277,42 +289,68 @@ func (h *Handler) mirrorVCSPullRequest(ctx context.Context, conn db.VcsConnectio
 	h.publish(protocol.EventPullRequestUpdated, workspaceID, "system", "", map[string]any{
 		"pull_request":    resp,
 		"linked_task_ids": linkedTaskIDs,
+		"project_ids":     h.gitProjectsForRepository(ctx, conn.WorkspaceID, "vcs", conn.ID, ev.RepoOwner+"/"+ev.RepoName, ev.RepoID),
 	})
+	return linkErr
 }
 
-func (h *Handler) mirrorVCSCIStatus(ctx context.Context, conn db.VcsConnection, ev vcs.CIStatusEvent) {
+func (h *Handler) mirrorVCSCIStatus(ctx context.Context, conn db.VcsConnection, ev vcs.CIStatusEvent) error {
 	if ev.SHA == "" || ev.State == "" {
-		return
+		return nil
 	}
-	// Use the provider's own event timestamp so UpsertVCSCommitStatus's
-	// monotonic guard has something real to compare — writing time.Now() here
-	// made the guard always true, so an out-of-order redelivery could regress a
-	// status. Falls back to now() only when the payload carried no timestamp.
-	if err := h.Queries.UpsertVCSCommitStatus(ctx, db.UpsertVCSCommitStatusParams{
-		ConnectionID: conn.ID,
-		Sha:          ev.SHA,
-		Context:      ev.Context,
-		State:        ev.State,
-		TargetUrl:    ptrToText(strPtrOrNil(ev.TargetURL)),
-		Description:  ptrToText(strPtrOrNil(ev.Description)),
-		UpdatedAt:    parseGHTimeRequired(ev.UpdatedAt),
+	// Repository-qualified and legacy task checks commit together. Lock the
+	// workspace/connection in the same order as connection deletion.
+	tx, err := h.TxStarter.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var id pgtype.UUID
+	if err = tx.QueryRow(ctx, `SELECT id FROM workspace WHERE id=$1 FOR KEY SHARE`, conn.WorkspaceID).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if err = tx.QueryRow(ctx, `SELECT id FROM vcs_connection WHERE id=$1 AND workspace_id=$2 FOR KEY SHARE`, conn.ID, conn.WorkspaceID).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	qtx := h.Queries.WithTx(tx)
+	stamp := parseGHTimeRequired(ev.UpdatedAt)
+	if err = qtx.UpsertVCSCommitStatus(ctx, db.UpsertVCSCommitStatusParams{
+		ConnectionID: conn.ID, Sha: ev.SHA, Context: ev.Context, State: ev.State,
+		TargetUrl: ptrToText(strPtrOrNil(ev.TargetURL)), Description: ptrToText(strPtrOrNil(ev.Description)), UpdatedAt: stamp,
 	}); err != nil {
 		slog.Warn("vcs: upsert commit status failed", "err", err)
-		return
+		return err
 	}
-
-	taskIDs, err := h.Queries.ListTaskIDsForVCSPRHead(ctx, db.ListTaskIDsForVCSPRHeadParams{
-		ConnectionID: conn.ID,
-		HeadSha:      ev.SHA,
-	})
+	path, pathErr := vcs.NormalizeRepositoryPath(ev.RepoPath)
+	if pathErr == nil {
+		_, err = tx.Exec(ctx, `INSERT INTO vcs_repo_commit_status(connection_id,repository_path,sha,context,state,target_url,description,updated_at)
+		VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+		ON CONFLICT(connection_id,repository_path,sha,context) DO UPDATE SET state=EXCLUDED.state,target_url=EXCLUDED.target_url,description=EXCLUDED.description,updated_at=EXCLUDED.updated_at
+		WHERE EXCLUDED.updated_at>=vcs_repo_commit_status.updated_at`, conn.ID, path, ev.SHA, ev.Context, ev.State, ptrToText(strPtrOrNil(ev.TargetURL)), ptrToText(strPtrOrNil(ev.Description)), stamp)
+		if err != nil {
+			slog.Warn("vcs: project CI mirror failed", "err", err)
+			return err
+		}
+	}
+	taskIDs, err := qtx.ListTaskIDsForVCSPRHead(ctx, db.ListTaskIDsForVCSPRHeadParams{ConnectionID: conn.ID, HeadSha: ev.SHA})
 	if err != nil {
-		slog.Warn("vcs: lookup tasks for status failed", "err", err)
-		return
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
 	}
 	workspaceID := uuidToString(conn.WorkspaceID)
-	for _, taskID := range taskIDs {
-		h.publish(protocol.EventPullRequestUpdated, workspaceID, "system", "", map[string]any{
-			"task_id": uuidToString(taskID),
-		})
+	if pathErr == nil {
+		h.publish(protocol.EventPullRequestUpdated, workspaceID, "system", "", map[string]any{"project_ids": h.gitProjectsForRepository(ctx, conn.WorkspaceID, "vcs", conn.ID, path, ev.RepoID)})
 	}
+	for _, taskID := range taskIDs {
+		h.publish(protocol.EventPullRequestUpdated, workspaceID, "system", "", map[string]any{"task_id": uuidToString(taskID)})
+	}
+	return nil
 }

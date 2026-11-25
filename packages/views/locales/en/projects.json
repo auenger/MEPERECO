@@ -1,4 +1,10 @@
 {
+  "icon_picker": {
+    "upload": "Upload image",
+    "reset": "Reset",
+    "updated": "Project icon updated",
+    "failed": "Failed to update project icon"
+  },
   "page": {
     "title": "Projects",
     "new_project": "New project",
@@ -57,7 +63,7 @@
   },
   "detail": {
     "task_tab": "Task",
-    "resource_tab": "Resources",
+    "resource_tab": "Work Resources",
     "not_found": "Project not found",
     "breadcrumb_fallback": "Projects",
     "title_placeholder": "Project title",

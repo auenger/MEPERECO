@@ -42,9 +42,36 @@ That gives you the project-management layer first. Once a runtime is connected, 
 
 ## Install your first agent runtime
 
-Full guide: https://silieco.ai/docs/install-agent-runtime
+Recommended: Pi — open-source, lightweight, works with 25+ model providers.
 
-For English users, the fastest first path is Codex:
+1. Install Pi (requires Node.js 22.19+, or use the official installer):
+   npm i -g @earendil-works/pi-coding-agent
+   macOS / Linux one-liner:
+   curl -fsSL https://pi.dev/install.sh | sh
+   Windows PowerShell:
+   irm https://pi.dev/install.ps1 | iex
+2. Confirm your terminal can find it:
+   pi --version
+3. Start it once and log in (pick a provider, then sign in to a subscription or paste an API key):
+   pi
+4. Wait for Silieco to pick it up. A running daemon re-checks for newly
+   installed CLIs every couple of minutes, so no restart is normally needed.
+   To apply it immediately:
+   silieco daemon restart
+   In the desktop app, open any local runtime and click Restart. Quitting and
+   reopening the app is NOT enough — the daemon keeps running in the background.
+5. Return to Runtimes and refresh. You should see a Pi runtime online.
+6. Create your first agent from that runtime, then assign an task to the agent and set status to todo.
+
+Pi reference: https://github.com/earendil-works/pi
+
+Tip — one place for all your models: Magpie (https://usemagpie.ai) runs a
+local gateway that lets Pi, Claude Code, Codex and other agents share your
+subscriptions and API keys, with per-agent model switching. Pi is officially
+supported by Magpie, so you can point Pi at it once and switch models
+without touching Pi's config again.
+
+Prefer Codex instead?
 
 1. Make sure Node.js is installed.
 2. Install Codex:
@@ -54,12 +81,7 @@ For English users, the fastest first path is Codex:
 4. Confirm your terminal can find it:
    which codex
    codex --version
-5. Wait for Silieco to pick it up. A running daemon re-checks for newly
-   installed CLIs every couple of minutes, so no restart is normally needed.
-   To apply it immediately:
-   silieco daemon restart
-   In the desktop app, open any local runtime and click Restart. Quitting and
-   reopening the app is NOT enough — the daemon keeps running in the background.
+5. Wait for Silieco to pick it up (same as above — \`silieco daemon restart\` applies it immediately).
 6. Return to Runtimes and refresh. You should see a Codex runtime online.
 7. Create your first agent from that runtime, then assign an task to the agent and set status to todo.
 
@@ -84,9 +106,33 @@ const zh = `欢迎来到 Silieco。
 
 ## 安装第一个 Agent 运行时
 
-完整文档:https://silieco.ai/docs/install-agent-runtime
+推荐:Pi —— 开源轻量,支持 25+ 模型供应商。
 
-中文用户建议先装 Kimi CLI:
+1. 安装 Pi(需要 Node.js 22.19+,或直接用官方安装脚本):
+   npm i -g @earendil-works/pi-coding-agent
+   macOS / Linux 一行命令:
+   curl -fsSL https://pi.dev/install.sh | sh
+   Windows PowerShell:
+   irm https://pi.dev/install.ps1 | iex
+2. 确认终端能找到 Pi:
+   pi --version
+3. 启动一次并登录(选一个供应商,订阅登录或粘贴 API key 均可):
+   pi
+4. 等 Silieco 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
+   想立刻生效:
+   silieco daemon restart
+   桌面端请打开任意一个本机 runtime 并点 Restart。退出再打开 app 是不够的 —— 守护进程会继续在后台运行。
+5. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Pi 运行时。
+6. 用这个运行时创建第一个智能体,再把一个 task 分配给它,并把状态切到 todo。
+
+Pi 官方仓库:https://github.com/earendil-works/pi
+
+小提示 —— 模型统一入口:Magpie(https://usemagpie.ai)是一个本地网关,
+能让 Pi、Claude Code、Codex 等智能体共享你的订阅账号和 API key,并按
+智能体切换模型。Magpie 官方支持 Pi,把 Pi 指向它一次,之后换模型不用
+再改 Pi 的配置。
+
+也可以选择 Kimi CLI:
 
 1. 在 macOS / Linux 终端安装 Kimi CLI:
    curl -LsSf https://code.kimi.com/install.sh | bash
@@ -97,10 +143,7 @@ const zh = `欢迎来到 Silieco。
 3. 在你想让 Kimi 工作的项目目录里启动一次:
    kimi
 4. 首次启动后输入 /login,按提示完成 Kimi Code 或 API key 配置。
-5. 等 Silieco 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
-   想立刻生效:
-   silieco daemon restart
-   桌面端请打开任意一个本机 runtime 并点 Restart。退出再打开 app 是不够的 —— 守护进程会继续在后台运行。
+5. 等 Silieco 识别到它(同上 —— \`silieco daemon restart\` 立即生效)。
 6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。
 7. 用这个运行时创建第一个智能体,再把一个 task 分配给它,并把状态切到 todo。
 

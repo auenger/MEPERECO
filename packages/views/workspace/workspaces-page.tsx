@@ -28,7 +28,7 @@ export function WorkspacesPage() {
   }, []);
   const first = workspaces.data?.[0];
   useEffect(() => {
-    if (first) replace(paths.workspace(first.slug).tasks());
+    if (first) replace(paths.workspace(first.slug).chat());
   }, [first, replace]);
   return (
     <div className="flex min-h-svh flex-col bg-background">

@@ -84,6 +84,7 @@ ORDER BY atq.agent_id, LOWER(tu.provider), tu.model;
 -- work bucketed at UTC 06:00 lands in 14:00 for a UTC+8 viewer.
 SELECT
     EXTRACT(HOUR FROM tu.created_at AT TIME ZONE @tz::text)::int AS hour,
+    LOWER(tu.provider) AS provider,
     tu.model,
     SUM(tu.input_tokens)::bigint AS input_tokens,
     SUM(tu.output_tokens)::bigint AS output_tokens,
@@ -99,5 +100,5 @@ FROM agent_run_usage tu
 JOIN agent_run atq ON atq.id = tu.run_id
 WHERE atq.runtime_id = $1
   AND tu.created_at >= @since::timestamptz
-GROUP BY EXTRACT(HOUR FROM tu.created_at AT TIME ZONE @tz::text), tu.model
-ORDER BY hour, tu.model;
+GROUP BY EXTRACT(HOUR FROM tu.created_at AT TIME ZONE @tz::text), LOWER(tu.provider), tu.model
+ORDER BY hour, provider, tu.model;

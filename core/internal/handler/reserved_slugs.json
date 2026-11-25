@@ -70,6 +70,7 @@
       "slugs": [
         "tasks",
         "projects",
+        "git",
         "autopilots",
         "agents",
         "squads",

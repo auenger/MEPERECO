@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { cn } from "@silieco/ui/lib/utils";
 import { useAuthStore } from "@silieco/core/auth";
 import {
@@ -27,10 +26,7 @@ export function LandingFooter() {
           {/* Left — newsletter / CTA */}
           <div className="lg:w-[340px] lg:shrink-0">
             <Link href="#product" className="flex items-center gap-3">
-              <SiliecoIcon className="size-5 text-white" noSpin />
-              <span className="text-title font-semibold tracking-[0.04em] lowercase">
-                silieco
-              </span>
+              <img src="/brand/meper-studio-horizontal-white.svg" alt="MEPER Studio" width={510} height={112} className="h-auto w-[180px]" />
             </Link>
             <p className="mt-4 max-w-[300px] text-body leading-[1.7] text-white/50 sm:text-body-lg">
               {t.footer.tagline}
@@ -121,13 +117,13 @@ export function LandingFooter() {
         {/* Giant logo */}
         <div className="relative overflow-hidden pb-4">
           <div className="flex items-end gap-6 sm:gap-8">
-            <SiliecoIcon
-              className="size-[clamp(4rem,12vw,10rem)] shrink-0 text-white"
-              noSpin
+            <img
+              src="/brand/meper-studio-horizontal-white.svg"
+              alt="MEPER Studio"
+              width={510}
+              height={112}
+              className="h-auto w-full"
             />
-            <span className="text-[clamp(5rem,20vw,15rem)] font-semibold leading-[0.82] tracking-[-0.075em] text-white">
-              silieco
-            </span>
           </div>
         </div>
       </div>

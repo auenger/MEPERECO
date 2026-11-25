@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/silieco-ai/silieco/core/internal/projectgit"
 	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
 	"github.com/silieco-ai/silieco/core/pkg/protocol"
 )
@@ -82,12 +82,7 @@ func validateAndNormalizeResourceRef(resourceType string, ref json.RawMessage) (
 	}
 }
 
-type githubRepoRef struct {
-	URL               string `json:"url"`
-	DefaultBranchHint string `json:"default_branch_hint,omitempty"`
-	Ref               string `json:"ref,omitempty"`
-	Primary           bool   `json:"primary,omitempty"`
-}
+type githubRepoRef = projectgit.Ref
 
 func validateGithubRepoRef(ref json.RawMessage) (json.RawMessage, error) {
 	var payload githubRepoRef
@@ -350,10 +345,6 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.validateLocalDirectoryRepository(r.Context(), project, req.ResourceType, normalizedRef); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
 	if req.ResourceType == "local_directory" {
 		if !h.requireLocalDirectoryManager(w, r, project, normalizedRef) {
 			return
@@ -362,14 +353,40 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if conflict, err := h.findLocalDirectoryConflict(r.Context(), project.ID, req.ResourceType, normalizedRef, pgtype.UUID{}); err != nil {
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin resource create")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	qtx := h.Queries.WithTx(tx)
+	if err := projectgit.LockProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusConflict, "project changed")
+		return
+	}
+	if err := h.validateLocalDirectoryRepository(r.Context(), qtx, project, req.ResourceType, normalizedRef); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if req.ResourceType == "github_repo" {
+		var fields map[string]json.RawMessage
+		_ = json.Unmarshal(req.ResourceRef, &fields)
+		_, provided := fields["integration"]
+		normalizedRef, err = projectgit.PrepareRef(r.Context(), tx, project.WorkspaceID, normalizedRef, nil, provided, true)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	if conflict, err := h.findLocalDirectoryConflict(r.Context(), qtx, project.ID, req.ResourceType, normalizedRef, pgtype.UUID{}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check existing resources")
 		return
 	} else if conflict {
 		writeError(w, http.StatusConflict, "this daemon already has a local directory mapped to this repository")
 		return
 	}
-	if conflict, err := h.findGithubRepositoryConflict(r.Context(), project.ID, req.ResourceType, normalizedRef, pgtype.UUID{}); err != nil {
+	if conflict, err := h.findGithubRepositoryConflict(r.Context(), qtx, project.ID, req.ResourceType, normalizedRef, pgtype.UUID{}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check existing repositories")
 		return
 	} else if conflict {
@@ -381,7 +398,7 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 	if req.Label != nil && strings.TrimSpace(*req.Label) != "" {
 		label = pgtype.Text{String: strings.TrimSpace(*req.Label), Valid: true}
 	}
-	existingResources, err := h.Queries.ListProjectResources(r.Context(), project.ID)
+	existingResources, err := qtx.ListProjectResources(r.Context(), project.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list existing resources")
 		return
@@ -393,14 +410,18 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 			writeError(w, http.StatusBadRequest, "invalid github_repo payload")
 			return
 		}
-		hasRepository := false
+		hasPrimary := false
 		for _, row := range existingResources {
-			if row.ResourceType == "github_repo" {
-				hasRepository = true
+			if row.ResourceType != "github_repo" {
+				continue
+			}
+			var existing githubRepoRef
+			if json.Unmarshal(row.ResourceRef, &existing) == nil && existing.Primary {
+				hasPrimary = true
 				break
 			}
 		}
-		if !hasRepository {
+		if !hasPrimary {
 			repoRef.Primary = true
 			normalizedRef, err = json.Marshal(repoRef)
 			if err != nil {
@@ -418,13 +439,6 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 		position = int32(len(existingResources))
 	}
 
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to begin resource create")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	qtx := h.Queries.WithTx(tx)
 	if newGithubPrimary {
 		if err := demoteGithubResources(r.Context(), qtx, existingResources, pgtype.UUID{}); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update primary repository")
@@ -447,6 +461,10 @@ func (h *Handler) CreateProjectResource(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to create project resource")
+		return
+	}
+	if err := projectgit.SyncProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to sync repository bindings")
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
@@ -485,7 +503,19 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	existing, err := h.Queries.GetProjectResourceInWorkspace(r.Context(), db.GetProjectResourceInWorkspaceParams{
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin resource update")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if err := projectgit.LockProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusConflict, "project changed")
+		return
+	}
+	queries := h.Queries.WithTx(tx)
+
+	existing, err := queries.GetProjectResourceInWorkspace(r.Context(), db.GetProjectResourceInWorkspaceParams{
 		ID: resourceUUID, WorkspaceID: project.WorkspaceID,
 	})
 	if err != nil {
@@ -521,8 +551,18 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		nextRef = normalized
+		if existing.ResourceType == "github_repo" {
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(rawRef, &fields)
+			_, provided := fields["integration"]
+			nextRef, err = projectgit.PrepareRef(r.Context(), tx, project.WorkspaceID, nextRef, existing.ResourceRef, provided, true)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
 	}
-	if err := h.validateLocalDirectoryRepository(r.Context(), project, existing.ResourceType, nextRef); err != nil {
+	if err := h.validateLocalDirectoryRepository(r.Context(), queries, project, existing.ResourceType, nextRef); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -530,14 +570,14 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if conflict, err := h.findLocalDirectoryConflict(r.Context(), project.ID, existing.ResourceType, nextRef, existing.ID); err != nil {
+	if conflict, err := h.findLocalDirectoryConflict(r.Context(), queries, project.ID, existing.ResourceType, nextRef, existing.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check existing resources")
 		return
 	} else if conflict {
 		writeError(w, http.StatusConflict, "another local directory on this daemon is already mapped to this repository")
 		return
 	}
-	if conflict, err := h.findGithubRepositoryConflict(r.Context(), project.ID, existing.ResourceType, nextRef, existing.ID); err != nil {
+	if conflict, err := h.findGithubRepositoryConflict(r.Context(), queries, project.ID, existing.ResourceType, nextRef, existing.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to check existing repositories")
 		return
 	} else if conflict {
@@ -575,19 +615,16 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 	if existing.ResourceType == "github_repo" {
 		var ref githubRepoRef
 		if err := json.Unmarshal(nextRef, &ref); err == nil {
+			var old githubRepoRef
+			_ = json.Unmarshal(existing.ResourceRef, &old)
+			if old.Primary && !ref.Primary {
+				ref.Primary = true
+				nextRef, _ = json.Marshal(ref)
+			}
 			makePrimary = ref.Primary
 		}
 	}
-	queries := h.Queries
-	var tx pgx.Tx
 	if makePrimary {
-		tx, err = h.TxStarter.Begin(r.Context())
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to begin resource update")
-			return
-		}
-		defer tx.Rollback(r.Context())
-		queries = h.Queries.WithTx(tx)
 		rows, listErr := queries.ListProjectResources(r.Context(), project.ID)
 		if listErr != nil || demoteGithubResources(r.Context(), queries, rows, existing.ID) != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update primary repository")
@@ -608,11 +645,13 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to update project resource")
 		return
 	}
-	if tx != nil {
-		if err := tx.Commit(r.Context()); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to commit project resource")
-			return
-		}
+	if err := projectgit.SyncProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to sync repository bindings")
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to commit project resource")
+		return
 	}
 
 	resp := projectResourceToResponse(updated)
@@ -636,7 +675,7 @@ func (h *Handler) UpdateProjectResource(w http.ResponseWriter, r *http.Request) 
 // through. We do the daemon-scoped check here in application code instead.
 //
 // `excludeID` lets the update path ignore the row being edited.
-func (h *Handler) findLocalDirectoryConflict(ctx context.Context, projectID pgtype.UUID, resourceType string, normalizedRef json.RawMessage, excludeID pgtype.UUID) (bool, error) {
+func (h *Handler) findLocalDirectoryConflict(ctx context.Context, queries *db.Queries, projectID pgtype.UUID, resourceType string, normalizedRef json.RawMessage, excludeID pgtype.UUID) (bool, error) {
 	if resourceType != "local_directory" {
 		return false, nil
 	}
@@ -644,7 +683,7 @@ func (h *Handler) findLocalDirectoryConflict(ctx context.Context, projectID pgty
 	if err := json.Unmarshal(normalizedRef, &incoming); err != nil {
 		return false, err
 	}
-	rows, err := h.Queries.ListProjectResources(ctx, projectID)
+	rows, err := queries.ListProjectResources(ctx, projectID)
 	if err != nil {
 		return false, err
 	}
@@ -667,7 +706,7 @@ func (h *Handler) findLocalDirectoryConflict(ctx context.Context, projectID pgty
 	return false, nil
 }
 
-func (h *Handler) findGithubRepositoryConflict(ctx context.Context, projectID pgtype.UUID, resourceType string, normalizedRef json.RawMessage, excludeID pgtype.UUID) (bool, error) {
+func (h *Handler) findGithubRepositoryConflict(ctx context.Context, queries *db.Queries, projectID pgtype.UUID, resourceType string, normalizedRef json.RawMessage, excludeID pgtype.UUID) (bool, error) {
 	if resourceType != "github_repo" {
 		return false, nil
 	}
@@ -675,7 +714,7 @@ func (h *Handler) findGithubRepositoryConflict(ctx context.Context, projectID pg
 	if err := json.Unmarshal(normalizedRef, &incoming); err != nil {
 		return false, err
 	}
-	rows, err := h.Queries.ListProjectResources(ctx, projectID)
+	rows, err := queries.ListProjectResources(ctx, projectID)
 	if err != nil {
 		return false, err
 	}
@@ -685,14 +724,14 @@ func (h *Handler) findGithubRepositoryConflict(ctx context.Context, projectID pg
 			continue
 		}
 		var existing githubRepoRef
-		if err := json.Unmarshal(row.ResourceRef, &existing); err == nil && existing.URL == incoming.URL {
+		if err := json.Unmarshal(row.ResourceRef, &existing); err == nil && projectgit.SameRepository(existing, incoming) {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func (h *Handler) validateLocalDirectoryRepository(ctx context.Context, project db.Project, resourceType string, normalizedRef json.RawMessage) error {
+func (h *Handler) validateLocalDirectoryRepository(ctx context.Context, queries *db.Queries, project db.Project, resourceType string, normalizedRef json.RawMessage) error {
 	if resourceType != "local_directory" {
 		return nil
 	}
@@ -707,7 +746,7 @@ func (h *Handler) validateLocalDirectoryRepository(ctx context.Context, project 
 	if err != nil {
 		return errors.New("local_directory: repository_resource_id must be a UUID")
 	}
-	repository, err := h.Queries.GetProjectResourceInWorkspace(ctx, db.GetProjectResourceInWorkspaceParams{
+	repository, err := queries.GetProjectResourceInWorkspace(ctx, db.GetProjectResourceInWorkspaceParams{
 		ID: repositoryID, WorkspaceID: project.WorkspaceID,
 	})
 	if err != nil || uuidToString(repository.ProjectID) != uuidToString(project.ID) || repository.ResourceType != "github_repo" {
@@ -754,7 +793,18 @@ func (h *Handler) DeleteProjectResource(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	resource, err := h.Queries.GetProjectResourceInWorkspace(r.Context(), db.GetProjectResourceInWorkspaceParams{
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to begin resource delete")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	qtx := h.Queries.WithTx(tx)
+	if err := projectgit.LockProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusConflict, "project changed")
+		return
+	}
+	resource, err := qtx.GetProjectResourceInWorkspace(r.Context(), db.GetProjectResourceInWorkspaceParams{
 		ID: resourceUUID, WorkspaceID: project.WorkspaceID,
 	})
 	if err != nil {
@@ -772,18 +822,11 @@ func (h *Handler) DeleteProjectResource(w http.ResponseWriter, r *http.Request) 
 	} else if !h.requireProjectResourceManager(w, r, project) {
 		return
 	}
-	resources, err := h.Queries.ListProjectResources(r.Context(), project.ID)
+	resources, err := qtx.ListProjectResources(r.Context(), project.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list dependent resources")
 		return
 	}
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to begin resource delete")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	qtx := h.Queries.WithTx(tx)
 	wasPrimary := false
 	if resource.ResourceType == "github_repo" {
 		var repositoryRef githubRepoRef
@@ -831,6 +874,10 @@ func (h *Handler) DeleteProjectResource(w http.ResponseWriter, r *http.Request) 
 			}
 			break
 		}
+	}
+	if err := projectgit.SyncProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to sync repository bindings")
+		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to commit resource delete")

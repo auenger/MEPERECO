@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { arrayMove } from "@dnd-kit/sortable";
 import { createPersistStorage, defaultStorage } from "@silieco/core/platform";
 import { createSafeId } from "@silieco/core/utils";
-import { isReservedSlug } from "@silieco/core/paths";
+import { isReservedSlug, paths, parseProjectTabSurface } from "@silieco/core/paths";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,11 +46,9 @@ export interface TabSession {
    */
   url: string;
   /**
-   * Dedup identity: the pathname alone. Search/hash (filters, anchors) are
-   * view state and live in `url`/`memento`, NOT in the identity — opening
-   * `/slug/tasks?filter=a` while `/slug/tasks?filter=b` exists focuses
-   * the existing tab (RFC §8.2; deliberate semantic change from the old
-   * exact-path dedupe).
+   * Dedup identity: pathname plus an explicit project sidebar surface/run.
+   * Other search/hash values (filters, anchors) remain view state, so opening
+   * `/slug/tasks?filter=a` while `/slug/tasks?filter=b` exists focuses it.
    */
   resourceKey: string;
   title: string;
@@ -246,9 +244,15 @@ export function splitTabUrl(url: string): { pathname: string; suffix: string } {
   return { pathname: url.slice(0, cut), suffix: url.slice(cut) };
 }
 
-/** Dedup identity of a tab URL: its pathname (search/hash are view state). */
+/** Dedup by semantic destination, not transient filters or anchors. */
 export function resourceKeyForUrl(url: string): string {
-  return splitTabUrl(url).pathname;
+  const { pathname } = splitTabUrl(url);
+  const surface = parseProjectTabSurface(url);
+  if (surface?.kind === "run") return `${pathname}?run=${encodeURIComponent(surface.id)}`;
+  if (surface?.kind === "resources" || surface?.kind === "sop") {
+    return `${pathname}?section=${surface.kind}`;
+  }
+  return pathname;
 }
 
 /**
@@ -264,7 +268,7 @@ export function resourceKeyForUrl(url: string): string {
  *     was constructed without the workspace prefix. The router would
  *     interpret `tasks` as a workspace slug → NoAccessPage.
  *
- * Normalizes: a bare `/{slug}` (no route segment) becomes `/{slug}/tasks` —
+ * Normalizes: a bare `/{slug}` (no route segment) becomes `/{slug}/chat` —
  * the workspace's default surface. This replaces the old in-router
  * `<Navigate to="tasks">` index redirect (SILI-4741 invariant 1: the router
  * never self-navigates; URLs are normalized before they become sessions).
@@ -290,7 +294,7 @@ export function sanitizeTabPath(path: string): string | null {
     return null;
   }
   if (segments.length === 1) {
-    return `/${firstSegment}/tasks${suffix}`;
+    return `/${firstSegment}/chat${suffix}`;
   }
   return path;
 }
@@ -322,14 +326,14 @@ function pinnedBoundary(tabs: TabSession[]): number {
   return i;
 }
 
-/** Default entry point for a workspace — its tasks list. */
+/** Default entry point for a workspace — its chat surface. */
 function defaultPathFor(slug: string): string {
-  return `/${slug}/tasks`;
+  return paths.workspace(slug).chat();
 }
 
 function defaultTabFor(slug: string): TabSession {
   const path = defaultPathFor(slug);
-  return makeSession(path, "Tasks");
+  return makeSession(path, "Chat");
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +402,7 @@ export const useTabStore = create<TabStore>()(
           // First time entering this workspace — create the group.
           const cleanDesired = desiredPath ? sanitizeTabPath(desiredPath) : null;
           const seedPath = cleanDesired ?? defaultPathFor(slug);
-          const tab = makeSession(seedPath, "Tasks");
+          const tab = makeSession(seedPath, "Chat");
           set({
             activeWorkspaceSlug: slug,
             byWorkspace: {
@@ -426,7 +430,7 @@ export const useTabStore = create<TabStore>()(
               });
               return;
             }
-            const tab = makeSession(clean, "Tasks");
+            const tab = makeSession(clean, "Chat");
             set({
               activeWorkspaceSlug: slug,
               byWorkspace: {
@@ -455,7 +459,8 @@ export const useTabStore = create<TabStore>()(
         // Dedup by resourceKey: the existing tab keeps its own url (its
         // filters/anchor are its view state); we only focus it.
         const key = resourceKeyForUrl(clean);
-        const existing = group.tabs.find((t) => t.resourceKey === key);
+        const existing = group.tabs.find((t) => t.id === group.activeTabId && t.resourceKey === key)
+          ?? group.tabs.find((t) => t.resourceKey === key);
         if (existing) {
           set({
             byWorkspace: {

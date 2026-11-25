@@ -1,3 +1,4 @@
+import { formatModelMoney, usePricingCurrency } from "../../pricing-currency";
 import {
   BarChart,
   Bar,
@@ -22,11 +23,13 @@ import { useT } from "../../../i18n";
 export const weeklyCostStackConfig = {
   input: { label: "Input", color: "var(--chart-1)" },
   output: { label: "Output", color: "var(--chart-2)" },
+  cacheRead: { label: "Cache read", color: "var(--chart-4)" },
   cacheWrite: { label: "Cache write", color: "var(--chart-3)" },
 } satisfies ChartConfig;
 
 export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
   const { t } = useT("runtimes");
+  const currency=usePricingCurrency();
   return (
     <ChartContainer config={weeklyCostStackConfig} className="aspect-[3/1] w-full">
       <BarChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
@@ -42,7 +45,7 @@ export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(v: number) => `$${v}`}
+          tickFormatter={(v: number) => formatModelMoney(v,currency,true)}
           width={50}
         />
         <ChartTooltip
@@ -61,7 +64,7 @@ export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
               }}
               formatter={(value, name) =>
                 typeof value === "number"
-                  ? `$${value.toFixed(2)} ${name}`
+                  ? `${formatModelMoney(value,currency)} ${name}`
                   : `${value} ${name}`
               }
               footer={(payload) => {
@@ -74,7 +77,7 @@ export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
                   <div className="flex items-center justify-between gap-2 font-medium">
                     <span>{t(($) => $.charts.tooltip_total)}</span>
                     <span className="font-mono tabular-nums">
-                      ${total.toFixed(2)}
+                      {formatModelMoney(total,currency)}
                     </span>
                   </div>
                 );
@@ -88,6 +91,16 @@ export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
           ))}
         </Bar>
         <Bar dataKey="output" stackId="cost" fill="var(--color-output)">
+          {data.map((d) => (
+            <Cell key={d.weekStart} fillOpacity={d.partial ? 0.5 : 1} />
+          ))}
+        </Bar>
+        <Bar
+          dataKey="cacheRead"
+          stackId="cost"
+          fill="var(--color-cacheRead)"
+          radius={0}
+        >
           {data.map((d) => (
             <Cell key={d.weekStart} fillOpacity={d.partial ? 0.5 : 1} />
           ))}

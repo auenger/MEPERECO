@@ -59,6 +59,7 @@ type PullRequestEvent struct {
 	// Action is the raw provider action (e.g. "opened", "closed", "merge").
 	// The handler only needs to know whether it is terminal; see Terminal.
 	Action          string
+	RepoID          string
 	RepoOwner       string
 	RepoName        string
 	Number          int32
@@ -95,6 +96,8 @@ func (e PullRequestEvent) Terminal() bool {
 // webhook. State is normalized to passed/failed/pending so the aggregation
 // query is provider-independent.
 type CIStatusEvent struct {
+	RepoPath    string
+	RepoID      string
 	SHA         string
 	Context     string // status check / pipeline name; "" is allowed
 	State       string // passed | failed | pending

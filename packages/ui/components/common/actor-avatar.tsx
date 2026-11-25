@@ -10,6 +10,7 @@ import {
 } from "@silieco/ui/lib/avatar-size";
 import { parseAvatarEmoji } from "@silieco/ui/lib/avatar-emoji";
 import { SiliecoIcon } from "./silieco-icon";
+import { replaceLegacyBrandAvatar } from "@silieco/core/brand-assets";
 
 interface ActorAvatarProps {
   name: string;
@@ -67,13 +68,13 @@ function ActorAvatar({
         </span>
       ) : avatarUrl && !imgError ? (
         <img
-          src={avatarUrl}
+          src={replaceLegacyBrandAvatar(avatarUrl)}
           alt={name}
           className="h-full w-full object-cover"
           onError={() => setImgError(true)}
         />
       ) : isSystem ? (
-        <SiliecoIcon noSpin style={{ width: px * 0.55, height: px * 0.55 }} />
+        <SiliecoIcon noSpin variant="app" style={{ width: px * 0.55, height: px * 0.55 }} />
       ) : isAgent ? (
         <Bot style={{ width: px * 0.55, height: px * 0.55 }} />
       ) : isSquad ? (

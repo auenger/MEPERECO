@@ -292,3 +292,7 @@ export type {
   WorkspaceMCPServerList,
   AgentMCPAssignments,
 } from "./mcp";
+
+export type { GitRepositoryIntegration, GitBindingState, GitBinding, GitOverview, GitTaskReference, GitPullRequestItem, GitBindingPage, GitPullRequestPage, GitListParams, GitChangedFile, GitFilesPage } from "./git";
+
+export type { CurrencyCode, PricingCurrency, ModelRate, ModelCost, ModelPricingMode, ModelPricingRule, ModelPricingEntry, ReferenceRate, WorkspaceModelPricing } from "./pricing";

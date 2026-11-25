@@ -56,6 +56,7 @@ func (q *Queries) GetRuntimeRunHourlyActivity(ctx context.Context, arg GetRuntim
 const getRuntimeUsageByHour = `-- name: GetRuntimeUsageByHour :many
 SELECT
     EXTRACT(HOUR FROM tu.created_at AT TIME ZONE $2::text)::int AS hour,
+    LOWER(tu.provider) AS provider,
     tu.model,
     SUM(tu.input_tokens)::bigint AS input_tokens,
     SUM(tu.output_tokens)::bigint AS output_tokens,
@@ -71,8 +72,8 @@ FROM agent_run_usage tu
 JOIN agent_run atq ON atq.id = tu.run_id
 WHERE atq.runtime_id = $1
   AND tu.created_at >= $3::timestamptz
-GROUP BY EXTRACT(HOUR FROM tu.created_at AT TIME ZONE $2::text), tu.model
-ORDER BY hour, tu.model
+GROUP BY EXTRACT(HOUR FROM tu.created_at AT TIME ZONE $2::text), LOWER(tu.provider), tu.model
+ORDER BY hour, provider, tu.model
 `
 
 type GetRuntimeUsageByHourParams struct {
@@ -82,6 +83,7 @@ type GetRuntimeUsageByHourParams struct {
 }
 
 type GetRuntimeUsageByHourRow struct {
+	Provider                 string `json:"provider"`
 	Hour                     int32  `json:"hour"`
 	Model                    string `json:"model"`
 	InputTokens              int64  `json:"input_tokens"`
@@ -115,6 +117,7 @@ func (q *Queries) GetRuntimeUsageByHour(ctx context.Context, arg GetRuntimeUsage
 		var i GetRuntimeUsageByHourRow
 		if err := rows.Scan(
 			&i.Hour,
+			&i.Provider,
 			&i.Model,
 			&i.InputTokens,
 			&i.OutputTokens,

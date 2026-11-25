@@ -12,21 +12,31 @@
  *  - Zero runtime deps means this module is safe in Node (tests) and browsers
  */
 
+export type WorkResourceTab = "library" | "files" | "git";
+
+export function parseWorkResourceTab(value: string | null | undefined): WorkResourceTab {
+  return value === "files" || value === "git" ? value : "library";
+}
+
 const encode = (id: string) => encodeURIComponent(id);
 
 function workspaceScoped(slug: string) {
   const ws = `/${encode(slug)}`;
   return {
-    root: () => `${ws}/tasks`,
+    root: () => `${ws}/chat`,
     usage: () => `${ws}/usage`,
     tasks: () => `${ws}/tasks`,
     taskDetail: (id: string) => `${ws}/tasks/${encode(id)}`,
     projects: () => `${ws}/projects`,
-    resources: () => `${ws}/resources`,
+    resources: (tab: WorkResourceTab = "library") => `${ws}/resources${tab === "library" ? "" : `?tab=${tab}`}`,
+    git: () => `${ws}/resources?tab=git`,
+    legacyGit: () => `${ws}/git`,
+    projectGit: (id: string) => `${ws}/projects/${encode(id)}?section=resources&tab=git`,
     projectDetail: (id: string) => `${ws}/projects/${encode(id)}`,
-    projectFiles: (id: string) => `${ws}/projects/${encode(id)}/files`,
-    projectResources: (id: string) =>
-      `${ws}/projects/${encode(id)}?section=resources`,
+    projectFiles: (id: string) => `${ws}/projects/${encode(id)}?section=resources&tab=files`,
+    projectFilesStandalone: (id: string) => `${ws}/projects/${encode(id)}/files`,
+    projectResources: (id: string, tab: WorkResourceTab = "library") =>
+      `${ws}/projects/${encode(id)}?section=resources${tab === "library" ? "" : `&tab=${tab}`}`,
     projectSop: (id: string) => `${ws}/projects/${encode(id)}?section=sop`,
     projectWorkflowRun: (projectId: string, runId: string) =>
       `${ws}/projects/${encode(projectId)}?run=${encode(runId)}`,

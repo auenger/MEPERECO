@@ -79,6 +79,7 @@ import { useWorkspacePaths } from "@silieco/core/paths";
 import { useActorName } from "@silieco/core/workspace/hooks";
 import { useWorkspaceId } from "@silieco/core/hooks";
 import { useRecentContextStore } from "@silieco/core/chat";
+import { ModelCostValue, ModelCostHint } from "../../runtimes/components/model-cost-display";
 import { taskListOptions, taskDetailOptions, childTasksOptions, childTaskProgressOptions, taskUsageOptions, taskAttachmentsOptions } from "@silieco/core/tasks/queries";
 import { projectDetailOptions } from "@silieco/core/projects/queries";
 import { ProjectIcon } from "../../projects/components/project-icon";
@@ -2092,6 +2093,7 @@ export function TaskDetail({ taskId, onDelete, onDone, defaultSidebarOpen = true
                 </span>
               </PropRow>
             )}
+            {usage.pricing && <PropRow label={t($=>$.detail.prop_cost)}><div className="flex flex-col"><ModelCostValue cost={usage.pricing}/><ModelCostHint cost={usage.pricing}/></div></PropRow>}
             <PropRow label={t(($) => $.detail.prop_runs)}>
               <span className="text-muted-foreground">{usage.run_count}</span>
             </PropRow>

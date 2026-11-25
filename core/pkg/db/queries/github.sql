@@ -101,7 +101,7 @@ INSERT INTO github_pull_request (
     title, state, html_url, branch, author_login, author_avatar_url,
     merged_at, closed_at, pr_created_at, pr_updated_at,
     head_sha, mergeable_state,
-    additions, deletions, changed_files
+    additions, deletions, changed_files, external_repo_id
 ) SELECT
     $1 AS workspace_id,
     $2 AS installation_id,
@@ -122,7 +122,8 @@ INSERT INTO github_pull_request (
     sqlc.narg('mergeable_state') AS mergeable_state,
     $12 AS additions,
     $13 AS deletions,
-    $14 AS changed_files
+    $14 AS changed_files,
+    sqlc.narg('external_repo_id') AS external_repo_id
 WHERE (($1)::uuid IS NULL OR EXISTS (SELECT 1 FROM workspace AS ref_workspace_id WHERE ref_workspace_id.id = ($1) FOR KEY SHARE))
 
 ON CONFLICT (workspace_id, repo_owner, repo_name, pr_number) DO UPDATE SET
@@ -145,6 +146,7 @@ ON CONFLICT (workspace_id, repo_owner, repo_name, pr_number) DO UPDATE SET
     additions     = EXCLUDED.additions,
     deletions     = EXCLUDED.deletions,
     changed_files = EXCLUDED.changed_files,
+    external_repo_id = COALESCE(EXCLUDED.external_repo_id, github_pull_request.external_repo_id),
     updated_at = now()
 RETURNING *;
 

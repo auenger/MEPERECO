@@ -2,7 +2,7 @@
 
 import { type ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Virtuoso, type Components } from "react-virtuoso";
 import { cn } from "@silieco/ui/lib/utils";
 import { Skeleton } from "@silieco/ui/components/ui/skeleton";
@@ -19,7 +19,7 @@ import {
 } from "@silieco/ui/components/ui/tooltip";
 import { ChevronRight, ChevronDown, Brain, AlertCircle, AlertTriangle, Copy } from "lucide-react";
 import { useScrollFade } from "@silieco/ui/hooks/use-scroll-fade";
-import { isAgentRunMessageRunId, agentRunMessagesOptions } from "@silieco/core/chat/queries";
+import { chatKeys, isAgentRunMessageRunId, agentRunMessagesOptions } from "@silieco/core/chat/queries";
 import { workflowChatDisplayContent } from "@silieco/core/workflows";
 import { RichContent } from "../../rich-content";
 import { RichContentScrollRootProvider } from "../../rich-content/scroll-root";
@@ -146,6 +146,9 @@ const LIST_COMPONENTS: Components<ChatRenderItem, ChatListContext> = {
   Footer: ChatListFooter,
 };
 
+const EMPTY_MEMBERS: MemberWithUser[] = [];
+const EMPTY_AGENTS: Agent[] = [];
+
 export function ChatMessageList({
   messages,
   renderMessageAction,
@@ -159,8 +162,8 @@ export function ChatMessageList({
   groupMode = false,
   currentUserId,
   agentId,
-  members = [],
-  agents = [],
+  members = EMPTY_MEMBERS,
+  agents = EMPTY_AGENTS,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollContainerEl, setScrollContainerEl] = useState<HTMLDivElement | null>(null);
@@ -200,6 +203,9 @@ export function ChatMessageList({
   const { data: liveAgentRunMessages } = useQuery({
     ...agentRunMessagesOptions(pendingRunId ?? ""),
     enabled: canFetchLiveTimeline,
+    // An overlay that slept through part of an active run needs the full
+    // authoritative trace on remount, even if a previous cache is still warm.
+    refetchOnMount: "always",
   });
   const hasLive = showLiveTimeline && (liveAgentRunMessages?.length ?? 0) > 0;
   const showStatusPill = !!pendingRunId && !pendingAlreadyPersisted && !!pendingRun;
@@ -282,7 +288,8 @@ export function ChatMessageList({
         itemContent={(_, item) => (
           <div className={cn(CHAT_COLUMN, "py-2")}>
             <MessageBubble
-              item={item}
+              message={item.kind === "message" ? item.message : undefined}
+              runId={item.runId}
               isPending={!!pendingRunId && item.runId === pendingRunId}
               transformContent={transformContent}
               groupMode={groupMode}
@@ -346,7 +353,8 @@ function ChatSkeletonBody() {
 // memo skips reconciling rows the stream didn't touch — the persisted
 // history stays inert while only the live footer updates.
 const MessageBubble = memo(function MessageBubble({
-  item,
+  message,
+  runId,
   isPending,
   transformContent,
   groupMode,
@@ -355,7 +363,8 @@ const MessageBubble = memo(function MessageBubble({
   memberNames,
   agentNames,
 }: {
-  item: ChatRenderItem;
+  message?: ChatMessage;
+  runId: string | null;
   isPending: boolean;
   transformContent?: (content: string) => string;
   groupMode: boolean;
@@ -364,8 +373,6 @@ const MessageBubble = memo(function MessageBubble({
   memberNames: Map<string, string>;
   agentNames: Map<string, string>;
 }) {
-  const message = item.kind === "message" ? item.message : undefined;
-
   if (message?.role === "user") {
     const isOwn = !groupMode || !message.sender_user_id || message.sender_user_id === currentUserId;
     const authorName = message.sender_user_id
@@ -417,7 +424,7 @@ const MessageBubble = memo(function MessageBubble({
           </div>
         )}
         <AssistantMessage
-          runId={item.runId}
+          runId={runId}
           message={message}
           isPending={isPending}
           transformContent={transformContent}
@@ -456,14 +463,27 @@ function AssistantMessage({
   transformContent?: (content: string) => string;
 }) {
   const canFetchAgentRunMessages = isAgentRunMessageRunId(runId);
+  const [requestedHistory, setRequestedHistory] = useState(false);
+  const wasLiveAtMount = useRef(!message);
+  const queryClient = useQueryClient();
+  const { t } = useT("chat");
 
-  // Use the shared agentRunMessagesOptions so this cache entry is the same one
-  // seeded by useRealtimeSync during run execution — zero refetch when the
-  // run finishes, since WS already populated it.
-  const { data: agentRunMessages } = useQuery({
+  // Live runs keep observing and streaming into their existing cache entry.
+  // Cold, persisted rows use their authoritative ChatMessage body immediately;
+  // only a user opening the process details asks the server for the full run.
+  // Disabled observers still read an already-cached trace, preserving the
+  // live → settled handoff and any warm historical timeline.
+  const runQuery = useQuery({
     ...agentRunMessagesOptions(runId ?? ""),
-    enabled: canFetchAgentRunMessages,
+    enabled: canFetchAgentRunMessages && (!message || requestedHistory),
   });
+  // A cached run may have progressed while this surface was asleep.
+  // Do not replace a persisted final answer with an incomplete stale trace;
+  // the historical disclosure triggers its authoritative refetch. Live rows
+  // already mounted in this view keep their existing diagram subtree.
+  const staleHistoricalTrace = !!message && !wasLiveAtMount.current
+    && queryClient.getQueryState(chatKeys.agentRunMessages(runId ?? ""))?.isInvalidated === true;
+  const agentRunMessages = staleHistoricalTrace ? undefined : runQuery.data;
 
   // Memoized on the cache array identity: mergeAgentRunMessagesBySeq preserves the
   // array reference when a duplicate event arrives, so this recomputes only
@@ -477,6 +497,32 @@ function AssistantMessage({
   // still arriving and a trailing fence may be half-written.
   const phase: "streaming" | "settled" = message ? "settled" : "streaming";
 
+  const historyControl = message && canFetchAgentRunMessages && !agentRunMessages?.length ? (
+    requestedHistory && runQuery.isSuccess && !runQuery.isFetching && !staleHistoricalTrace ? (
+      <div className="text-caption text-muted-foreground">
+        {t(($) => $.message_list.no_process_steps)}
+      </div>
+    ) : (
+      <button
+        type="button"
+        className="flex items-center gap-1 text-caption text-muted-foreground transition-colors hover:text-foreground disabled:cursor-wait"
+        disabled={runQuery.isFetching}
+        aria-expanded={false}
+        onClick={() => {
+          if (runQuery.isError) void runQuery.refetch();
+          else setRequestedHistory(true);
+        }}
+      >
+        <ChevronRight className="size-3" />
+        {runQuery.isFetching
+          ? t(($) => $.message_list.loading_process)
+          : runQuery.isError
+            ? t(($) => $.message_list.retry_process)
+            : t(($) => $.message_list.load_process)}
+      </button>
+    )
+  ) : null;
+
   // Failure bubble path: when the server's FailTask wrote a failure
   // chat_message (failure_reason set), render a destructive bubble with the
   // human-readable reason label + collapsible raw errMsg + the same timeline
@@ -488,6 +534,8 @@ function AssistantMessage({
         rawError={message.content}
         timeline={timeline}
         elapsedMs={message.elapsed_ms}
+        historyControl={historyControl}
+        initialProcessOpen={requestedHistory}
       />
     );
   }
@@ -505,8 +553,10 @@ function AssistantMessage({
           attachments={message?.attachments}
           phase={phase}
           isStreaming={!message}
+          initialProcessOpen={requestedHistory}
         />
       )}
+      {historyControl}
       {isNoResponse ? (
         <NoResponseNotice />
       ) : message && timeline.length === 0 ? (
@@ -662,11 +712,15 @@ function FailureBubble({
   rawError,
   timeline,
   elapsedMs,
+  historyControl,
+  initialProcessOpen,
 }: {
   reason: string;
   rawError: string;
   timeline: ChatTimelineItem[];
   elapsedMs?: number | null;
+  historyControl?: ReactNode;
+  initialProcessOpen?: boolean;
 }) {
   const { t } = useT("chat");
   const [open, setOpen] = useState(false);
@@ -747,7 +801,8 @@ function FailureBubble({
           )}
         </div>
       </div>
-      {timeline.length > 0 && <TimelineView items={timeline} />}
+      {historyControl}
+      {timeline.length > 0 && <TimelineView items={timeline} initialProcessOpen={initialProcessOpen} />}
       {elapsedMs != null && (
         <ElapsedCaption variant="failed" elapsedMs={elapsedMs} />
       )}
@@ -774,13 +829,15 @@ function TimelineView({
   isStreaming,
   attachments,
   phase = "settled",
+  initialProcessOpen = false,
 }: {
   items: ChatTimelineItem[];
   isStreaming?: boolean;
   attachments?: import("@silieco/core/types").Attachment[];
   phase?: "streaming" | "settled";
+  initialProcessOpen?: boolean;
 }) {
-  const { preface, middle, final } = splitTimeline(items);
+  const { preface, middle, final } = useMemo(() => splitTimeline(items), [items]);
 
   return (
     <>
@@ -797,6 +854,7 @@ function TimelineView({
         <OuterProcessFold
           items={middle}
           isStreaming={!!isStreaming}
+          initialOpen={initialProcessOpen}
           attachments={attachments}
           phase={phase}
         />
@@ -819,11 +877,13 @@ function OuterProcessFold({
   isStreaming,
   attachments,
   phase = "settled",
+  initialOpen = false,
 }: {
   items: ChatTimelineItem[];
   isStreaming?: boolean;
   attachments?: import("@silieco/core/types").Attachment[];
   phase?: "streaming" | "settled";
+  initialOpen?: boolean;
 }) {
   const { t } = useT("chat");
   // Open while the run streams (so the user watches progress), collapsed once
@@ -831,7 +891,7 @@ function OuterProcessFold({
   // torn down and the persisted one mounted closed. The row is now stable
   // across that handoff (SILI-4922) — which is the point, it keeps Mermaid and
   // HTML blocks alive — so the collapse has to be expressed directly.
-  const [open, setOpen] = useState(!!isStreaming);
+  const [open, setOpen] = useState(!!isStreaming || initialOpen);
   const wasStreaming = useRef(!!isStreaming);
   useEffect(() => {
     if (wasStreaming.current && !isStreaming) setOpen(false);
@@ -847,7 +907,7 @@ function OuterProcessFold({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className="mt-1 rounded-lg border bg-muted/20 p-2 space-y-0.5">
-          {items.map((item) =>
+          {open && items.map((item) =>
             item.type === "text" ? (
               <MiddleTextRow
                 key={item.seq}

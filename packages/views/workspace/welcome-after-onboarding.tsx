@@ -8,6 +8,7 @@ import { useAuthStore } from "@silieco/core/auth";
 import { useWelcomeStore } from "@silieco/core/onboarding";
 import { paths, useCurrentWorkspace } from "@silieco/core/paths";
 import { resolvePublicFileUrl } from "@silieco/core/workspace/avatar-url";
+import { MEPER_APP_ICON_DATA_URL } from "@silieco/core/brand-assets";
 import { taskKeys } from "@silieco/core/tasks/queries";
 import { workspaceKeys } from "@silieco/core/workspace/queries";
 import type { Agent, CreateTaskRequest, Task } from "@silieco/core/types";
@@ -133,11 +134,8 @@ export function WelcomeAfterOnboarding() {
 const SILI_AGENT_NAME = "Sili Agent";
 const LEGACY_HELPER_AGENT_NAME = "Silieco Helper";
 
-// Self-contained copy of the canonical Silieco mark. A data URL keeps the
-// avatar available in web, desktop, and self-hosted deployments without
-// depending on an external CDN or a deployment-specific public origin.
-const SILI_AGENT_AVATAR_URL =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0d12'/%3E%3Cpath d='M18 18h12v12H18zM34 18h12v12H34zM18 34h12v12H18zM34 34h12v12H34z' fill='%23f3f6fb'/%3E%3Cpath d='M34 18h12v12H34zM18 34h12v12H18z' fill='%233978f6'/%3E%3C/svg%3E";
+// Use the canonical MEPER Studio app artwork for built-in assistant avatars.
+const SILI_AGENT_AVATAR_URL = MEPER_APP_ICON_DATA_URL;
 
 /**
  * Module-level dedupe for in-flight Sili Agent setup. Keyed on

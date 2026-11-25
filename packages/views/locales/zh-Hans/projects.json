@@ -1,4 +1,10 @@
 {
+  "icon_picker": {
+    "upload": "上传图片",
+    "reset": "恢复默认",
+    "updated": "项目图标已更新",
+    "failed": "项目图标更新失败"
+  },
   "page": {
     "title": "项目",
     "new_project": "新建项目",
@@ -56,7 +62,7 @@
   },
   "detail": {
     "task_tab": "Task",
-    "resource_tab": "资源",
+    "resource_tab": "工作资源",
     "not_found": "未找到该项目",
     "breadcrumb_fallback": "项目",
     "title_placeholder": "项目标题",

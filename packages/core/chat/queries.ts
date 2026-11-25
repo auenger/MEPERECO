@@ -1,7 +1,11 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { AgentRunMessagePayload } from "../types/events";
 import type { ChatSession } from "../types/chat";
+import type { AgentRunMessagePayload } from "../types/events";
+import { getCurrentSlug, getCurrentWsId } from "../platform/workspace-storage";
+import { cacheChatMessagePage, mergeLatestChatMessagePage, mergeAgentRunMessagesBySeq, type CachedChatMessagesPage } from "./cache-merge";
+
+export { mergeAgentRunMessagesBySeq } from "./cache-merge";
 
 // NOTE on workspace scoping:
 // `wsId` is used only as part of queryKey for cache isolation per workspace.
@@ -119,14 +123,98 @@ export function chatMessagesOptions(sessionId: string) {
 export function chatMessagesPageOptions(sessionId: string, limit = 50) {
   return infiniteQueryOptions({
     queryKey: chatKeys.messagesPage(sessionId),
-    queryFn: ({ pageParam }) =>
-      api.listChatMessagesPage(sessionId, { before: pageParam, limit }),
+    queryFn: async ({ pageParam }) =>
+      cacheChatMessagePage(await api.listChatMessagesPage(sessionId, { before: pageParam, limit })),
     initialPageParam: null as { created_at: string; id: string } | null,
     getNextPageParam: (lastPage) =>
       lastPage.has_more ? lastPage.next_cursor ?? undefined : undefined,
     enabled: !!sessionId,
     staleTime: Infinity,
   });
+}
+
+type TailRefresh = { dirty: boolean };
+const tailRefreshes = new WeakMap<QueryClient, Map<string, TailRefresh>>();
+
+/** Ordinary chat events only refresh the latest page. Keep full invalidation
+ * for cancellation/deletion/reconnect. Never race an in-flight older-page
+ * fetch, and never write a result into a different workspace or removed cache.
+ */
+export function syncLatestChatMessageQueries(qc: QueryClient, sessionId: string): void {
+  void qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
+  const key = chatKeys.messagesPage(sessionId);
+  const query = qc.getQueryCache().find({ queryKey: key, exact: true });
+  if (!query?.isActive()) {
+    void qc.invalidateQueries({ queryKey: key, refetchType: "none" });
+    return;
+  }
+  const workspace = getCurrentWsId();
+  const slug = getCurrentSlug();
+  let refreshes = tailRefreshes.get(qc);
+  if (!refreshes) {
+    refreshes = new Map();
+    tailRefreshes.set(qc, refreshes);
+  }
+  const id = `${workspace ?? ""}:${sessionId}`;
+  const existing = refreshes.get(id);
+  if (existing) {
+    existing.dirty = true;
+    return;
+  }
+  const job: TailRefresh = { dirty: true };
+  refreshes.set(id, job);
+  const sameScope = () => getCurrentWsId() === workspace && getCurrentSlug() === slug
+    && qc.getQueryCache().find({ queryKey: key, exact: true }) === query;
+  const finish = () => refreshes.delete(id);
+  const schedule = (delay = 80) => { setTimeout(() => void refresh(), delay); };
+  const refresh = async () => {
+    if (!sameScope()) { finish(); return; }
+    if (!query.isActive()) {
+      void qc.invalidateQueries({ queryKey: key, refetchType: "none" });
+      finish();
+      return;
+    }
+    // fetchNextPage/invalidation writes a snapshot of the entire infinite
+    // query; wait rather than overwrite that snapshot with a concurrent tail.
+    if (query.state.fetchStatus === "paused") {
+      void qc.invalidateQueries({ queryKey: key, refetchType: "none" });
+      finish();
+      return;
+    }
+    if (query.state.fetchStatus === "fetching") { schedule(250); return; }
+    const before = qc.getQueryData<InfiniteData<CachedChatMessagesPage>>(key);
+    if (!before?.pages.length) {
+      finish();
+      void qc.invalidateQueries({ queryKey: key });
+      return;
+    }
+    job.dirty = false;
+    const dataVersion = query.state.dataUpdateCount;
+    try {
+      const fresh = await api.listChatMessagesPage(sessionId, { limit: before.pages[0].limit ?? 50 });
+      if (!sameScope()) { finish(); return; }
+      if (query.state.fetchStatus !== "idle"
+        || query.state.dataUpdateCount !== dataVersion
+        || qc.getQueryData(key) !== before) {
+        job.dirty = true;
+      } else {
+        const merged = mergeLatestChatMessagePage(before, fresh);
+        if (!merged) {
+          finish();
+          void qc.invalidateQueries({ queryKey: key });
+          return;
+        }
+        qc.setQueryData(key, merged);
+      }
+    } catch {
+      if (sameScope()) void qc.invalidateQueries({ queryKey: key });
+      finish();
+      return;
+    }
+    if (job.dirty) schedule();
+    else finish();
+  };
+  schedule();
 }
 
 /**
@@ -171,33 +259,17 @@ export function chatDraftRestoresOptions(sessionId: string) {
 export function agentRunMessagesOptions(runId: string) {
   return queryOptions({
     queryKey: chatKeys.agentRunMessages(runId),
-    queryFn: () => api.listAgentRunMessages(runId),
+    queryFn: async ({ client }) => {
+      const rows = await api.listAgentRunMessages(runId);
+      // Reopening a slept/evicted live conversation rehydrates from the DB.
+      // Reconcile events received during that request instead of overwriting
+      // them with an earlier server snapshot.
+      const buffered = client.getQueryData<AgentRunMessagePayload[]>(chatKeys.agentRunMessages(runId));
+      return mergeAgentRunMessagesBySeq(rows, buffered ?? []);
+    },
     enabled: isAgentRunMessageRunId(runId),
     staleTime: Infinity,
   });
-}
-
-/**
- * Merge run-message batches into one seq-ordered, seq-deduplicated list for
- * the shared `["run-messages", runId]` cache. Existing entries win on
- * conflict, and the original array reference is preserved when nothing new
- * arrives so React Query observers don't re-render on duplicate events.
- *
- * Both the realtime `run:message` handler (a single payload) and the
- * transcript backfill (a full refetch) write this cache. Routing both through
- * one helper keeps a forced backfill from blind-replacing a seq the WebSocket
- * already delivered — and keeps a late WS event from being lost to an
- * in-flight backfill.
- */
-export function mergeAgentRunMessagesBySeq(
-  existing: readonly AgentRunMessagePayload[],
-  incoming: readonly AgentRunMessagePayload[],
-): AgentRunMessagePayload[] {
-  if (incoming.length === 0) return existing as AgentRunMessagePayload[];
-  const knownSeqs = new Set(existing.map((m) => m.seq));
-  const fresh = incoming.filter((m) => !knownSeqs.has(m.seq));
-  if (fresh.length === 0) return existing as AgentRunMessagePayload[];
-  return [...existing, ...fresh].sort((a, b) => a.seq - b.seq);
 }
 
 /**

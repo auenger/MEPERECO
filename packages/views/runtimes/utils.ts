@@ -481,6 +481,7 @@ export function isModelPriced(model: string, provider?: string): boolean {
 export function collectUnmappedModels(rows: readonly Priceable[]): string[] {
   const set = new Set<string>();
   for (const r of rows) {
+    if (r.pricing) { if (r.pricing.unknown_tokens > 0) set.add(pricingKey(r.model,r.provider)); continue; }
     if (!r.model || isModelPriced(r.model, r.provider)) continue;
     const uncosted = uncostedTokens(r);
     const needsEstimate =
@@ -511,6 +512,7 @@ type Priceable = Pick<
   | "cache_write_tokens"
 > & {
   provider?: string;
+  pricing?: import("@silieco/core/types").ModelCost;
   cost_usd_ticks?: number;
   uncosted_input_tokens?: number;
   uncosted_output_tokens?: number;
@@ -572,6 +574,7 @@ function uncostedTokens(usage: Priceable): {
 // only to the estimated half, since they are a user's guess at a rate and the
 // authoritative half is not a guess.
 export function estimateCost(usage: Priceable): number {
+  if (usage.pricing) return usage.pricing.actual_usd + usage.pricing.estimated_usd;
   const authoritative = (usage.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD;
   const pricing = resolvePricing(usage.model, usage.provider);
   if (!pricing) return authoritative;
@@ -600,6 +603,7 @@ export interface CostBreakdown {
 // this way keeps the stacked chart summing to the headline figure instead of
 // silently under-drawing every Grok row.
 export function estimateCostBreakdown(usage: Priceable): CostBreakdown {
+  if (usage.pricing) { const b=usage.pricing.breakdown; return { input:b.input, output:b.output, cacheRead:b.cache_read, cacheWrite:b.cache_write }; }
   const pricing = resolvePricing(usage.model, usage.provider);
   if (!pricing) {
     // No rates to split by, but the provider may still have priced the turn
@@ -653,6 +657,7 @@ export function estimateCostBreakdown(usage: Priceable): CostBreakdown {
 // minus what they actually cost at the discounted cache-hit rate. This is a
 // reconstruction of "money the cache saved you", not real-world spend.
 export function estimateCacheSavings(usage: Priceable): number {
+  if(usage.pricing) return usage.pricing.cache_savings_usd;
   const pricing = resolvePricing(usage.model, usage.provider);
   if (!pricing) return 0;
   const wouldHaveCost = (usage.cache_read_tokens * pricing.input) / 1_000_000;
@@ -687,6 +692,7 @@ export interface DailyCostStackData {
   label: string;
   input: number;
   output: number;
+  cacheRead: number;
   cacheWrite: number;
   total: number;
 }
@@ -724,6 +730,7 @@ export interface WeeklyCostStackData {
   daysCovered: number;
   input: number;
   output: number;
+  cacheRead: number;
   cacheWrite: number;
   total: number;
 }
@@ -738,7 +745,7 @@ export function aggregateByDate(usage: RuntimeUsage[]): {
   const costMap = new Map<string, number>();
   const stackMap = new Map<
     string,
-    { input: number; output: number; cacheWrite: number }
+    { input: number; output: number; cacheRead: number; cacheWrite: number }
   >();
   const modelMap = new Map<string, { tokens: number; cost: number }>();
 
@@ -763,10 +770,12 @@ export function aggregateByDate(usage: RuntimeUsage[]): {
     const stack = stackMap.get(u.date) ?? {
       input: 0,
       output: 0,
+      cacheRead: 0,
       cacheWrite: 0,
     };
     stack.input += breakdown.input;
     stack.output += breakdown.output;
+    stack.cacheRead += breakdown.cacheRead;
     stack.cacheWrite += breakdown.cacheWrite;
     stackMap.set(u.date, stack);
 
@@ -792,23 +801,24 @@ export function aggregateByDate(usage: RuntimeUsage[]): {
     .map(([date, cost]) => ({
       date,
       label: formatLabel(date),
-      cost: Math.round(cost * 100) / 100,
+      cost,
     }));
 
   const dailyCostStack = Array.from(stackMap.entries())
     .toSorted(([a], [b]) => a.localeCompare(b))
     .map(([date, s]) => {
-      const round = (n: number) => Math.round(n * 100) / 100;
-      const input = round(s.input);
-      const output = round(s.output);
-      const cacheWrite = round(s.cacheWrite);
+          const input = s.input;
+      const output = s.output;
+      const cacheRead = s.cacheRead;
+      const cacheWrite = s.cacheWrite;
       return {
         date,
         label: formatLabel(date),
         input,
         output,
+        cacheRead,
         cacheWrite,
-        total: round(input + output + cacheWrite),
+        total: input + output + cacheRead + cacheWrite,
       };
     });
 
@@ -861,7 +871,7 @@ export function aggregateByWeek(
 
   type TokenAgg = Omit<WeeklyTokenData, "label" | "rangeLabel" | "partial" | "daysCovered" | "weekEnd">;
   const tokenMap = new Map<string, TokenAgg>();
-  const stackMap = new Map<string, { input: number; output: number; cacheWrite: number }>();
+  const stackMap = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
 
   // Pre-seed every trailing calendar week in the window so sparse / empty
   // weeks still render as zero bars instead of being dropped.
@@ -874,7 +884,7 @@ export function aggregateByWeek(
       cacheRead: 0,
       cacheWrite: 0,
     });
-    stackMap.set(wkStart, { input: 0, output: 0, cacheWrite: 0 });
+    stackMap.set(wkStart, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
   }
 
   for (const u of usage) {
@@ -892,6 +902,7 @@ export function aggregateByWeek(
     if (!stack) continue;
     stack.input += breakdown.input;
     stack.output += breakdown.output;
+    stack.cacheRead += breakdown.cacheRead;
     stack.cacheWrite += breakdown.cacheWrite;
   }
 
@@ -925,16 +936,17 @@ export function aggregateByWeek(
   const weeklyCostStack: WeeklyCostStackData[] = Array.from(stackMap.entries())
     .toSorted(([a], [b]) => a.localeCompare(b))
     .map(([weekStart, s]) => {
-      const round = (n: number) => Math.round(n * 100) / 100;
-      const input = round(s.input);
-      const output = round(s.output);
-      const cacheWrite = round(s.cacheWrite);
+          const input = s.input;
+      const output = s.output;
+      const cacheRead = s.cacheRead;
+      const cacheWrite = s.cacheWrite;
       return {
         ...decorate(weekStart),
         input,
         output,
+        cacheRead,
         cacheWrite,
-        total: round(input + output + cacheWrite),
+        total: input + output + cacheRead + cacheWrite,
       };
     });
 
@@ -1036,6 +1048,7 @@ export interface CostByKey {
   key: string;
   tokens: number;
   cost: number;
+  unknownTokens?: number;
   taskCount: number;
 }
 
@@ -1054,6 +1067,7 @@ export function aggregateCostByAgent(rows: RuntimeUsageByAgent[]): CostByKey[] {
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
+    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
     entry.taskCount += r.run_count;
     map.set(r.agent_id, entry);
   }
@@ -1070,6 +1084,7 @@ export function aggregateCostByModel(rows: RuntimeUsage[]): CostByKey[] {
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
+    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
     map.set(key, entry);
   }
   return Array.from(map.values()).toSorted((a, b) => b.cost - a.cost);

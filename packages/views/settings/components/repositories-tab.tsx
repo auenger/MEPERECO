@@ -39,7 +39,8 @@ import {
 } from "@tanstack/react-query";
 import { useAuthStore } from "@silieco/core/auth";
 import { useWorkspaceId } from "@silieco/core/hooks";
-import { useCurrentWorkspace } from "@silieco/core/paths";
+import { useCurrentWorkspace, useWorkspacePaths } from "@silieco/core/paths";
+import { AppLink } from "../../navigation";
 import { memberListOptions, workspaceKeys } from "@silieco/core/workspace/queries";
 import {
   githubInstallationRepositoriesOptions,
@@ -112,6 +113,8 @@ export function RepositoriesTab() {
   const vcsAvailable = useConfigStore((s) => s.vcsIntegrationAvailable);
   const user = useAuthStore((state) => state.user);
   const workspace = useCurrentWorkspace();
+  const gitPaths = useWorkspacePaths();
+  const { t: gitT } = useT("git");
   const wsId = useWorkspaceId();
   const queryClient = useQueryClient();
   const navigation = useNavigation();
@@ -368,6 +371,7 @@ export function RepositoriesTab() {
 
   return (
     <SettingsTab title={t(($) => $.page.tabs.repositories)}>
+      <AppLink href={gitPaths.git()} className="text-caption text-primary hover:underline">{gitT($=>$.manage_repos)}</AppLink>
       <SettingsSection title={t(($) => $.repositories.provider_title)} description={t(($) => $.repositories.provider_description)}>
         <Select
           items={[{ value: "github", label: "GitHub" }, { value: "gitlab", label: "GitLab" }]}

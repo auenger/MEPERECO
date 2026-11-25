@@ -60,7 +60,7 @@ INSERT INTO project (
     $9 AS start_date,
     $10 AS due_date
 WHERE (($1)::uuid IS NULL OR EXISTS (SELECT 1 FROM workspace AS ref_workspace_id WHERE ref_workspace_id.id = ($1) FOR KEY SHARE))
- RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date
+ RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, repo_mode
 `
 
 type CreateProjectParams struct {
@@ -104,16 +104,20 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Priority,
 		&i.StartDate,
 		&i.DueDate,
+		&i.RepoMode,
 	)
 	return i, err
 }
 
 const deleteProject = `-- name: DeleteProject :exec
 WITH RECURSIVE cleanup_target_project AS MATERIALIZED (
-    SELECT project.id, project.workspace_id, project.title, project.description, project.icon, project.status, project.lead_type, project.lead_id, project.created_at, project.updated_at, project.priority, project.start_date, project.due_date FROM "project" project WHERE project.id = $1 AND project.workspace_id = $2
+    SELECT project.id, project.workspace_id, project.title, project.description, project.icon, project.status, project.lead_type, project.lead_id, project.created_at, project.updated_at, project.priority, project.start_date, project.due_date, project.repo_mode FROM "project" project WHERE project.id = $1 AND project.workspace_id = $2
 ),
 cleanup_target_project_resource AS MATERIALIZED (
     SELECT child.id, child.project_id, child.workspace_id, child.resource_type, child.resource_ref, child.label, child.position, child.created_at, child.created_by FROM "project_resource" child WHERE EXISTS (SELECT 1 FROM cleanup_target_project parent WHERE child."project_id" = parent."id")
+),
+cleanup_delete_project_repo_binding AS (
+    DELETE FROM project_repo_binding WHERE workspace_id = $2 AND project_id IN (SELECT id FROM cleanup_target_project)
 ),
 cleanup_delete_project_resource AS (
     DELETE FROM "project_resource" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project_resource)
@@ -286,7 +290,7 @@ func (q *Queries) DeleteProjectWorkflows(ctx context.Context, arg DeleteProjectW
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date FROM project
+SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, repo_mode FROM project
 WHERE id = $1
 `
 
@@ -307,12 +311,13 @@ func (q *Queries) GetProject(ctx context.Context, id pgtype.UUID) (Project, erro
 		&i.Priority,
 		&i.StartDate,
 		&i.DueDate,
+		&i.RepoMode,
 	)
 	return i, err
 }
 
 const getProjectInWorkspace = `-- name: GetProjectInWorkspace :one
-SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date FROM project
+SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, repo_mode FROM project
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -338,6 +343,7 @@ func (q *Queries) GetProjectInWorkspace(ctx context.Context, arg GetProjectInWor
 		&i.Priority,
 		&i.StartDate,
 		&i.DueDate,
+		&i.RepoMode,
 	)
 	return i, err
 }
@@ -378,7 +384,7 @@ func (q *Queries) GetProjectTaskStats(ctx context.Context, projectIds []pgtype.U
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date FROM project
+SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, repo_mode FROM project
 WHERE workspace_id = $1
   AND ($2::text IS NULL OR status = $2)
   AND ($3::text IS NULL OR priority = $3)
@@ -414,6 +420,7 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]P
 			&i.Priority,
 			&i.StartDate,
 			&i.DueDate,
+			&i.RepoMode,
 		); err != nil {
 			return nil, err
 		}
@@ -478,7 +485,7 @@ UPDATE project SET
     due_date = $10,
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date
+RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, repo_mode
 `
 
 type UpdateProjectParams struct {
@@ -522,6 +529,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.Priority,
 		&i.StartDate,
 		&i.DueDate,
+		&i.RepoMode,
 	)
 	return i, err
 }

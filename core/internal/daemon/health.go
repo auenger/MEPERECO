@@ -282,6 +282,10 @@ func (d *Daemon) repoCheckoutHandler() http.HandlerFunc {
 			return
 		}
 
+		if !d.runRepoScopeAllowed(req.WorkspaceID, req.RunID, req.URL) {
+			http.Error(w, "repository is not configured for this run", http.StatusForbidden)
+			return
+		}
 		if err := d.ensureRepoReady(r.Context(), req.WorkspaceID, req.URL); err != nil {
 			statusCode := http.StatusInternalServerError
 			if errors.Is(err, ErrRepoNotConfigured) {

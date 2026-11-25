@@ -76,11 +76,13 @@ type ConnectedAppData = runtimeapps.ConnectedApp
 // Task represents a claimed task from the server.
 // Agent data (name, skills) is populated by the claim endpoint.
 type AgentRun struct {
-	ID          string `json:"id"`
-	AgentID     string `json:"agent_id"`
-	RuntimeID   string `json:"runtime_id"`
-	TaskID      string `json:"task_id"`
-	WorkspaceID string `json:"workspace_id"`
+	RepoMode         string `json:"repo_mode,omitempty"`
+	RepoScopeVersion int    `json:"repo_scope_version,omitempty"`
+	ID               string `json:"id"`
+	AgentID          string `json:"agent_id"`
+	RuntimeID        string `json:"runtime_id"`
+	TaskID           string `json:"task_id"`
+	WorkspaceID      string `json:"workspace_id"`
 	// WorkspaceContext mirrors workspace.context (the per-workspace system
 	// prompt set in Settings → General). Server populates this on every claim
 	// regardless of task kind so the daemon can inject `## Workspace Context`
@@ -94,7 +96,7 @@ type AgentRun struct {
 	ProjectTitle                  string                    `json:"project_title,omitempty"`                    // human-readable project title for context injection
 	ProjectDescription            string                    `json:"project_description,omitempty"`              // durable project-level context injected into the brief
 	ProjectResources              []ProjectResourceData     `json:"project_resources,omitempty"`                // project-scoped resources to expose to the agent
-	IsLeaderRun                   bool                      `json:"is_leader_run,omitempty"`                   // true when executing in the squad-leader coordinator role
+	IsLeaderRun                   bool                      `json:"is_leader_run,omitempty"`                    // true when executing in the squad-leader coordinator role
 	PriorSessionID                string                    `json:"prior_session_id,omitempty"`                 // Claude session ID from a previous task on this task
 	PriorWorkDir                  string                    `json:"prior_work_dir,omitempty"`                   // work_dir from a previous task on this task
 	PriorSessionResumeUnavailable bool                      `json:"prior_session_resume_unavailable,omitempty"` // SILI-5305: server signals a more recent Codex session was withheld (rollout missing) and PriorSessionID (if any) is an older fallback; the run must disclose the continuity gap even if that older session resumes cleanly. Absent/false on old servers.

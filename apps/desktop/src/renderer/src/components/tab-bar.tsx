@@ -489,8 +489,8 @@ function NewTabButton() {
     // per workspace, so there is no cross-workspace ambiguity to resolve.
     const activeSlug = useTabStore.getState().activeWorkspaceSlug;
     if (!activeSlug) return;
-    const path = paths.workspace(activeSlug).tasks();
-    const tabId = addTab(path, "Tasks");
+    const path = paths.workspace(activeSlug).chat();
+    const tabId = addTab(path, "Chat");
     if (tabId) setActiveTab(tabId);
   };
 

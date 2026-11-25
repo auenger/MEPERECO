@@ -1274,7 +1274,9 @@ export const EMPTY_CLOUD_RUNTIME_NODE: CloudRuntimeNode = {
 // to the full token counts — i.e. exactly the old behaviour. A real 0 from a
 // current backend means "everything here is already priced", which is a
 // different thing and must stay distinguishable.
+const ModelCostSchema = z.object({ actual_usd: z.number(), estimated_usd: z.number(), unknown_tokens: z.number(), priced_tokens: z.number(), estimated_tokens: z.number(), cache_savings_usd: z.number(), breakdown: z.object({ input:z.number(),output:z.number(),cache_read:z.number(),cache_write:z.number() }) });
 const CostSplitShape = {
+  pricing: ModelCostSchema.optional(),
   cost_usd_ticks: z.number().optional(),
   uncosted_input_tokens: z.number().optional(),
   uncosted_output_tokens: z.number().optional(),
@@ -1397,6 +1399,7 @@ const RuntimeUsageByAgentSchema = z.object({
 export const RuntimeUsageByAgentListSchema = z.array(RuntimeUsageByAgentSchema);
 
 const RuntimeUsageByHourSchema = z.object({
+  provider: z.string().optional(),
   hour: z.number().default(0),
   model: z.string().default(""),
   input_tokens: z.number().default(0),
@@ -1483,6 +1486,7 @@ export const AgentRunSchema = z.object({
 }).loose();
 
 export const TaskUsageSummarySchema = z.object({
+  pricing: ModelCostSchema.optional(),
   total_input_tokens: z.number().default(0),
   total_output_tokens: z.number().default(0),
   total_cache_read_tokens: z.number().default(0),

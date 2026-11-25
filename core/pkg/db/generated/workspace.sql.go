@@ -135,6 +135,9 @@ cleared_vcs_pr_links AS (
     DELETE FROM task_vcs_pull_request
     WHERE pull_request_id IN (SELECT id FROM ws_vcs_prs)
 ),
+cleared_vcs_repo_commit_statuses AS (
+    DELETE FROM vcs_repo_commit_status WHERE connection_id IN (SELECT id FROM ws_vcs_connections)
+),
 cleared_vcs_commit_statuses AS (
     DELETE FROM vcs_commit_status
     WHERE connection_id IN (SELECT id FROM ws_vcs_connections)
@@ -265,7 +268,7 @@ cleanup_target_github_installation AS MATERIALIZED (
     SELECT child.id, child.workspace_id, child.installation_id, child.account_login, child.account_type, child.account_avatar_url, child.connected_by_id, child.created_at, child.updated_at FROM "github_installation" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
 ),
 cleanup_target_github_pull_request AS MATERIALIZED (
-    SELECT child.id, child.workspace_id, child.installation_id, child.repo_owner, child.repo_name, child.pr_number, child.title, child.state, child.html_url, child.branch, child.author_login, child.author_avatar_url, child.merged_at, child.closed_at, child.pr_created_at, child.pr_updated_at, child.created_at, child.updated_at, child.head_sha, child.mergeable_state, child.additions, child.deletions, child.changed_files, child.api_mergeable, child.api_merge_state_status, child.checks_rollup_state, child.snapshot_head_sha, child.snapshot_fetched_at FROM "github_pull_request" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
+    SELECT child.id, child.workspace_id, child.installation_id, child.repo_owner, child.repo_name, child.pr_number, child.title, child.state, child.html_url, child.branch, child.author_login, child.author_avatar_url, child.merged_at, child.closed_at, child.pr_created_at, child.pr_updated_at, child.created_at, child.updated_at, child.head_sha, child.mergeable_state, child.additions, child.deletions, child.changed_files, child.api_mergeable, child.api_merge_state_status, child.checks_rollup_state, child.snapshot_head_sha, child.snapshot_fetched_at, child.external_repo_id FROM "github_pull_request" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
 ),
 cleanup_target_github_pull_request_check_suite AS MATERIALIZED (
     SELECT child.pr_id, child.suite_id, child.head_sha, child.app_id, child.conclusion, child.status, child.updated_at FROM "github_pull_request_check_suite" child WHERE EXISTS (SELECT 1 FROM cleanup_target_github_pull_request parent WHERE child."pr_id" = parent."id")
@@ -301,7 +304,7 @@ cleanup_target_pinned_item AS MATERIALIZED (
     SELECT child.id, child.workspace_id, child.user_id, child.item_type, child.item_id, child.position, child.created_at FROM "pinned_item" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
 ),
 cleanup_target_project AS MATERIALIZED (
-    SELECT child.id, child.workspace_id, child.title, child.description, child.icon, child.status, child.lead_type, child.lead_id, child.created_at, child.updated_at, child.priority, child.start_date, child.due_date FROM "project" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
+    SELECT child.id, child.workspace_id, child.title, child.description, child.icon, child.status, child.lead_type, child.lead_id, child.created_at, child.updated_at, child.priority, child.start_date, child.due_date, child.repo_mode FROM "project" child WHERE EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
 ),
 cleanup_target_project_resource AS MATERIALIZED (
     SELECT child.id, child.project_id, child.workspace_id, child.resource_type, child.resource_ref, child.label, child.position, child.created_at, child.created_by FROM "project_resource" child WHERE EXISTS (SELECT 1 FROM cleanup_target_project parent WHERE child."project_id" = parent."id") OR EXISTS (SELECT 1 FROM cleanup_target_workspace parent WHERE child."workspace_id" = parent."id")
@@ -443,6 +446,9 @@ cleanup_delete_pinned_item AS (
 ),
 cleanup_delete_project AS (
     DELETE FROM "project" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project)
+),
+cleanup_delete_project_repo_binding AS (
+    DELETE FROM project_repo_binding WHERE workspace_id = $1
 ),
 cleanup_delete_project_resource AS (
     DELETE FROM "project_resource" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project_resource)

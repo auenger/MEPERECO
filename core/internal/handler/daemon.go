@@ -1971,7 +1971,6 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 				}
 			}
 
-			var projectRepos []RepoData
 			if task.WorkflowInstanceID.Valid && task.WorkflowStageID.Valid {
 				resp.WorkflowInstanceID = uuidToString(task.WorkflowInstanceID)
 				resp.WorkflowStageID = uuidToString(task.WorkflowStageID)
@@ -2049,53 +2048,8 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 					}
 				}
 			}
-			if task.ProjectID.Valid {
-				resp.ProjectID = uuidToString(task.ProjectID)
-				if proj, err := h.Queries.GetProject(r.Context(), task.ProjectID); err == nil {
-					resp.ProjectTitle = proj.Title
-					resp.ProjectDescription = proj.Description.String
-				}
-				if rows := h.listProjectResourcesForProject(r.Context(), task.ProjectID); len(rows) > 0 {
-					out := make([]ProjectResourceData, 0, len(rows))
-					for _, row := range rows {
-						label := ""
-						if row.Label.Valid {
-							label = row.Label.String
-						}
-						ref := json.RawMessage(row.ResourceRef)
-						if len(ref) == 0 {
-							ref = json.RawMessage("{}")
-						}
-						out = append(out, ProjectResourceData{
-							ID:           uuidToString(row.ID),
-							ResourceType: row.ResourceType,
-							ResourceRef:  ref,
-							Label:        label,
-						})
-						// Lift github_repo resources into the daemon's repo list
-						// so `silieco repo checkout` and the meta-skill render
-						// them as the task's repos.
-						if row.ResourceType == "github_repo" {
-							var payload struct {
-								URL string `json:"url"`
-								Ref string `json:"ref,omitempty"`
-							}
-							if json.Unmarshal(row.ResourceRef, &payload) == nil && payload.URL != "" {
-								projectRepos = append(projectRepos, RepoData{URL: payload.URL, Ref: strings.TrimSpace(payload.Ref)})
-							}
-						}
-					}
-					resp.ProjectResources = out
-				}
-			}
-
-			if len(projectRepos) > 0 {
-				resp.Repos = projectRepos
-			} else if ws, err := h.Queries.GetWorkspace(r.Context(), task.WorkspaceID); err == nil && ws.Repos != nil {
-				var repos []RepoData
-				if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-					resp.Repos = repos
-				}
+			if err := h.applyClaimProjectRepos(r.Context(), &resp, task.WorkspaceID, task.ProjectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
+				return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 			}
 		}
 
@@ -2391,53 +2345,8 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 			// task-bound task. Revalidate the soft reference in this workspace at
 			// claim time: a deleted/stale project degrades to workspace context and
 			// can never leak a project from another tenant.
-			var projectRepos []RepoData
-			if cs.ProjectID.Valid {
-				if project, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
-					ID:          cs.ProjectID,
-					WorkspaceID: cs.WorkspaceID,
-				}); err == nil {
-					resp.ProjectID = uuidToString(project.ID)
-					resp.ProjectTitle = project.Title
-					resp.ProjectDescription = project.Description.String
-					if rows := h.listProjectResourcesForProject(r.Context(), project.ID); len(rows) > 0 {
-						resources := make([]ProjectResourceData, 0, len(rows))
-						for _, row := range rows {
-							label := ""
-							if row.Label.Valid {
-								label = row.Label.String
-							}
-							ref := json.RawMessage(row.ResourceRef)
-							if len(ref) == 0 {
-								ref = json.RawMessage("{}")
-							}
-							resources = append(resources, ProjectResourceData{
-								ID:           uuidToString(row.ID),
-								ResourceType: row.ResourceType,
-								ResourceRef:  ref,
-								Label:        label,
-							})
-							if row.ResourceType == "github_repo" {
-								var payload struct {
-									URL string `json:"url"`
-									Ref string `json:"ref,omitempty"`
-								}
-								if json.Unmarshal(row.ResourceRef, &payload) == nil && payload.URL != "" {
-									projectRepos = append(projectRepos, RepoData{URL: payload.URL, Ref: strings.TrimSpace(payload.Ref)})
-								}
-							}
-						}
-						resp.ProjectResources = resources
-					}
-				}
-			}
-			if len(projectRepos) > 0 {
-				resp.Repos = projectRepos
-			} else if ws, err := h.Queries.GetWorkspace(r.Context(), cs.WorkspaceID); err == nil && ws.Repos != nil {
-				var repos []RepoData
-				if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-					resp.Repos = repos
-				}
+			if err := h.applyClaimProjectRepos(r.Context(), &resp, cs.WorkspaceID, cs.ProjectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
+				return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 			}
 			if !agentRun.ForceFreshSession {
 				// Resume chat sessions only when the stored pointer was produced
@@ -2593,12 +2502,9 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 				if resp.WorkspaceID == "" {
 					resp.WorkspaceID = uuidToString(ap.WorkspaceID)
 				}
-				if len(resp.Repos) == 0 {
-					if ws, err := h.Queries.GetWorkspace(r.Context(), ap.WorkspaceID); err == nil && ws.Repos != nil {
-						var repos []RepoData
-						if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-							resp.Repos = repos
-						}
+				if !agentRun.TaskID.Valid && !agentRun.ChatSessionID.Valid {
+					if err := h.applyClaimProjectRepos(r.Context(), &resp, ap.WorkspaceID, ap.ProjectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
+						return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 					}
 				}
 			}
@@ -2631,54 +2537,12 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 			// it would for an task-bound run: the prompt template can name
 			// the project, and `silieco repo checkout` sees the project's
 			// github_repo resources instead of the workspace fallback.
-			var projectRepos []RepoData
-			if qc.ProjectID != "" {
-				projectUUID, err := util.ParseUUID(qc.ProjectID)
-				if err == nil {
-					resp.ProjectID = qc.ProjectID
-					if proj, err := h.Queries.GetProject(r.Context(), projectUUID); err == nil {
-						resp.ProjectTitle = proj.Title
-						resp.ProjectDescription = proj.Description.String
-					}
-					if rows := h.listProjectResourcesForProject(r.Context(), projectUUID); len(rows) > 0 {
-						out := make([]ProjectResourceData, 0, len(rows))
-						for _, row := range rows {
-							label := ""
-							if row.Label.Valid {
-								label = row.Label.String
-							}
-							ref := json.RawMessage(row.ResourceRef)
-							if len(ref) == 0 {
-								ref = json.RawMessage("{}")
-							}
-							out = append(out, ProjectResourceData{
-								ID:           uuidToString(row.ID),
-								ResourceType: row.ResourceType,
-								ResourceRef:  ref,
-								Label:        label,
-							})
-							if row.ResourceType == "github_repo" {
-								var payload struct {
-									URL string `json:"url"`
-									Ref string `json:"ref,omitempty"`
-								}
-								if json.Unmarshal(row.ResourceRef, &payload) == nil && payload.URL != "" {
-									projectRepos = append(projectRepos, RepoData{URL: payload.URL, Ref: strings.TrimSpace(payload.Ref)})
-								}
-							}
-						}
-						resp.ProjectResources = out
-					}
-				}
+			projectID, err := gitUUID(qc.ProjectID)
+			if err != nil {
+				return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 			}
-
-			if len(projectRepos) > 0 {
-				resp.Repos = projectRepos
-			} else if ws, err := h.Queries.GetWorkspace(r.Context(), parseUUID(qc.WorkspaceID)); err == nil && ws.Repos != nil {
-				var repos []RepoData
-				if json.Unmarshal(ws.Repos, &repos) == nil && len(repos) > 0 {
-					resp.Repos = repos
-				}
+			if err := h.applyClaimProjectRepos(r.Context(), &resp, parseUUID(qc.WorkspaceID), projectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
+				return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 			}
 
 			// Parent-task resolution for quick-create tasks opened from
@@ -4427,7 +4291,33 @@ func (h *Handler) GetTaskUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rules, err := h.loadModelPricing(r.Context(), task.WorkspaceID)
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	rows, err := h.DB.Query(r.Context(), `SELECT lower(u.provider),u.model,coalesce(sum(u.cost_usd_ticks),0)::bigint,sum(u.input_tokens)::bigint,sum(u.output_tokens)::bigint,sum(u.cache_read_tokens)::bigint,sum(u.cache_write_tokens)::bigint,coalesce(sum(u.input_tokens) FILTER (WHERE u.cost_usd_ticks IS NULL),0)::bigint,coalesce(sum(u.output_tokens) FILTER (WHERE u.cost_usd_ticks IS NULL),0)::bigint,coalesce(sum(u.cache_read_tokens) FILTER (WHERE u.cost_usd_ticks IS NULL),0)::bigint,coalesce(sum(u.cache_write_tokens) FILTER (WHERE u.cost_usd_ticks IS NULL),0)::bigint FROM agent_run_usage u JOIN agent_run a ON a.id=u.run_id JOIN task t ON t.id=a.task_id WHERE a.task_id=$1 AND t.workspace_id=$2 GROUP BY 1,2`, task.ID, task.WorkspaceID)
+	if err != nil {
+		writeError(w, 500, "failed to calculate task cost")
+		return
+	}
+	defer rows.Close()
+	var cost ModelCost
+	for rows.Next() {
+		var provider, model string
+		var actual, ai, ao, ar, aw, i, o, cr, cw int64
+		if err = rows.Scan(&provider, &model, &actual, &ai, &ao, &ar, &aw, &i, &o, &cr, &cw); err != nil {
+			writeError(w, 500, "failed to calculate task cost")
+			return
+		}
+		cost.add(rules.cost(provider, model, actual, ai, ao, ar, aw, i, o, cr, cw))
+	}
+	if rows.Err() != nil {
+		writeError(w, 500, "failed to calculate task cost")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"pricing":                  cost,
 		"total_input_tokens":       row.TotalInputTokens,
 		"total_output_tokens":      row.TotalOutputTokens,
 		"total_cache_read_tokens":  row.TotalCacheReadTokens,

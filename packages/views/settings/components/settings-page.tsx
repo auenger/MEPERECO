@@ -16,11 +16,13 @@ import {
   ListTodo,
   Cpu,
   Wrench,
+  DollarSign,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@silieco/ui/components/ui/tabs";
 import { useIsMobile } from "@silieco/ui/hooks/use-mobile";
 import { useCurrentWorkspace } from "@silieco/core/paths";
 import { useNavigation } from "../../navigation";
+import { ModelPricingTab } from "./model-pricing-tab";
 import { AccountTab } from "./account-tab";
 import { PreferencesTab } from "./preferences-tab";
 import { ChatTab } from "./chat-tab";
@@ -52,6 +54,7 @@ const ACCOUNT_TAB_ICONS = {
 const WORKSPACE_TAB_KEYS = [
   "general",
   "runtimes",
+  "model_pricing",
   "skills",
   "repositories",
   "integrations",
@@ -62,6 +65,7 @@ const WORKSPACE_TAB_KEYS = [
 const WORKSPACE_TAB_VALUES = {
   general: "workspace",
   runtimes: "runtimes",
+  model_pricing: "model-pricing",
   skills: "skills",
   repositories: "repositories",
   integrations: "integrations",
@@ -72,6 +76,7 @@ const WORKSPACE_TAB_VALUES = {
 const WORKSPACE_TAB_ICONS = {
   general: Settings,
   runtimes: Cpu,
+  model_pricing: DollarSign,
   skills: Wrench,
   repositories: FolderGit2,
   integrations: Plug,
@@ -208,7 +213,7 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
 
       {/* Right content */}
       <div className="min-w-0 flex-1 md:overflow-y-auto">
-        <div className={`mx-auto w-full ${activeTab === "runtimes" || activeTab === "skills" ? "h-full max-w-none p-0" : `p-4 sm:p-6 md:p-8 ${activeTab === "labels" || activeTab === "properties" ? "max-w-5xl" : "max-w-3xl"}`}`}>
+        <div className={`mx-auto w-full ${activeTab === "runtimes" || activeTab === "skills" ? "h-full max-w-none p-0" : `p-4 sm:p-6 md:p-8 ${activeTab === "labels" || activeTab === "properties" || activeTab === "model-pricing" ? "max-w-5xl" : "max-w-3xl"}`}`}>
           <TabsContent value="profile"><AccountTab /></TabsContent>
           <TabsContent value="preferences"><PreferencesTab /></TabsContent>
           <TabsContent value="shortcuts"><KeyboardShortcutsTab /></TabsContent>
@@ -219,6 +224,7 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
           <TabsContent value="workspace"><WorkspaceTab /></TabsContent>
           <TabsContent value="runtimes" className="h-full"><RuntimesPage /></TabsContent>
           <TabsContent value="skills" className="h-full"><SkillsPage /></TabsContent>
+          <TabsContent value="model-pricing"><ModelPricingTab /></TabsContent>
           <TabsContent value="repositories"><RepositoriesTab /></TabsContent>
           <TabsContent value="integrations"><IntegrationsTab /></TabsContent>
           <TabsContent value="members"><MembersTab /></TabsContent>

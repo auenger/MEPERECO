@@ -1,12 +1,12 @@
 {
   "name": "@silieco/desktop",
-  "productName": "Silieco",
+  "productName": "MEPER Studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Silieco Desktop — native desktop client for the Silieco platform.",
+  "description": "MEPER Studio desktop client.",
   "homepage": "https://silieco.ai",
   "author": {
-    "name": "Silieco"
+    "name": "MEPER Studio"
   },
   "main": "./out/main/index.js",
   "scripts": {

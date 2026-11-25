@@ -1,3 +1,5 @@
+import type { ModelPricingRule, WorkspaceModelPricing, PricingCurrency } from "../types/pricing";
+import type { GitOverview, GitBindingPage, GitPullRequestPage, GitListParams, GitFilesPage } from "../types/git";
 import { ProjectDirectorySchema, type ProjectDirectory } from "./project-directory-schema";
 import { PROTOCOL_GENERATION, PROTOCOL_HEADER } from "../constants/protocol";
 import { ActiveAgentRunsSchema, AgentRunMessageListSchema, AgentRunSchema, TaskUsageSummarySchema } from "./schemas";
@@ -3083,6 +3085,50 @@ export class ApiClient {
     const result = parseWithFallback<ProjectDirectory | null>(raw, ProjectDirectorySchema, null, { endpoint: "GET project directory" });
     if (!result) throw new Error("Invalid project directory response");
     return result;
+  }
+
+  // Project / workspace Git read models.
+  async setProjectGitRepoMode(projectId: string, mode: GitOverview["repo_mode"]): Promise<{repo_mode: GitOverview["repo_mode"]}> {
+    return this.fetch(`/api/projects/${encodeURIComponent(projectId)}/git/repo-mode`, {method:"PUT",body:JSON.stringify({repo_mode:mode})});
+  }
+
+  async getWorkspacePricingCurrency(workspaceId: string): Promise<PricingCurrency> {
+    return this.fetch<PricingCurrency>(`/api/workspaces/${encodeURIComponent(workspaceId)}/pricing-currency`);
+  }
+  async setWorkspacePricingCurrency(workspaceId: string, currency: PricingCurrency): Promise<PricingCurrency> {
+    return this.fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/pricing-currency`, {method:"PUT",body:JSON.stringify(currency)});
+  }
+  async getWorkspaceModelPricing(workspaceId: string): Promise<WorkspaceModelPricing> {
+    return this.fetch<WorkspaceModelPricing>(`/api/workspaces/${encodeURIComponent(workspaceId)}/model-pricing`);
+  }
+  async setWorkspaceModelPricing(workspaceId: string, rule: ModelPricingRule): Promise<{status:string}> {
+    return this.fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/model-pricing`, { method:"PUT", body:JSON.stringify(rule) });
+  }
+
+  async getGitOverview(workspaceId: string, projectId?: string): Promise<GitOverview> {
+    return this.fetch<GitOverview>(projectId
+      ? `/api/projects/${encodeURIComponent(projectId)}/git/overview`
+      : `/api/workspaces/${encodeURIComponent(workspaceId)}/git/overview`);
+  }
+
+  async listGitBindings(workspaceId: string, params: GitListParams = {}): Promise<GitBindingPage> {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") search.set(key, String(value));
+    return this.fetch<GitBindingPage>(`/api/workspaces/${encodeURIComponent(workspaceId)}/git/bindings?${search}`);
+  }
+
+  async listGitPullRequests(workspaceId: string, projectId: string | undefined, params: GitListParams = {}): Promise<GitPullRequestPage> {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== "") search.set(key, String(value));
+    const base = projectId ? `/api/projects/${encodeURIComponent(projectId)}` : `/api/workspaces/${encodeURIComponent(workspaceId)}`;
+    return this.fetch<GitPullRequestPage>(`${base}/git/pull-requests?${search}`);
+  }
+
+  async listGitPullRequestFiles(workspaceId: string, projectId: string | undefined, prId: string, page: number, projectFilter?: string): Promise<GitFilesPage> {
+    const base = projectId ? `/api/projects/${encodeURIComponent(projectId)}` : `/api/workspaces/${encodeURIComponent(workspaceId)}`;
+    const search = new URLSearchParams({ page: String(page) });
+    if (projectFilter && !projectId) search.set("project_id", projectFilter);
+    return this.fetch<GitFilesPage>(`${base}/git/pull-requests/${encodeURIComponent(prId)}/files?${search}`);
   }
 
   // Project resources

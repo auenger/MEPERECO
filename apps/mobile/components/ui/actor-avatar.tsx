@@ -26,6 +26,8 @@ import { useWorkspaceStore } from "@/data/workspace-store";
 import { useAgentPresence } from "@/lib/use-agent-presence";
 import { PresenceDot } from "@/components/ui/presence-dot";
 import { THEME } from "@/lib/theme";
+import { MEPER_APP_ICON_DATA_URL, replaceLegacyBrandAvatar } from "@silieco/core/brand-assets";
+import { SiliecoLogo } from "@/components/brand/silieco-logo";
 
 // `system` actors are server-side automation (state changes triggered by the
 // platform itself, not a member or an agent). InboxItem.actor_type carries
@@ -109,6 +111,14 @@ function BareAvatar({
         >
           {emoji}
         </Text>
+      </View>
+    );
+  }
+
+  if (url && replaceLegacyBrandAvatar(url) === MEPER_APP_ICON_DATA_URL) {
+    return (
+      <View style={{ width: size, height: size, borderRadius: radius, overflow: "hidden" }}>
+        <SiliecoLogo size={size} />
       </View>
     );
   }

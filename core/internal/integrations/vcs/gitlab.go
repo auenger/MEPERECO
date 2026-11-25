@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -53,6 +54,7 @@ type glMergeRequestPayload struct {
 		AvatarURL string `json:"avatar_url"`
 	} `json:"user"`
 	Project struct {
+		ID                int64  `json:"id"`
 		PathWithNamespace string `json:"path_with_namespace"`
 	} `json:"project"`
 	ObjectAttributes struct {
@@ -83,6 +85,7 @@ func (gitlabProvider) ParsePullRequest(body []byte) (PullRequestEvent, error) {
 		strings.HasPrefix(strings.ToLower(d.ObjectAttributes.Title), "draft:")
 	return PullRequestEvent{
 		Action:          d.ObjectAttributes.Action,
+		RepoID:          positiveRepoID(d.Project.ID),
 		RepoOwner:       owner,
 		RepoName:        name,
 		Number:          d.ObjectAttributes.IID,
@@ -147,6 +150,10 @@ func normalizeGitLabMRState(state string, draft bool) string {
 }
 
 type glPipelinePayload struct {
+	Project struct {
+		ID                int64  `json:"id"`
+		PathWithNamespace string `json:"path_with_namespace"`
+	} `json:"project"`
 	ObjectKind       string `json:"object_kind"`
 	ObjectAttributes struct {
 		SHA        string `json:"sha"`
@@ -170,7 +177,9 @@ func (gitlabProvider) ParseCIStatus(body []byte) (CIStatusEvent, error) {
 		updatedAt = d.ObjectAttributes.CreatedAt
 	}
 	return CIStatusEvent{
-		SHA: d.ObjectAttributes.SHA,
+		RepoPath: d.Project.PathWithNamespace,
+		RepoID:   positiveRepoID(d.Project.ID),
+		SHA:      d.ObjectAttributes.SHA,
 		// GitLab pipelines are modelled as one status per commit, not per named
 		// check, so a stable synthetic context keys the single status row.
 		// Known limitations of this simplification (acceptable for the default
@@ -245,4 +254,11 @@ func splitNamespace(path string) (owner, name string) {
 		return path[:i], path[i+1:]
 	}
 	return "", path
+}
+
+func positiveRepoID(id int64) string {
+	if id <= 0 {
+		return ""
+	}
+	return strconv.FormatInt(id, 10)
 }

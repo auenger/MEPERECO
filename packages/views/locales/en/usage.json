@@ -96,5 +96,14 @@
   },
   "duration": {
     "less_than_minute": "<1m"
+  },
+  "pricing": {
+    "unpriced": "Unpriced",
+    "actual": "Actual",
+    "estimated": "Estimated",
+    "unknown_tokens": "tokens unpriced",
+    "covered": "Pricing covered",
+    "notice": "Known spend does not include unpriced tokens. Configure model rates.",
+    "settings": "Model pricing settings"
   }
 }

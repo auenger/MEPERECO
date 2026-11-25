@@ -181,6 +181,9 @@ cleared_vcs_pr_links AS (
     DELETE FROM task_vcs_pull_request
     WHERE pull_request_id IN (SELECT id FROM ws_vcs_prs)
 ),
+cleared_vcs_repo_commit_statuses AS (
+    DELETE FROM vcs_repo_commit_status WHERE connection_id IN (SELECT id FROM ws_vcs_connections)
+),
 cleared_vcs_commit_statuses AS (
     DELETE FROM vcs_commit_status
     WHERE connection_id IN (SELECT id FROM ws_vcs_connections)
@@ -489,6 +492,9 @@ cleanup_delete_pinned_item AS (
 ),
 cleanup_delete_project AS (
     DELETE FROM "project" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project)
+),
+cleanup_delete_project_repo_binding AS (
+    DELETE FROM project_repo_binding WHERE workspace_id = $1
 ),
 cleanup_delete_project_resource AS (
     DELETE FROM "project_resource" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project_resource)

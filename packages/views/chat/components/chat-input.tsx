@@ -21,6 +21,8 @@ import { SubmitButton } from "@silieco/ui/components/common/submit-button";
 import { ChatAddMenu } from "./chat-add-menu";
 import { CHAT_COLUMN, CHAT_GUTTER } from "./chat-column";
 import { useChatStore, DRAFT_NEW_SESSION } from "@silieco/core/chat";
+import { getCurrentWsId } from "@silieco/core/platform";
+import { useAuthStore } from "@silieco/core/auth";
 import { attachmentToDraftUpload, type DraftUpload } from "@silieco/core/drafts";
 import { createLogger } from "@silieco/core/logger";
 import { formatShortcut, useShortcut } from "@silieco/core/shortcuts";
@@ -124,6 +126,9 @@ interface ChatInputProps {
    * the shared composer without participating in the global chat selection
    * store (for example Agent Builder).
    */
+  /** Floating-window sleep preserves the final debounced keystrokes. */
+  preserveDraftOnUnmount?: boolean;
+  suspending?: boolean;
   draftKeyOverride?: string;
   editorKeyOverride?: string;
 }
@@ -150,11 +155,19 @@ export function ChatInput({
   focusRequest,
   draftKeyOverride,
   editorKeyOverride,
+  preserveDraftOnUnmount = false,
+  suspending = false,
 }: ChatInputProps) {
   const { t } = useT("chat");
   const { t: tEditor } = useT("editor");
   const sendShortcut = useShortcut("send");
   const editorRef = useRef<ContentEditorRef>(null);
+  // A closing old window must not flush its document into a new workspace
+  // or another signed-in user's draft store.
+  const mountedDraftScope = useRef({
+    wsId: getCurrentWsId(),
+    userId: useAuthStore.getState().user?.id,
+  });
   const composerRef = useRef<HTMLDivElement>(null);
   const activeSessionId = useChatStore((s) => s.activeSessionId);
   // Two keys with deliberately different concerns:
@@ -248,6 +261,14 @@ export function ChatInput({
     },
     [setInputDraft, setInputDraftAttachments],
   );
+  useLayoutEffect(() => {
+    if (!suspending || !preserveDraftOnUnmount) return;
+    const scope = mountedDraftScope.current;
+    if (scope.wsId !== getCurrentWsId() || scope.userId !== useAuthStore.getState().user?.id) return;
+    const pending = editorRef.current?.flushPendingUpdate() ?? null;
+    if (pending !== null) commitDraft(editorDraftKeyRef.current, pending);
+  }, [suspending, preserveDraftOnUnmount, commitDraft]);
+
   // Submit gate. `uploading` disables the SubmitButton the instant an upload
   // starts; `isBlocked()` is re-read inside handleSend for the paths that skip
   // the button entirely (Mod+Enter mid-paste, drag-drop racing the keyboard).
@@ -627,7 +648,12 @@ export function ChatInput({
             ref={editorRef}
             value={inputDraft}
             placeholder={placeholder}
+            flushPendingOnUnmount={preserveDraftOnUnmount}
             onUpdate={(md) => {
+              if (preserveDraftOnUnmount && (
+                mountedDraftScope.current.wsId !== getCurrentWsId()
+                || mountedDraftScope.current.userId !== useAuthStore.getState().user?.id
+              )) return;
               setIsEmpty(!md.trim());
               // The LOADED key, not the selected one: while an upload pins the
               // document this fires for the source draft's body — including the

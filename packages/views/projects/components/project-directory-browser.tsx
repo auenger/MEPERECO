@@ -226,7 +226,7 @@ export function ProjectDirectoryBrowser({ projectId, fullPage = false }: { proje
           onClick={() => void qc.invalidateQueries({ queryKey: projectDirectoryKey(wsId, projectId) })}>
           <RefreshCw className="size-4" />
         </Button>
-        {!fullPage && <AppLink href={paths.projectFiles(projectId)} target="_blank" newTabTitle={t(($) => $.directory_title)}
+        {!fullPage && <AppLink href={paths.projectFilesStandalone(projectId)} target="_blank" newTabTitle={t(($) => $.directory_title)}
           className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-caption font-medium hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
           <ExternalLink className="size-4" />{t(($) => $.directory_open)}
         </AppLink>}

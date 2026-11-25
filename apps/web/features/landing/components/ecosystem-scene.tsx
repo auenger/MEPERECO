@@ -382,12 +382,9 @@ export function EcosystemScene({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
           <Img
-            src={staticFile("media/ecosystem/logo.svg")}
-            style={{ width: 52, height: 52 }}
+            src={staticFile(light ? "brand/meper-studio-horizontal-color.svg" : "brand/meper-studio-horizontal-white.svg")}
+            style={{ width: 250, height: 55, objectFit: "contain" }}
           />
-          <span style={{ fontSize: 41, fontWeight: 550, letterSpacing: -1.5 }}>
-            Silieco
-          </span>
         </div>
         <div style={{ fontSize: 18, color: C.muted, marginTop: 14 }}>
           项目 · 任务 · Skill · 上下文

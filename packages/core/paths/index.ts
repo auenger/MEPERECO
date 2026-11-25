@@ -1,5 +1,5 @@
-export { paths, isGlobalPath } from "./paths";
-export type { WorkspacePaths } from "./paths";
+export { paths, isGlobalPath, parseWorkResourceTab } from "./paths";
+export type { WorkspacePaths, WorkResourceTab } from "./paths";
 export { RESERVED_SLUGS, isReservedSlug } from "./reserved-slugs";
 export {
   WORKSPACE_PAGES,
@@ -15,9 +15,10 @@ export type {
 } from "./route-icons";
 export {
   parseTabSubject,
+  parseProjectTabSurface,
   tabSubjectKey,
 } from "./tab-subject";
-export type { TabSubject, TabActorType } from "./tab-subject";
+export type { TabSubject, TabActorType, ProjectTabSurface } from "./tab-subject";
 export {
   resolveTabPresentation,
   DEFAULT_TAB_VISUAL,

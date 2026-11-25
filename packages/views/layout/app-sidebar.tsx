@@ -19,6 +19,7 @@ import {
   ChevronRight,
   FileText,
   FolderKanban,
+  Layers3,
   GitBranch,
   LogOut,
   Users,
@@ -116,6 +117,7 @@ type NavKey =
   | "tasks"
   | "projects"
   | "resources"
+  | "git"
   | "workflows"
   | "autopilots"
   | "agents"
@@ -134,6 +136,7 @@ type NavLabelKey =
   | "tasks"
   | "projects"
   | "resources"
+  | "git"
   | "workflows"
   | "autopilots"
   | "agents"
@@ -147,14 +150,17 @@ type NavLabelKey =
 // destination path at render time, so the sidebar and the desktop tab bar
 // always agree. See route-icon-components.tsx.
 const personalNav: { key: NavKey; labelKey: NavLabelKey }[] = [
-  { key: "inbox", labelKey: "inbox" },
   { key: "chat", labelKey: "chat" },
+  { key: "inbox", labelKey: "inbox" },
   { key: "myTasks", labelKey: "my_tasks" },
 ];
 
 const workspaceNav: { key: NavKey; labelKey: NavLabelKey }[] = [
   { key: "tasks", labelKey: "tasks" },
   { key: "resources", labelKey: "resources" },
+];
+
+const managementNav: { key: NavKey; labelKey: NavLabelKey }[] = [
   { key: "workflows", labelKey: "workflows" },
   { key: "autopilots", labelKey: "autopilots" },
   { key: "agents", labelKey: "agents" },
@@ -213,7 +219,7 @@ function SortablePinItem({
         tooltip={label}
         aria-label={label}
         isActive={isActive}
-        render={<AppLink href={href} draggable={false} />}
+        render={<AppLink openInAppTab href={href} draggable={false} />}
         onClick={(event) => {
           if (wasDragged.current) {
             wasDragged.current = false;
@@ -352,13 +358,21 @@ interface AppSidebarProps {
   headerClassName?: string;
   /** Extra style for SidebarHeader */
   headerStyle?: React.CSSProperties;
+  /**
+   * Desktop Windows only: the brand row is folded into the window's top-left
+   * bar (no traffic lights there, unlike macOS), so the in-sidebar copy is
+   * redundant and gets hidden.
+   */
+  hideBrand?: boolean;
+  /** Desktop provides the new-task action in its window toolbar. */
+  taskInToolbar?: boolean;
 }
 
-export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }: AppSidebarProps = {}) {
+export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, hideBrand, taskInToolbar = false }: AppSidebarProps = {}) {
   const { t } = useT("layout");
   const { state, isMobile, setOpen } = useSidebar();
   const iconOnly = state === "collapsed" && !isMobile;
-  const { pathname, push, searchParams } = useNavigation();
+  const { pathname, push, openInNewTab, searchParams } = useNavigation();
   const user = useAuthStore((s) => s.user);
   const userId = useAuthStore((s) => s.user?.id);
   const logout = useLogout();
@@ -486,7 +500,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
         ? list.find((w) => w.id === invitation.workspace_id)
         : null;
       if (joined) {
-        push(paths.workspace(joined.slug).tasks());
+        push(paths.workspace(joined.slug).chat());
       }
     },
   });
@@ -524,6 +538,17 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
   }, [workflowRuns]);
   const projectsHref = p.projects();
   const [expandedSpaceId, setExpandedSpaceId] = useState<string>();
+  const [managementOpen, setManagementOpen] = useState<Record<string, boolean>>({});
+  const managementActive = managementNav.some((item) =>
+    isNavActive(pathname, p[item.key]()),
+  );
+  useEffect(() => {
+    if (wsId && managementActive) {
+      setManagementOpen((previous) =>
+        previous[wsId] ? previous : { ...previous, [wsId]: true },
+      );
+    }
+  }, [wsId, managementActive, pathname]);
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -552,8 +577,8 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
         className={cn("gap-2 border-b border-sidebar-border/70 py-3 group-data-[collapsible=icon]:items-center", headerClassName)}
         style={headerStyle}
       >
-        <div className="flex items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <SiliecoIcon noSpin className="size-7 shrink-0" />
+        <div className={cn("items-center gap-2 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0", hideBrand ? "hidden" : "flex")}>
+          <SiliecoIcon noSpin variant="small" className="size-7 shrink-0" />
           <p className="min-w-0 flex-1 truncate text-caption font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
             {t(($) => $.sidebar.brand_tagline)}
           </p>
@@ -591,7 +616,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                     aria-expanded={spaceOpen}
                     aria-controls={spaceOpen ? `compact-space-${space.id}` : undefined}
                     isActive={isActiveSpace}
-                    render={isActiveSpace ? undefined : <AppLink href={paths.workspace(space.slug).tasks()} />}
+                    render={isActiveSpace ? undefined : <AppLink openInAppTab href={paths.workspace(space.slug).chat()} />}
                     onClick={() => setExpandedSpaceId((current) => isActiveSpace && current === space.id ? undefined : space.id)}
                     className="relative justify-center !p-1"
                   >
@@ -602,11 +627,11 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                   {spaceOpen && (
                     <div id={`compact-space-${space.id}`} className="flex w-full flex-col items-center gap-2 pb-2 pt-1">
             <SidebarMenu className="items-center gap-1">
-              <SidebarMenuItem>
+              {!taskInToolbar && <SidebarMenuItem>
                 <SidebarMenuButton tooltip={t(($) => $.sidebar.new_task)} aria-label={t(($) => $.sidebar.new_task)} onClick={() => openCreateTaskWithPreference()} className="text-brand">
                   <SquarePen /><DraftDot />
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>}
               {personalNav.map((item) => {
                 const href = p[item.key]();
                 const Icon = routeIconForPath(href);
@@ -614,7 +639,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                 const count = item.key === "inbox" ? unreadCount : item.key === "chat" ? chatUnreadCount : 0;
                 return (
                   <SidebarMenuItem key={item.key}>
-                    <SidebarMenuButton tooltip={count ? `${label} (${count})` : label} aria-label={count ? `${label} (${count})` : label} isActive={isNavActive(pathname, href)} render={<AppLink href={href} />} className="relative text-muted-foreground data-active:text-sidebar-accent-foreground">
+                    <SidebarMenuButton tooltip={count ? `${label} (${count})` : label} aria-label={count ? `${label} (${count})` : label} isActive={isNavActive(pathname, href)} render={<AppLink openInAppTab href={href} />} className="relative text-muted-foreground data-active:text-sidebar-accent-foreground">
                       <Icon />
                       {count > 0 && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-brand" />}
                     </SidebarMenuButton>
@@ -639,13 +664,42 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                 const count = item.key === "inbox" ? unreadCount : item.key === "chat" ? chatUnreadCount : 0;
                 return (
                   <SidebarMenuItem key={item.key}>
-                    <SidebarMenuButton tooltip={count ? `${label} (${count})` : label} aria-label={count ? `${label} (${count})` : label} isActive={isNavActive(pathname, href)} render={<AppLink href={href} />} className="relative text-muted-foreground data-active:text-sidebar-accent-foreground">
+                    <SidebarMenuButton tooltip={count ? `${label} (${count})` : label} aria-label={count ? `${label} (${count})` : label} isActive={isNavActive(pathname, href) || (item.key === "resources" && pathname === p.legacyGit())} render={<AppLink openInAppTab href={href} />} className="relative text-muted-foreground data-active:text-sidebar-accent-foreground">
                       <Icon />
                       {count > 0 && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-brand" />}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
               })}
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <SidebarMenuButton
+                    tooltip={t(($) => $.sidebar.management_group)}
+                    aria-label={t(($) => $.sidebar.management_group)}
+                    isActive={managementActive}
+                    render={<DropdownMenuTrigger />}
+                    className="text-muted-foreground data-active:text-sidebar-accent-foreground"
+                  >
+                    <Layers3 />
+                  </SidebarMenuButton>
+                  <DropdownMenuContent side="right" align="start" sideOffset={10} className="w-48">
+                    {managementNav.map((item) => {
+                      const href = p[item.key]();
+                      const Icon = routeIconForPath(href);
+                      return (
+                        <DropdownMenuItem
+                          key={item.key}
+                          render={<AppLink openInAppTab href={href} />}
+                          className={cn(isNavActive(pathname, href) && "bg-accent font-medium")}
+                        >
+                          <Icon className="size-4" />
+                          {t(($) => $.nav[item.labelKey])}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
             </SidebarMenu>
                       <CollapsedProjects projects={projects} runsByProject={visibleRunsByProject} />
                     </div>
@@ -706,7 +760,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
             const isActiveSpace = space.id === wsId;
             const isOpen =
               isActiveSpace && expandedSpaceId === space.id;
-            const spaceHref = paths.workspace(space.slug).tasks();
+            const spaceHref = paths.workspace(space.slug).chat();
             return (
               <Collapsible key={space.id} open={isOpen}>
                 <div
@@ -747,6 +801,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                     </button>
                   ) : (
                     <AppLink
+                      openInAppTab
                       href={spaceHref}
                       className="flex h-10 items-center gap-2 rounded-xl px-2"
                     >
@@ -768,7 +823,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                   <CollapsibleContent>
                     <div className="space-y-3 border-t border-sidebar-border/60 px-1.5 pb-2 pt-2">
                       <SidebarMenu>
-                        <SidebarMenuItem>
+                        {!taskInToolbar && <SidebarMenuItem>
                           <SidebarMenuButton
                             className="bg-brand/8 font-medium text-brand hover:bg-brand/12"
                             onClick={() => openCreateTaskWithPreference()}
@@ -786,7 +841,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                               />
                             ) : null}
                           </SidebarMenuButton>
-                        </SidebarMenuItem>
+                        </SidebarMenuItem>}
                         {personalNav.map((item) => {
                           const href = p[item.key]();
                           const Icon = routeIconForPath(href);
@@ -794,7 +849,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                             <SidebarMenuItem key={item.key}>
                               <SidebarMenuButton
                                 isActive={isNavActive(pathname, href)}
-                                render={<AppLink href={href} />}
+                                render={<AppLink openInAppTab href={href} />}
                                 className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
                               >
                                 <Icon />
@@ -876,9 +931,9 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                               <SidebarMenuButton
                                 isActive={
                                   !isActivePinnedRoute &&
-                                  isNavActive(pathname, href)
+                                  (isNavActive(pathname, href) || (item.key === "resources" && pathname === p.legacyGit()))
                                 }
-                                render={<AppLink href={href} />}
+                                render={<AppLink openInAppTab href={href} />}
                                 className="text-muted-foreground hover:not-data-active:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
                               >
                                 <Icon />
@@ -887,6 +942,44 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                             </SidebarMenuItem>
                           );
                         })}
+                        <SidebarMenuItem>
+                          <Collapsible
+                            open={!!managementOpen[space.id]}
+                            onOpenChange={(open) =>
+                              setManagementOpen((previous) => ({ ...previous, [space.id]: open }))
+                            }
+                          >
+                            <SidebarMenuButton
+                              render={<CollapsibleTrigger />}
+                              isActive={managementActive && !managementOpen[space.id]}
+                              className="text-muted-foreground hover:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+                            >
+                              <Layers3 />
+                              <span className="flex-1">{t(($) => $.sidebar.management_group)}</span>
+                              <ChevronRight className={cn("!size-3 transition-transform", managementOpen[space.id] && "rotate-90")} />
+                            </SidebarMenuButton>
+                            <CollapsibleContent>
+                              <SidebarMenu className="ml-3 w-[calc(100%-0.75rem)] border-l border-sidebar-border pl-2">
+                                {managementNav.map((item) => {
+                                  const href = p[item.key]();
+                                  const Icon = routeIconForPath(href);
+                                  return (
+                                    <SidebarMenuItem key={item.key}>
+                                      <SidebarMenuButton
+                                        isActive={!isActivePinnedRoute && isNavActive(pathname, href)}
+                                        render={<AppLink openInAppTab href={href} />}
+                                        className="text-muted-foreground hover:bg-sidebar-accent/70 data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground"
+                                      >
+                                        <Icon />
+                                        <span>{t(($) => $.nav[item.labelKey])}</span>
+                                      </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                  );
+                                })}
+                              </SidebarMenu>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </SidebarMenuItem>
                       </SidebarMenu>
 
                       <div>
@@ -905,6 +998,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                             <Plus className="size-3.5" />
                           </button>
                           <AppLink
+                            openInAppTab
                             href={projectsHref}
                             aria-label={t(($) => $.sidebar.view_projects)}
                             title={t(($) => $.sidebar.view_projects)}
@@ -918,11 +1012,13 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                             const projectHref = p.projectDetail(project.id);
                             const resourceHref = p.projectResources(project.id);
                             const sopHref = p.projectSop(project.id);
+                            const standaloneFiles = pathname === p.projectFilesStandalone(project.id);
                             const projectRuns = visibleRunsByProject.get(project.id) ?? [];
                             const projectOpen = expandedProjectIds.has(project.id);
                             const projectActive = isNavActive(pathname, projectHref);
                             const activeSection = searchParams.get("section");
                             const activeRunId = searchParams.get("run");
+                            const resourceActive = standaloneFiles || activeSection === "resources" || activeSection === "git" || activeSection === "files";
                             return (
                               <Collapsible key={project.id} open={projectOpen}>
                                 <SidebarMenuItem>
@@ -936,7 +1032,10 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                                         else next.add(project.id);
                                         return next;
                                       });
-                                      if (!projectActive) push(projectHref);
+                                      if (!projectActive) {
+                                        if (openInNewTab) openInNewTab(projectHref, undefined, { activate: true });
+                                        else push(projectHref);
+                                      }
                                     }}
                                   >
                                     <ProjectIcon project={project} size="sm" />
@@ -954,13 +1053,14 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                                 <CollapsibleContent>
                                   <div className="ml-5 border-l border-sidebar-border pl-2">
                                     <AppLink
+                                      openInAppTab
                                       href={projectHref}
                                       className={cn(
                                         "flex h-7 items-center gap-2 rounded-md px-2 text-caption text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                                         projectActive &&
                                           !activeRunId &&
                                           activeSection !== "sop" &&
-                                          activeSection !== "resources" &&
+                                          !resourceActive &&
                                           "bg-sidebar-accent text-foreground",
                                       )}
                                     >
@@ -968,12 +1068,13 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                                       {t(($) => $.tab.task)}
                                     </AppLink>
                                     <AppLink
+                                      openInAppTab
                                       href={resourceHref}
                                       className={cn(
                                         "flex h-7 items-center gap-2 rounded-md px-2 text-caption text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
                                         projectActive &&
                                           !activeRunId &&
-                                          activeSection === "resources" &&
+                                          resourceActive &&
                                           "bg-sidebar-accent text-foreground",
                                       )}
                                     >
@@ -981,6 +1082,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                                       {t(($) => $.nav.resources)}
                                     </AppLink>
                                     <AppLink
+                                      openInAppTab
                                       href={sopHref}
                                       className={cn(
                                         "flex h-7 items-center gap-2 rounded-md px-2 text-caption text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
@@ -997,6 +1099,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                                       <div className="mt-1 border-t border-sidebar-border/70 pt-1">
                                         {projectRuns.map((run) => (
                                           <AppLink
+                                            openInAppTab
                                             key={run.id}
                                             href={p.projectWorkflowRun(project.id, run.id)}
                                             title={run.title}
@@ -1063,7 +1166,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" className="w-56">
               <DropdownMenuItem
-                render={<AppLink href={p.settings()} />}
+                render={<AppLink openInAppTab href={p.settings()} />}
               >
                 <Settings className="size-3.5" />
                 {t(($) => $.nav.settings)}
@@ -1079,6 +1182,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
             <TooltipTrigger
               render={
                 <AppLink
+                  openInAppTab
                   href={p.settings()}
                   aria-label={t(($) => $.nav.settings)}
                   className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"

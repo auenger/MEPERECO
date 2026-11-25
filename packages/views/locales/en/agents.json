@@ -376,6 +376,7 @@
     "title_duplicate": "Duplicate Agent",
     "description_create": "Create a new AI agent for your workspace.",
     "description_duplicate": "Create a new agent based on \"{{name}}\". Instructions, env, and skills are copied for you.",
+    "runtime_install_hint": "Missing a runtime? Install the open-source Pi (npm i -g @earendil-works/pi-coding-agent · pi.dev) and it is detected automatically. To share subscriptions and API keys across agents, run the local gateway Magpie (usemagpie.ai) — Pi is officially supported.",
     "name_label": "Name",
     "name_placeholder": "e.g. Deep Research Agent",
     "description_label": "Description",

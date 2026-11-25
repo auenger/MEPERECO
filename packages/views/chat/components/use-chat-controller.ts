@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useQuery,
   useQueryClient,
-  type InfiniteData,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspaceId } from "@silieco/core/hooks";
@@ -18,6 +17,7 @@ import { useAgentPresenceDetail, useWorkspaceAgentAvailability } from "@silieco/
 import {
   chatSessionsOptions,
   chatMessagesPageOptions,
+  syncLatestChatMessageQueries,
   pendingChatRunOptions,
   chatKeys,
   isAgentRunMessageRunId,
@@ -31,6 +31,7 @@ import {
 } from "@silieco/core/chat/mutations";
 import { useChatStore } from "@silieco/core/chat";
 import { removeChatMessageFromCaches } from "@silieco/core/realtime";
+import { useChatMessageWindow, appendChatMessageToLatestPageCache } from "./use-chat-message-window";
 import { useChatDraftRestore } from "./use-chat-draft-restore";
 import { useChatProjectContextSupport } from "./use-chat-project-context-support";
 import { createLogger } from "@silieco/core/logger";
@@ -38,7 +39,6 @@ import type {
   Agent,
   Attachment,
   ChatMessage,
-  ChatMessagesPage,
   ChatPendingRun,
 } from "@silieco/core/types";
 import { useT } from "../../i18n";
@@ -152,39 +152,6 @@ export function hasInFlightPendingRun(
   const pending = qc.getQueryData<ChatPendingRun>(chatKeys.pendingRun(sessionId));
   return Boolean(pending?.run_id);
 }
-const CHAT_VIRTUOSO_INITIAL_FIRST_ITEM_INDEX = 1_000_000;
-
-function appendChatMessageToLatestPageCache(
-  qc: ReturnType<typeof useQueryClient>,
-  sessionId: string,
-  message: ChatMessage,
-) {
-  qc.setQueryData<InfiniteData<ChatMessagesPage>>(
-    chatKeys.messagesPage(sessionId),
-    (old) => {
-      if (!old) {
-        return {
-          pages: [{
-            messages: [message],
-            limit: 50,
-            has_more: false,
-            next_cursor: null,
-          }],
-          pageParams: [null],
-        };
-      }
-      if (old.pages.some((page) => page.messages.some((m) => m.id === message.id))) {
-        return old;
-      }
-      return {
-        ...old,
-        pages: old.pages.map((page, index) =>
-          index === 0 ? { ...page, messages: [...page.messages, message] } : page,
-        ),
-      };
-    },
-  );
-}
 
 /**
  * Layout-agnostic chat controller. Holds every piece of chat conversation
@@ -230,20 +197,13 @@ export function useChatController(opts?: { isActive?: boolean }) {
     isFetchingNextPage: isFetchingOlderMessages,
   } = useInfiniteQuery(chatMessagesPageOptions(activeSessionId ?? ""));
 
-  const messagePages = activeSessionId ? rawMessagePages?.pages ?? [] : [];
-  const messages = [...messagePages].reverse().flatMap((page) => page.messages);
-  const olderMessageCount = messagePages
-    .slice(1)
-    .reduce((sum, page) => sum + page.messages.length, 0);
-  const firstItemIndex =
-    messages.length > 0
-      ? CHAT_VIRTUOSO_INITIAL_FIRST_ITEM_INDEX - olderMessageCount
-      : 0;
+  const { messages, firstItemIndex } = useChatMessageWindow(activeSessionId, rawMessagePages);
   const showSkeleton = !!activeSessionId && messagesLoading;
 
-  const { data: pendingRun } = useQuery(
-    pendingChatRunOptions(activeSessionId ?? ""),
-  );
+  const { data: pendingRun } = useQuery({
+    ...pendingChatRunOptions(activeSessionId ?? ""),
+    refetchOnMount: "always",
+  });
   const pendingRunId = pendingRun?.run_id ?? null;
   const stopRequestedBeforeRunRef = useRef(false);
   // Durable deferred-cancellation draft restores (#5219). The whole lifecycle —
@@ -298,9 +258,9 @@ export function useChatController(opts?: { isActive?: boolean }) {
 
   const currentMember = members.find((m) => m.user_id === user?.id);
   const memberRole = currentMember?.role;
-  const availableAgents = agents.filter(
+  const availableAgents = useMemo(() => agents.filter(
     (a) => !a.archived_at && canAssignAgent(a, user?.id, memberRole),
-  );
+  ), [agents, user?.id, memberRole]);
   // `availableAgents` is only trustworthy once BOTH queries above succeeded:
   // the permission filter reads the member role, so agents-without-members
   // misreports a public_to agent as unavailable. Consumers that must tell
@@ -627,8 +587,7 @@ export function useChatController(opts?: { isActive?: boolean }) {
           toast.error(t(($) => $.input.attachment_bind_failed_toast));
         }
       }
-      qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
-      qc.invalidateQueries({ queryKey: chatKeys.messagesPage(sessionId) });
+      syncLatestChatMessageQueries(qc, sessionId);
       qc.invalidateQueries({ queryKey: chatKeys.sessions(wsId) });
       return true;
     },

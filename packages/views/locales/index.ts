@@ -1,3 +1,5 @@
+import enGit from "./en/git.json";
+import zhHansGit from "./zh-Hans/git.json";
 
 import zhHansPageFeedback from "./zh-Hans/page-feedback.json";
 import enPageFeedback from "./en/page-feedback.json";
@@ -62,6 +64,7 @@ import zhHansResources from "./zh-Hans/resources.json";
 // in exactly one place.
 export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
   en: {
+    git: enGit,
     common: enCommon,
     auth: enAuth,
     settings: enSettings,
@@ -92,6 +95,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     "page-feedback": enPageFeedback,
   },
   "zh-Hans": {
+    git: zhHansGit,
     common: zhHansCommon,
     auth: zhHansAuth,
     settings: zhHansSettings,

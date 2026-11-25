@@ -46,7 +46,7 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from "@silieco/ui/components/ui/popover";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@silieco/ui/components/ui/tooltip";
 import { Button } from "@silieco/ui/components/ui/button";
-import { EmojiPicker } from "@silieco/ui/components/common/emoji-picker";
+import { ProjectIconPicker } from "../projects/components/project-icon-picker";
 import { ContentEditor, type ContentEditorRef, TitleEditor } from "../editor";
 import { PriorityIcon } from "../tasks/components/priority-icon";
 import { ActorAvatar } from "../common/actor-avatar";
@@ -121,7 +121,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   // disclosure, mirroring create-task); these flip a pill inline + open.
   const [startDatePickerOpen, setStartDatePickerOpen] = useState(false);
   const [dueDatePickerOpen, setDueDatePickerOpen] = useState(false);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconBusy, setIconBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   // Repos selected to attach as github_repo resources after the project is
@@ -217,7 +217,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const createProject = useCreateProject();
 
   const handleSubmit = async () => {
-    if (!title.trim() || submitting) return;
+    if (!title.trim() || submitting || iconBusy) return;
     // `sourceMode` decides which side's stash gets persisted — the other
     // side is silently dropped, so repos picked then abandoned for local
     // mode don't leak into the project.
@@ -346,27 +346,12 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-5 pb-2 shrink-0">
-          <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  className="text-display-sm cursor-pointer rounded-lg p-1 -ml-1 hover:bg-accent/60 transition-colors"
-                  title={t(($) => $.create_project.icon_tooltip)}
-                >
-                  {icon || "📁"}
-                </button>
-              }
-            />
-            <PopoverContent align="start" className="w-auto p-0">
-              <EmojiPicker
-                onSelect={(emoji) => {
-                  updateIcon(emoji);
-                  setIconPickerOpen(false);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <ProjectIconPicker
+            value={icon}
+            disabled={submitting}
+            onBusyChange={setIconBusy}
+            onChange={(next) => updateIcon(next ?? undefined)}
+          />
           <TitleEditor
             autoFocus
             defaultValue={draft.title}
@@ -838,7 +823,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={!title.trim() || submitting}
+            disabled={!title.trim() || submitting || iconBusy}
             className="shrink-0"
           >
             {submitting ? t(($) => $.create_project.submitting) : t(($) => $.create_project.submit)}

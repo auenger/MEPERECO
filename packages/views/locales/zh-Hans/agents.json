@@ -367,6 +367,7 @@
     "title_duplicate": "复制智能体",
     "description_create": "为工作区创建一个新的 AI 智能体。",
     "description_duplicate": "基于\"{{name}}\"创建一个新智能体。指令、环境变量和 skill 会一并复制。",
+    "runtime_install_hint": "没有想要的运行时？安装开源 Pi（npm i -g @earendil-works/pi-coding-agent · pi.dev）后会被自动识别。想在多个智能体间共享订阅与 API key，推荐本机网关 Magpie（usemagpie.ai）—— Pi 是其官方支持对象。",
     "name_label": "名称",
     "name_placeholder": "例如：深度研究智能体",
     "description_label": "描述",

@@ -19,6 +19,7 @@ import {
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { Text } from "@/components/ui/text";
+import { ProjectIcon, isProjectImageIcon } from "@/components/ui/project-icon";
 import { AutosizeTextArea } from "@/components/ui/autosize-textarea";
 import {
   MIN_BODY_INPUT_HEIGHT_PX,
@@ -138,8 +139,16 @@ export default function EditProject() {
           ) : (
             <>
               <Field label="Icon (emoji)">
+                {isProjectImageIcon(icon) && (
+                  <View className="flex-row items-center gap-2">
+                    <ProjectIcon icon={icon} size="lg" />
+                    <Pressable onPress={() => setIcon("")}>
+                      <Text className="text-sm text-muted-foreground">Remove image</Text>
+                    </Pressable>
+                  </View>
+                )}
                 <TextInput
-                  value={icon}
+                  value={isProjectImageIcon(icon) ? "" : icon}
                   onChangeText={(v) => {
                     // Cap at two characters — emoji are usually 1-2 UTF-16
                     // code units. Prevents the user typing a full sentence

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/silieco-ai/silieco/core/internal/logger"
+	"github.com/silieco-ai/silieco/core/internal/projectgit"
 	"github.com/silieco-ai/silieco/core/internal/util"
 	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
 	"github.com/silieco-ai/silieco/core/pkg/db/relational"
@@ -46,13 +47,13 @@ type ProjectResponse struct {
 	ResourceCount int64 `json:"resource_count"`
 }
 
-func projectToResponse(p db.Project) ProjectResponse {
+func (h *Handler) projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
 		ID:          uuidToString(p.ID),
 		WorkspaceID: uuidToString(p.WorkspaceID),
 		Title:       p.Title,
 		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
+		Icon:        h.resolveAvatarURLPtr(textToPtr(p.Icon)),
 		Status:      p.Status,
 		Priority:    p.Priority,
 		LeadType:    textToPtr(p.LeadType),
@@ -163,7 +164,7 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]ProjectResponse, len(projects))
 	for i, p := range projects {
-		resp[i] = projectToResponse(p)
+		resp[i] = h.projectToResponse(p)
 		if s, ok := statsMap[resp[i].ID]; ok {
 			resp[i].TaskCount = s.TotalCount
 			resp[i].DoneCount = s.DoneCount
@@ -191,7 +192,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
-	resp := projectToResponse(project)
+	resp := h.projectToResponse(project)
 	resp.TaskCount, resp.DoneCount = h.loadProjectTaskStats(r.Context(), project.ID)
 	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	writeJSON(w, http.StatusOK, resp)
@@ -236,6 +237,10 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	var req CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if len(req.Resources) > 0 && r.Header.Get("X-Actor-Source") == "agent_run_token" {
+		writeError(w, http.StatusForbidden, "agent tasks cannot configure project repositories")
 		return
 	}
 	if req.Title == "" {
@@ -320,6 +325,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "resources["+strconv.Itoa(i)+"]: "+err.Error())
 			return
 		}
+		req.Resources[i].ResourceType = res.ResourceType
 		normalizedRefs[i] = ref
 		if res.ResourceType == "local_directory" {
 			var ld localDirectoryRef
@@ -333,6 +339,16 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 			}
 			localDirSeen[ld.DaemonID] = i
 		}
+	}
+
+	// Project icons retain the existing nullable string contract: an emoji
+	// passes through, while an uploaded image follows the avatar storage rules.
+	if req.Icon != nil {
+		accepted, ok := h.acceptAvatarURL(w, r, *req.Icon, "")
+		if !ok {
+			return
+		}
+		req.Icon = &accepted
 	}
 
 	createParams := db.CreateProjectParams{
@@ -355,7 +371,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 			h.writeProjectWriteError(w, r, err, "create")
 			return
 		}
-		resp := projectToResponse(project)
+		resp := h.projectToResponse(project)
 		h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
 		writeJSON(w, http.StatusCreated, resp)
 		return
@@ -377,8 +393,35 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	creator, _ := h.parseUserUUIDOrZero(userID)
+	var gitRefs []projectgit.Ref
+	var primaryChosen bool
 	resourceRows := make([]db.ProjectResource, 0, len(req.Resources))
 	for i, res := range req.Resources {
+		if res.ResourceType == "github_repo" {
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(res.ResourceRef, &fields)
+			_, provided := fields["integration"]
+			ref, e := projectgit.PrepareRef(r.Context(), tx, project.WorkspaceID, normalizedRefs[i], nil, provided, true)
+			if e != nil {
+				writeError(w, http.StatusBadRequest, e.Error())
+				return
+			}
+			var parsed projectgit.Ref
+			_ = json.Unmarshal(ref, &parsed)
+			for _, prior := range gitRefs {
+				if projectgit.SameRepository(prior, parsed) {
+					writeError(w, http.StatusConflict, "duplicate project repository")
+					return
+				}
+			}
+			if parsed.Primary && !primaryChosen {
+				primaryChosen = true
+			} else {
+				parsed.Primary = false
+			}
+			gitRefs = append(gitRefs, parsed)
+			normalizedRefs[i], _ = json.Marshal(parsed)
+		}
 		var label pgtype.Text
 		if res.Label != nil && strings.TrimSpace(*res.Label) != "" {
 			label = pgtype.Text{String: strings.TrimSpace(*res.Label), Valid: true}
@@ -406,6 +449,28 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		}
 		resourceRows = append(resourceRows, row)
 	}
+	if !primaryChosen {
+		for i, row := range resourceRows {
+			if row.ResourceType != "github_repo" {
+				continue
+			}
+			var ref projectgit.Ref
+			_ = json.Unmarshal(row.ResourceRef, &ref)
+			ref.Primary = true
+			raw, _ := json.Marshal(ref)
+			updated, e := qtx.UpdateProjectResource(r.Context(), db.UpdateProjectResourceParams{ID: row.ID, ResourceRef: raw, Label: row.Label, Position: row.Position})
+			if e != nil {
+				writeError(w, http.StatusInternalServerError, "failed to set primary repository")
+				return
+			}
+			resourceRows[i] = updated
+			break
+		}
+	}
+	if err := projectgit.SyncProject(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to sync repository bindings")
+		return
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to commit project create")
 		return
@@ -415,7 +480,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	for i, row := range resourceRows {
 		resourceResp[i] = projectResourceToResponse(row)
 	}
-	resp := projectToResponse(project)
+	resp := h.projectToResponse(project)
 	resp.ResourceCount = int64(len(resourceResp))
 	h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
 	for _, rr := range resourceResp {
@@ -504,7 +569,11 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, ok := rawFields["icon"]; ok {
 		if req.Icon != nil {
-			params.Icon = pgtype.Text{String: *req.Icon, Valid: true}
+			accepted, ok := h.acceptAvatarURL(w, r, *req.Icon, prevProject.Icon.String)
+			if !ok {
+				return
+			}
+			params.Icon = pgtype.Text{String: accepted, Valid: true}
 		} else {
 			params.Icon = pgtype.Text{Valid: false}
 		}
@@ -558,7 +627,7 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		h.writeProjectWriteError(w, r, err, "update")
 		return
 	}
-	resp := projectToResponse(project)
+	resp := h.projectToResponse(project)
 	resp.TaskCount, resp.DoneCount = h.loadProjectTaskStats(r.Context(), project.ID)
 	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": resp})
@@ -960,7 +1029,7 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]SearchProjectResponse, len(results))
 	for i, row := range results {
-		pr := projectToResponse(row.project)
+		pr := h.projectToResponse(row.project)
 		if s, ok := statsMap[pr.ID]; ok {
 			pr.TaskCount = s.TotalCount
 			pr.DoneCount = s.DoneCount

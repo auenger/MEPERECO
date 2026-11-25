@@ -1,4 +1,5 @@
 "use client";
+import { currencyFactor, currencySymbol, usePricingCurrency } from "../../runtimes/pricing-currency";
 
 import { useMemo, useState } from "react";
 import { BarChart3, EyeOff, FolderKanban, Trash2 } from "lucide-react";
@@ -35,6 +36,7 @@ import { useWorkspacePaths } from "@silieco/core/paths";
 import { useCustomPricingStore } from "@silieco/core/runtimes/custom-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import { PageHeader } from "../../layout/page-header";
+import { AggregatedCostValue, ModelCostValue, ModelCostHint, ModelPricingNotice, sumModelCosts } from "../../runtimes/components/model-cost-display";
 import { KpiCard } from "../../runtimes/components/shared";
 import {
   DailyCostChart,
@@ -237,6 +239,7 @@ function DurationNumberFlow({
  */
 export function DashboardPage() {
   const { t, i18n } = useT("usage");
+  const currency=usePricingCurrency();
   const wsId = useWorkspaceId();
   const viewTZ = useViewingTimezone();
   const locales = i18n.resolvedLanguage ?? i18n.language;
@@ -255,7 +258,7 @@ export function DashboardPage() {
 
   // The user can save model prices from the runtimes page; re-render when
   // they do so the dashboard reflects the new rates.
-  useCustomPricingStore((s) => s.pricings);
+  const legacyPricings=useCustomPricingStore((s) => s.pricings);
 
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const agentsQuery = useQuery(agentListOptions(wsId));
@@ -354,11 +357,12 @@ export function DashboardPage() {
   // Cost / token math — re-derived when usage, days, or pricings change.
   const totals = useMemo(
     () => computeDailyTotals(dailyUsageInWindow),
-    [dailyUsageInWindow],
+    [dailyUsageInWindow,legacyPricings],
   );
+  const pricingSummary=sumModelCosts(dailyUsageInWindow);
   const dailyCost = useMemo(
     () => aggregateDailyCost(dailyUsageInWindow),
-    [dailyUsageInWindow],
+    [dailyUsageInWindow,legacyPricings],
   );
   const dailyTokens = useMemo(
     () => aggregateDailyTokens(dailyUsageInWindow),
@@ -431,7 +435,7 @@ export function DashboardPage() {
   // boundaries follow the viewer's timezone.
   const weekly = useMemo(
     () => aggregateByWeek(dailyUsage, viewTZ, weekCount),
-    [dailyUsage, viewTZ, weekCount],
+    [dailyUsage, viewTZ, weekCount,legacyPricings],
   );
   const weeklyCost = weekly.weeklyCostStack;
   const weeklyTokens = weekly.weeklyTokens;
@@ -449,7 +453,7 @@ export function DashboardPage() {
   );
   const agentTokenRows = useMemo(
     () => aggregateAgentTokens(byAgentUsage),
-    [byAgentUsage],
+    [byAgentUsage,legacyPricings],
   );
 
   // Run-time totals — taskCount + failedCount summed for the KPI row.
@@ -542,13 +546,15 @@ export function DashboardPage() {
             <DashboardEmpty />
           ) : (
             <>
+              {pricingSummary && <ModelPricingNotice cost={pricingSummary} />}
               {/* KPI row — same 3-divide-x card grid the runtime usage
                   section uses, expanded to four tiles. */}
               <div className="grid grid-cols-1 divide-y rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
                 <KpiCard
                   label={t(($) => $.kpi.cost_label, { days })}
+                  hint={pricingSummary ? <ModelCostHint cost={pricingSummary} /> : undefined}
                   value={
-                    <CurrencyNumberFlow value={totals.cost} locales={locales} />
+                    pricingSummary ? <ModelCostValue cost={pricingSummary} /> : <CurrencyNumberFlow value={totals.cost*currencyFactor(currency)} prefix={currencySymbol(currency)} locales={locales} />
                   }
                 />
                 <KpiCard
@@ -1495,7 +1501,7 @@ function Leaderboard({
                   <div
                     className={`text-right tabular-nums ${sortBy === "cost" ? "text-body font-medium" : "text-caption text-muted-foreground"}`}
                   >
-                    ${row.cost.toFixed(2)}
+                    <AggregatedCostValue cost={row.cost} tokens={row.tokens} unknownTokens={row.unknownTokens} />
                   </div>
                   <div
                     className={`text-right text-caption tabular-nums ${sortBy === "time" ? "font-medium text-foreground" : "text-muted-foreground"}`}

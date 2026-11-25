@@ -52,6 +52,7 @@ export type NavLabelKey =
   | "tasks"
   | "projects"
   | "resources"
+  | "git"
   | "workflows"
   | "autopilots"
   | "agents"
@@ -69,6 +70,7 @@ export type WorkspacePageKey =
   | "tasks"
   | "projects"
   | "resources"
+  | "git"
   | "workflows"
   | "autopilots"
   | "agents"
@@ -98,6 +100,7 @@ export const WORKSPACE_PAGES: Record<WorkspacePageKey, WorkspacePage> = {
   tasks: { segment: "tasks", icon: "ListTodo", navKey: "tasks" },
   projects: { segment: "projects", icon: "FolderKanban", navKey: "projects" },
   resources: { segment: "resources", icon: "FileText", navKey: "resources" },
+  git: { segment: "git", icon: "FileText", navKey: "resources" },
   workflows: { segment: "workflows", icon: "GitBranch", navKey: "workflows" },
   autopilots: { segment: "autopilots", icon: "Zap", navKey: "autopilots" },
   agents: { segment: "agents", icon: "Bot", navKey: "agents" },

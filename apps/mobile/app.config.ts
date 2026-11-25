@@ -49,9 +49,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     scheme: "silieco",
-    // 1024x1024 source shared with the desktop client
-    // (apps/desktop/build/icon.png). Expo prebuild generates every required
-    // iOS icon size from this single PNG.
+    // 1024x1024 MEPER Studio icon, opaque for iOS native corner masking.
+    // Expo prebuild generates every required iOS icon size from this PNG.
     icon: "./assets/icon.png",
     ios: {
       supportsTablet: false,

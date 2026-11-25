@@ -109,7 +109,25 @@ function checkForUpdatesOnce(): Promise<unknown> {
   return p;
 }
 
-export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
+export function setupAutoUpdater(
+  getMainWindow: () => BrowserWindow | null,
+  updateFeedUrl?: string,
+): void {
+  // Self-hosted update feed. electron-builder's publish is null, so
+  // electron-updater has no app-update.yml and its default feed would point
+  // at a nonexistent GitHub release. Instead the feed is derived at runtime
+  // from the deployment's own API server (see index.ts): a generic-provider
+  // URL that must serve, relative to the URL given here:
+  //   latest.yml            — Windows/Linux x64 metadata
+  //   latest-arm64.yml      — Windows arm64 metadata (channel below)
+  //   latest-x64-mac.yml    — macOS Intel metadata
+  //   latest-mac.yml        — macOS Apple Silicon metadata
+  // plus the installer artifacts those files reference. Releases are
+  // published by uploading the built artifacts + metadata to that path
+  // (no CI publish step — electron-builder stays publish: null).
+  if (updateFeedUrl) {
+    autoUpdater.setFeedURL({ provider: "generic", url: updateFeedUrl });
+  }
   const preferencesFilePath = updaterPreferencesPath(app.getPath("userData"));
   let automaticUpdatesEnabled =
     DEFAULT_UPDATER_PREFERENCES.automaticUpdates;

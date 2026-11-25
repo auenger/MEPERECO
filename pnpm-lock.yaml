@@ -733,6 +733,9 @@ importers:
       '@number-flow/react':
         specifier: ^0.6.1
         version: 0.6.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@silieco/core':
+        specifier: workspace:*
+        version: link:../core
       '@tanstack/react-table':
         specifier: 'catalog:'
         version: 8.21.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

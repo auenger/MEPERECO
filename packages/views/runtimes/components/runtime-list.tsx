@@ -1,5 +1,7 @@
 "use client";
+import { currencyFactor, currencySymbol, formatModelMoney, usePricingCurrency } from "../pricing-currency";
 
+import { ModelCostValue, sumModelCosts } from "./model-cost-display";
 import { useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -60,6 +62,7 @@ import { DeleteRuntimeProfileDialog } from "./delete-runtime-profile-dialog";
 import { RuntimeProfilesDialog } from "./runtime-profiles-dialog";
 import {
   computeCostInWindow,
+  sliceWindow,
   pctChange,
 } from "../utils";
 import { runtimeRowLabel } from "./runtime-machines";
@@ -374,6 +377,7 @@ function HealthCell({
 const COST_CELL_DAYS = 14;
 
 export function CostCell({ runtimeId }: { runtimeId: string }) {
+  const currency=usePricingCurrency();
   const { t, i18n } = useT("runtimes");
   const tz = useViewingTimezone();
   const locales = i18n.resolvedLanguage ?? i18n.language;
@@ -385,7 +389,8 @@ export function CostCell({ runtimeId }: { runtimeId: string }) {
     () => computeCostInWindow(usage, 7, tz, 7),
     [usage, tz],
   );
-  const delta = pctChange(cost7d, costPrev7d);
+  const priceSummary=sumModelCosts(sliceWindow(usage,7,tz).filtered);
+  const delta = priceSummary?.unknown_tokens ? null : pctChange(cost7d, costPrev7d);
 
   if (usage.length === 0) {
     return (
@@ -394,7 +399,7 @@ export function CostCell({ runtimeId }: { runtimeId: string }) {
       </div>
     );
   }
-  const fmt = cost7d >= 100 ? `$${cost7d.toFixed(0)}` : `$${cost7d.toFixed(2)}`;
+  const fmt = formatModelMoney(cost7d,currency);
   const deltaTone =
     delta == null
       ? "text-muted-foreground"
@@ -411,12 +416,12 @@ export function CostCell({ runtimeId }: { runtimeId: string }) {
         : `${delta > 0 ? "↑" : "↓"}${Math.abs(delta)}%`;
   return (
     <div className="flex w-full flex-col items-end leading-tight">
-      <CurrencyNumberFlow
-        value={cost7d}
+      {priceSummary ? <ModelCostValue cost={priceSummary} /> : <CurrencyNumberFlow
+        value={cost7d*currencyFactor(currency)} prefix={currencySymbol(currency)}
         locales={locales}
         aria-label={fmt}
         className="text-body font-medium"
-      />
+      />}
       {deltaLabel && (
         <span className={`text-micro tabular-nums ${deltaTone}`}>
           {deltaLabel}

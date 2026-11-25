@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { restartForServerChange } from "../platform/server-switch";
 import { AlertCircle, Info, LogIn } from "lucide-react";
 import { Button } from "@silieco/ui/components/ui/button";
+import { Input } from "@silieco/ui/components/ui/input";
 import { Switch } from "@silieco/ui/components/ui/switch";
 import { cn } from "@silieco/ui/lib/utils";
 import { toast } from "sonner";
@@ -51,11 +53,25 @@ export function DaemonSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<DaemonStatus>({ state: "stopped" });
   const [reauthLoading, setReauthLoading] = useState(false);
+  const [serverUrl, setServerUrl] = useState("");
+  const [serverSavedUrl, setServerSavedUrl] = useState<string | null>(null);
+  const [serverSaving, setServerSaving] = useState(false);
 
   useEffect(() => {
     window.daemonAPI.getPrefs().then(setPrefs);
     window.daemonAPI.isCliInstalled().then(setCliInstalled);
     window.daemonAPI.getStatus().then(setStatus);
+    // Falls back to the DEFAULT_RUNTIME_CONFIG value when nothing is stored —
+    // showing it explicitly makes "what will happen after restart" obvious.
+    window.desktopConfig
+      .read()
+      .then((url) => {
+        const runtimeConfig = window.desktopAPI.runtimeConfig;
+        const effective = url ?? (runtimeConfig.ok ? runtimeConfig.config.apiUrl : "");
+        setServerUrl(effective);
+        setServerSavedUrl(effective);
+      })
+      .catch(() => undefined);
     return window.daemonAPI.onStatusChange(setStatus);
   }, []);
 
@@ -64,6 +80,24 @@ export function DaemonSettingsTab() {
     await reauthenticateDaemon();
     setReauthLoading(false);
   }, []);
+
+  const handleSaveServer = useCallback(async () => {
+    setServerSaving(true);
+    try {
+      const result = await window.desktopConfig.write(serverUrl.trim());
+      if (result.ok) {
+        setServerSavedUrl(result.apiUrl);
+        setServerUrl(result.apiUrl);
+        await restartForServerChange();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      setServerSaving(false);
+    }
+  }, [serverUrl]);
 
   const updatePref = useCallback(
     async (key: keyof DaemonPrefs, value: boolean) => {
@@ -94,6 +128,41 @@ export function DaemonSettingsTab() {
       title="Daemon"
       description="Configure how the local agent daemon behaves with the desktop app."
     >
+      <SettingsSection
+        title="Server"
+        description="API, real-time channel, daemon and automatic updates all use this address. Saving signs you out and restarts the app so you can sign in to the new server."
+      >
+        <SettingsCard>
+          <SettingsRow
+            label="Server address"
+            description={
+              serverSavedUrl
+                ? `Current: ${serverSavedUrl}`
+                : "Using the default deployment address."
+            }
+          >
+            <div className="flex shrink-0 items-center gap-2">
+              <Input
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                className="w-64 font-mono text-caption"
+                spellCheck={false}
+              />
+              <Button
+                size="sm"
+                onClick={handleSaveServer}
+                disabled={
+                  serverSaving ||
+                  serverUrl.trim().length === 0 ||
+                  serverUrl.trim() === serverSavedUrl
+                }
+              >
+                Save & restart
+              </Button>
+            </div>
+          </SettingsRow>
+        </SettingsCard>
+      </SettingsSection>
 
       {status.state === "auth_expired" && (
         <div className="mt-4 flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3">
@@ -161,23 +230,10 @@ export function DaemonSettingsTab() {
             cliInstalled === null
               ? "Checking…"
               : cliInstalled
-                ? "silieco CLI is installed and available in PATH."
-                : "silieco CLI not found. Install it to enable daemon management."
+                ? "silieco CLI is installed and available."
+                : "silieco CLI not found. It ships bundled with this app — restart the app and the daemon will pick it up."
           }
         >
-          {cliInstalled === false && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                window.desktopAPI.openExternal(
-                  "https://github.com/silieco-ai/silieco#cli-installation",
-                )
-              }
-            >
-              Installation Guide
-            </Button>
-          )}
           {cliInstalled !== false && <span />}
         </SettingsRow>
       </SettingsCard>

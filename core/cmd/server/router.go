@@ -939,6 +939,12 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					// for the same reason as GitHub installations; connect /
 					// disconnect are admin-gated in the group below.
 					r.Get("/vcs/connections", h.ListVCSConnections)
+					r.Get("/model-pricing", h.GetWorkspaceModelPricing)
+					r.Get("/pricing-currency", h.GetWorkspacePricingCurrency)
+					r.Get("/git/overview", h.WorkspaceGitOverview)
+					r.Get("/git/bindings", h.ListWorkspaceGitBindings)
+					r.Get("/git/pull-requests", h.ListWorkspaceGitPullRequests)
+					r.Get("/git/pull-requests/{prId}/files", h.WorkspaceGitPullRequestFiles)
 					// Custom runtime profiles — listing/reading is member-visible
 					// (the Runtime page renders for everyone; create/edit/delete
 					// are admin-gated below).
@@ -948,6 +954,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				// Admin-level access
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.RequireWorkspaceRoleFromURL(queries, "id", "owner", "admin"))
+					r.Put("/model-pricing", h.SetWorkspaceModelPricing)
+					r.Put("/pricing-currency", h.SetWorkspacePricingCurrency)
 					r.Put("/", h.UpdateWorkspace)
 					r.Patch("/", h.UpdateWorkspace)
 					r.Post("/members", h.CreateInvitation)
@@ -1200,6 +1208,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/", h.GetProject)
 					r.Put("/", h.UpdateProject)
 					r.Delete("/", h.DeleteProject)
+					r.Get("/git/overview", h.ProjectGitOverview)
+					r.Put("/git/repo-mode", h.SetProjectGitRepoMode)
+					r.Get("/git/pull-requests", h.ListProjectGitPullRequests)
+					r.Get("/git/pull-requests/{prId}/files", h.ProjectGitPullRequestFiles)
 					r.Get("/resources", h.ListProjectResources)
 					r.Get("/resources/{resourceId}/directory", h.BrowseProjectDirectory)
 					r.Post("/directory/check", h.CheckProjectDirectory)

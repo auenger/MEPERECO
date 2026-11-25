@@ -5,6 +5,7 @@ import { pathToFileURL } from "url";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import fixPath from "fix-path";
 import { setupAutoUpdater } from "./updater";
+import { registerDesktopConfigIpc } from "./desktop-config";
 import { setupDaemonManager } from "./daemon-manager";
 import { setupBrowserTool } from "./browser/browser-tool";
 import { setupLocalDirectory } from "./local-directory";
@@ -366,8 +367,25 @@ function createWindow(): BrowserWindow {
       : {}),
     minWidth: 900,
     minHeight: 600,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 17 },
+    // `hiddenInset` is macOS-only; on Windows it falls back to the default
+    // system title bar. Windows instead gets `hidden` + the native Window
+    // Controls Overlay, so min/max/close render inside the app's 48px top
+    // bar at the far right — the renderer already reserves 144px of right
+    // padding for them there (MainTopBar in desktop-layout.tsx). Overlay
+    // colors mirror the light-theme --app-shell / --foreground tokens.
+    ...(process.platform === "win32"
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: {
+            color: "#f3f3f4",
+            symbolColor: "#09090b",
+            height: 48,
+          },
+        }
+      : {
+          titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 16, y: 17 },
+        }),
     show: false,
     autoHideMenuBar: true,
     // Windows/Linux pick up the window/taskbar icon from this option.
@@ -525,8 +543,21 @@ function createTaskWindow(context: TaskWindowContext): void {
     minWidth: 720,
     minHeight: 520,
     title: context.title,
-    titleBarStyle: "hiddenInset",
-    trafficLightPosition: { x: 16, y: 17 },
+    // Same platform split as the main window: `hiddenInset` is macOS-only;
+    // Windows uses `hidden` + Window Controls Overlay over the DragStrip.
+    ...(process.platform === "win32"
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: {
+            color: "#f3f3f4",
+            symbolColor: "#09090b",
+            height: 48,
+          },
+        }
+      : {
+          titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 16, y: 17 },
+        }),
     show: false,
     autoHideMenuBar: true,
     ...(is.dev || process.platform === "linux"
@@ -676,11 +707,11 @@ if (!gotTheLock) {
       readonly VITE_APP_URL?: string;
     };
 
+    // electron-vite exposes VITE_* on import.meta.env for the main process;
+    // keep dev URL overrides on the same source the renderer used before
+    // runtime config moved endpoint resolution into main/preload.
     runtimeConfigResult = await loadRuntimeConfig({
       isDev: is.dev,
-      // electron-vite exposes VITE_* on import.meta.env for the main process;
-      // keep dev URL overrides on the same source the renderer used before
-      // runtime config moved endpoint resolution into main/preload.
       env: {
         apiUrl: viteEnv.VITE_API_URL,
         wsUrl: viteEnv.VITE_WS_URL,
@@ -898,7 +929,17 @@ if (!gotTheLock) {
     desktopInitialized = true;
     createWindow();
 
-    setupAutoUpdater(() => mainWindow);
+    registerDesktopConfigIpc();
+
+    // Self-hosted update feed: derive it from the runtime config's API base
+    // so updates come from the same server the app already talks to (never
+    // from a public CDN the deployment can't reach). The server must serve
+    // electron-updater metadata + artifacts under /updates/desktop — the
+    // exact file contract is documented in setupAutoUpdater.
+    const desktopUpdateFeedUrl = runtimeConfigResult.ok
+      ? `${runtimeConfigResult.config.apiUrl.replace(/\/+$/, "")}/updates/desktop`
+      : undefined;
+    setupAutoUpdater(() => mainWindow, desktopUpdateFeedUrl);
     setupDaemonManager(() => mainWindow);
     setupLocalDirectory(() => mainWindow);
     setupBrowserTool(() => mainWindow);

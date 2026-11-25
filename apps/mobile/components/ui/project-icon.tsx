@@ -1,7 +1,7 @@
 /**
  * Mobile ProjectIcon — RN port of
  * `packages/views/projects/components/project-icon.tsx`. Renders the
- * project's emoji icon with a 📁 fallback.
+ * project's circular image or emoji icon with a 📁 fallback.
  *
  * Why a square View wrapper + explicit lineHeight:
  *   Emoji glyphs do not respect the latin-text baseline metrics — on iOS
@@ -14,7 +14,10 @@
  *   `items-start` align siblings against a predictable box instead of the
  *   emoji's drifting baseline.
  */
+import { useState } from "react";
 import { View } from "react-native";
+import { Image as ExpoImage } from "expo-image";
+import { resolveAttachmentUrl } from "@/lib/attachment-url";
 import { Text } from "@/components/ui/text";
 
 export type ProjectIconSize = "sm" | "md" | "lg";
@@ -30,8 +33,26 @@ interface Props {
   size?: ProjectIconSize;
 }
 
+export function isProjectImageIcon(icon?: string | null): boolean {
+  return !!icon && /^(https?:\/\/|\/uploads\/|\/api\/avatars\/)/i.test(icon);
+}
+
 export function ProjectIcon({ icon, size = "sm" }: Props) {
   const { box, font } = SIZE[size];
+  const imageUrl = isProjectImageIcon(icon) ? resolveAttachmentUrl(icon) : null;
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (imageUrl && failedUrl !== imageUrl) {
+    return (
+      <View style={{ width: box, height: box, borderRadius: box / 2, overflow: "hidden" }}>
+        <ExpoImage
+          source={{ uri: imageUrl }}
+          contentFit="cover"
+          style={{ width: box, height: box }}
+          onError={() => setFailedUrl(imageUrl)}
+        />
+      </View>
+    );
+  }
   return (
     <View
       style={{
@@ -42,7 +63,7 @@ export function ProjectIcon({ icon, size = "sm" }: Props) {
       }}
     >
       <Text style={{ fontSize: font, lineHeight: Math.round(font * 1.2) }}>
-        {icon || "📁"}
+        {imageUrl ? "📁" : icon || "📁"}
       </Text>
     </View>
   );

@@ -59,6 +59,16 @@
   "directory_bind_failed": "Could not bind directory",
   "directory_binding_hint": "Workspace members can browse files in this directory. Select a project directory intended for sharing.",
   "directory_open": "Open in new tab",
-  "directory_back": "Back to project resources",
-  "directory_unbound": "No directory is bound to this project"
+  "directory_back": "Back to project working files",
+  "directory_unbound": "No directory is bound to this project",
+  "work_resources": "Work Resources",
+  "work_resources_description": "Shared resources, project working files and code delivery in one place.",
+  "library_tab": "Library",
+  "files_tab": "Working Files",
+  "workspace_files_description": "Select a project to browse its bound working directories on execution machines.",
+  "select_project_files": "Select project",
+  "manage_project_files": "Manage project files",
+  "no_projects_files": "No projects yet. Create a project and bind a working directory to browse files.",
+  "directory_management": "Working directory management",
+  "repository_management": "Repository management"
 }

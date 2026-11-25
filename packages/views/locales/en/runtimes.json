@@ -408,7 +408,7 @@
     "empty_no_usage": "No usage in this period.",
     "empty_pricing_missing": "Tokens recorded but pricing missing for:",
     "empty_pricing_hint": "Set a custom rate to include them in cost totals.",
-    "empty_zero_cost": "Tokens recorded but cost calculation returned $0.",
+    "empty_zero_cost": "Tokens recorded but calculated cost is zero.",
     "unmapped_notice_one": "{{count}} model has no maintained price — its tokens are excluded from cost totals.",
     "unmapped_notice_other": "{{count}} models have no maintained price — their tokens are excluded from cost totals.",
     "custom_pricing": {

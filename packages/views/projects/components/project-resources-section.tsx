@@ -83,16 +83,19 @@ function isLocalDirectoryRef(r: ProjectResource): r is ProjectResource & {
 export function ProjectResourcesSection({
   projectId,
   canManage = false,
+  mode = "all",
 }: {
   projectId: string;
   canManage?: boolean;
+  mode?: "all" | "repositories" | "directories";
 }) {
   const { t } = useT("projects");
+  const { t: resourcesT } = useT("resources");
   const wsId = useWorkspaceId();
   const userId = useAuthStore((state) => state.user?.id);
   const workspace = useCurrentWorkspace();
   const daemonStatus = useLocalDaemonStatus();
-  const [open, setOpen] = useState(true);
+  const [openOverride, setOpen] = useState<boolean | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [repoSearch, setRepoSearch] = useState("");
   const [picking, setPicking] = useState(false);
@@ -141,6 +144,8 @@ export function ProjectResourcesSection({
 
   const repositories = resources.filter(isGithubRef);
   const localMappings = resources.filter(isLocalDirectoryRef);
+  // Working files prioritize browsing once at least one directory is bound.
+  const open = openOverride ?? (mode !== "directories" || localMappings.length === 0);
   const standaloneMappings = localMappings.filter(
     (mapping) => !mapping.resource_ref.repository_resource_id,
   );
@@ -319,17 +324,18 @@ export function ProjectResourcesSection({
       <button
         type="button"
         className={`flex w-full items-center gap-1 rounded-md px-2 py-1 text-caption font-medium transition-colors mb-2 hover:bg-accent/70 ${open ? "" : "text-muted-foreground hover:text-foreground"}`}
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        {t(($) => $.resources.section_header)}
+        {mode === "directories" ? resourcesT($ => $.directory_management) : mode === "repositories" ? resourcesT($ => $.repository_management) : t(($) => $.resources.section_header)}
         <ChevronRight
           className={`!size-3 shrink-0 stroke-[2.5] text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
         />
       </button>
       {open && (
         <div className="pl-2 space-y-1.5">
-          <ProjectDirectoryBinding wsId={wsId} projectId={projectId} machines={runtimeMachines.filter(machine => machine.daemonId && (canManage || machine.runtimes.some(runtime => runtime.owner_id === userId)))} repositories={repositories.map(repository => ({id: repository.id, label: githubShortLabel(repository.resource_ref.url)}))} />
-          {(repositories.length === 0 || standaloneMappings.length > 0) && (
+          {mode !== "repositories" && <ProjectDirectoryBinding wsId={wsId} projectId={projectId} machines={runtimeMachines.filter(machine => machine.daemonId && (canManage || machine.runtimes.some(runtime => runtime.owner_id === userId)))} repositories={repositories.map(repository => ({id: repository.id, label: githubShortLabel(repository.resource_ref.url)}))} />}
+          {mode !== "repositories" && (repositories.length === 0 || standaloneMappings.length > 0 || mode === "directories") && (
             <ProjectLocalDirectoryCard
               mappings={standaloneMappings}
               machines={runtimeMachines}
@@ -349,7 +355,7 @@ export function ProjectResourcesSection({
               onRenameMapping={handleRenameLocalDirectory}
             />
           )}
-          {repositories.length > 0 && (
+          {mode !== "directories" && repositories.length > 0 && (
             <div className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
               {repositories.map((repository) => (
                 <RepositoryResourceCard
@@ -384,7 +390,7 @@ export function ProjectResourcesSection({
               ))}
             </div>
           )}
-          {canManage ? <Popover
+          {mode !== "directories" && canManage ? <Popover
             open={addOpen}
             onOpenChange={(v) => {
               setAddOpen(v);

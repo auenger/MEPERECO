@@ -169,12 +169,25 @@ interface UpdaterAPI {
   checkForUpdates: () => Promise<ManualUpdateCheckResult>;
 }
 
+interface DesktopConfigAPI {
+  restart: () => Promise<void>;
+  /** Stored apiUrl from ~/.silieco/desktop.json, or null when unset/invalid. */
+  read: () => Promise<string | null>;
+  write: (
+    apiUrl: string,
+  ) => Promise<
+    | { ok: true; apiUrl: string }
+    | { ok: false; error: string }
+  >;
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI;
     desktopAPI: DesktopAPI;
     daemonAPI: DaemonAPI;
     updater: UpdaterAPI;
+    desktopConfig: DesktopConfigAPI;
   }
 }
 

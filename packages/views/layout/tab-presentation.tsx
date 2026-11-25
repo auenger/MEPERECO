@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   parseTabSubject,
+  parseProjectTabSurface,
   resolveTabPresentation,
   useCurrentWorkspace,
   type TabSubject,
@@ -23,6 +24,7 @@ import {
 } from "@silieco/core/workspace/queries";
 import { runtimeListOptions } from "@silieco/core/runtimes/queries";
 import { runtimeDisplayName } from "@silieco/core/runtimes";
+import { workflowInstancesOptions } from "@silieco/core/workflows";
 import { chatSessionsOptions } from "@silieco/core/chat/queries";
 import {
   inboxListOptions,
@@ -233,7 +235,23 @@ export function useTabPresentation(
   const wsId = ws?.id ?? "";
   const data = useTabEntityData(subject, wsId);
   const { visual, title: titleSpec } = resolveTabPresentation(subject, data);
-  const title = useTabTitle(titleSpec, fallbackTitle);
+  const baseTitle = useTabTitle(titleSpec, fallbackTitle);
+  const { t } = useT("layout");
+  const projectSurface = useMemo(() => parseProjectTabSurface(url), [url]);
+  const { data: runs } = useQuery({
+    ...workflowInstancesOptions(wsId),
+    enabled: false,
+  });
+  // Different project menu destinations use separate tabs, so their labels
+  // distinguish Task, Work Resources, SOP and an individual SOP run.
+  let title = baseTitle;
+  if (projectSurface && (titleSpec.kind === "text" || !fallbackTitle?.trim())) {
+    const suffix = projectSurface.kind === "run"
+      ? runs?.find((run) => run.id === projectSurface.id)?.title || t(($) => $.sidebar.project_runs)
+      : projectSurface.kind === "resources" ? t(($) => $.nav.resources)
+      : projectSurface.kind === "sop" ? "SOP" : t(($) => $.tab.task);
+    title = `${baseTitle} · ${suffix}`;
+  }
 
   // The actor avatar resolves through workspace directory queries and throws
   // if rendered before the workspace exists. Until it does, show a type icon.

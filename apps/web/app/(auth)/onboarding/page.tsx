@@ -79,7 +79,7 @@ export default function OnboardingPage() {
           if (ws && taskId) {
             router.push(paths.workspace(ws.slug).taskDetail(taskId));
           } else if (ws) {
-            router.push(paths.workspace(ws.slug).tasks());
+            router.push(paths.workspace(ws.slug).chat());
           } else {
             router.push(paths.workspaces());
           }

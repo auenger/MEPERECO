@@ -16,7 +16,7 @@ import { useCreatePin, useDeletePin } from "@silieco/core/pins";
 import { memberListOptions, agentListOptions } from "@silieco/core/workspace/queries";
 import { useWorkspaceId } from "@silieco/core/hooks";
 import { useRecentContextStore } from "@silieco/core/chat";
-import { useWorkspacePaths } from "@silieco/core/paths";
+import { parseWorkResourceTab, useWorkspacePaths } from "@silieco/core/paths";
 import { useActorName } from "@silieco/core/workspace/hooks";
 import { PROJECT_STATUS_ORDER, PROJECT_STATUS_CONFIG, PROJECT_PRIORITY_ORDER } from "@silieco/core/projects/config";
 import { getProjectTaskMetrics } from "./project-task-metrics";
@@ -24,7 +24,6 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { useNavigation } from "../../navigation";
 import { TitleEditor, ContentEditor, type ContentEditorRef } from "../../editor";
 import { PriorityIcon } from "../../tasks/components/priority-icon";
-import { ProjectResourcesSection } from "./project-resources-section";
 import { ProjectStartDatePicker } from "./project-start-date-picker";
 import { ProjectDueDatePicker } from "./project-due-date-picker";
 import { Skeleton } from "@silieco/ui/components/ui/skeleton";
@@ -49,7 +48,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@silieco/ui/components/ui/tooltip";
-import { EmojiPicker } from "@silieco/ui/components/common/emoji-picker";
+import { ProjectIconPicker } from "./project-icon-picker";
 import { BreadcrumbHeader } from "../../layout/breadcrumb-header";
 import {
   AnimatedRightSidebar,
@@ -72,7 +71,7 @@ import { useProjectStatusLabels, useProjectPriorityLabels } from "./labels";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 import { ProjectSopDesigner } from "../../workflows/components";
 import { ProjectTaskSurface } from "./project-task-surface";
-import { ProjectFilesPage } from "../../resources";
+import { ProjectWorkResources } from "../../resources";
 
 // ---------------------------------------------------------------------------
 // Property row — sidebar property display
@@ -144,7 +143,6 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const descEditorRef = useRef<ContentEditorRef>(null);
   const isMobile = useIsMobile();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [progressOpen, setProgressOpen] = useState(true);
   const [descriptionOpen, setDescriptionOpen] = useState(true);
@@ -152,9 +150,9 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const workflowRunId = router.searchParams.get("run") || undefined;
   const activeSection = workflowRunId
     ? "run"
-    : section === "sop" || section === "resources"
-      ? section
-      : "tasks";
+    : section === "sop" ? "sop"
+      : section === "resources" || section === "git" || section === "files" ? "resources" : "tasks";
+  const resourceTab = section === "git" || section === "files" ? section : parseWorkResourceTab(router.searchParams.get("tab"));
 
   // Sidebar panel
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
@@ -248,27 +246,10 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
     <div className="space-y-5">
       {/* Icon + Title */}
       <div>
-        <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
-          <PopoverTrigger
-            render={
-              <button
-                type="button"
-                className="text-display-sm cursor-pointer rounded-lg p-1 -ml-1 hover:bg-accent/60 transition-colors"
-                title={t(($) => $.detail.icon_tooltip)}
-              >
-                {project.icon || "📁"}
-              </button>
-            }
-          />
-          <PopoverContent align="start" className="w-auto p-0">
-            <EmojiPicker
-              onSelect={(emoji) => {
-                handleUpdateField({ icon: emoji });
-                setIconPickerOpen(false);
-              }}
-            />
-          </PopoverContent>
-        </Popover>
+        <ProjectIconPicker
+          value={project.icon}
+          onChange={(icon) => updateProject.mutateAsync({ id: project.id, icon })}
+        />
         <TitleEditor
           key={`title-${projectId}`}
           defaultValue={project.title}
@@ -471,7 +452,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
       </div>
 
       {/* Resources */}
-      <ProjectResourcesSection projectId={projectId} canManage={canManageResources} />
+      <Button variant="outline" size="sm" onClick={() => router.replace(wsPaths.projectResources(projectId))}><FileText className="size-3.5" />{t($=>$.detail.resource_tab)}</Button>
     </div>
   );
 
@@ -591,18 +572,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           ) : activeSection === "sop" ? (
             <ProjectSopDesigner projectId={projectId} />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b px-5 py-4">
-                <ProjectResourcesSection
-                  projectId={projectId}
-                  canManage={canManageResources}
-                />
-              </div>
-              <ProjectFilesPage
-                projectId={projectId}
-                canManage={canManageResources}
-              />
-            </div>
+            <ProjectWorkResources key={projectId} projectId={projectId} canManage={canManageResources} tab={resourceTab} />
           )}
           </div>
         </ResizablePanel>

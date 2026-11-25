@@ -1,3 +1,4 @@
+import type git from "../locales/en/git.json";
 import type pageFeedback from "../locales/en/page-feedback.json";
 import "i18next";
 // Pulls in the `ui` namespace augmentation owned by packages/ui — see
@@ -47,6 +48,7 @@ import type resources from "../locales/en/resources.json";
 // selector form standalone without depending on @silieco/views.
 declare global {
   interface I18nResources {
+    git: typeof git;
     common: typeof common;
     auth: typeof auth;
     settings: typeof settings;

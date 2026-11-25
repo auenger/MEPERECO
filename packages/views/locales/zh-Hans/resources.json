@@ -55,6 +55,16 @@
   "directory_bind_failed": "目录绑定失败",
   "directory_binding_hint": "工作区成员可以浏览此目录的文件，请选择用于共享的项目目录。",
   "directory_open": "在新标签页打开",
-  "directory_back": "返回项目资源",
-  "directory_unbound": "此项目尚未绑定工作目录"
+  "directory_back": "返回项目工作文件",
+  "directory_unbound": "此项目尚未绑定工作目录",
+  "work_resources": "工作资源",
+  "work_resources_description": "统一管理共享资源、项目工作文件与代码交付。",
+  "library_tab": "资源库",
+  "files_tab": "工作文件",
+  "workspace_files_description": "选择项目，浏览其已绑定执行机器上的工作目录。",
+  "select_project_files": "选择项目",
+  "manage_project_files": "管理项目工作文件",
+  "no_projects_files": "暂无项目。创建项目并绑定工作目录后即可浏览文件。",
+  "directory_management": "工作目录管理",
+  "repository_management": "仓库管理"
 }

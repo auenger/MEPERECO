@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { cn } from "@silieco/ui/lib/utils";
 import { useAuthStore } from "@silieco/core/auth";
 import { docsHrefForLocale, useLocale } from "../i18n";
@@ -42,21 +41,13 @@ export function LandingHeader({
       <div className="mx-auto flex h-[76px] max-w-[1320px] items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-6 lg:gap-8">
           <Link href="/" className="flex shrink-0 items-center gap-3">
-            <SiliecoIcon
-              className={cn(
-                "size-7",
-                variant === "dark" ? "text-white" : "text-[#0a0d12]",
-              )}
-              noSpin
+            <img
+              src={variant === "dark" ? "/brand/meper-studio-horizontal-white.svg" : "/brand/meper-studio-horizontal-color.svg"}
+              alt="MEPER Studio"
+              width={510}
+              height={112}
+              className="h-auto w-[150px] sm:w-[180px]"
             />
-            <span
-              className={cn(
-                "text-title font-semibold tracking-[-0.02em] sm:text-title-lg",
-                variant === "dark" ? "text-white/92" : "text-[#0a0d12]",
-              )}
-            >
-              Silieco
-            </span>
           </Link>
 
           <nav

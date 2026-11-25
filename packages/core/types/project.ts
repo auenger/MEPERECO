@@ -1,3 +1,5 @@
+import type { GitRepositoryIntegration } from "./git";
+
 export type ProjectStatus = "planned" | "in_progress" | "paused" | "completed" | "cancelled";
 
 export type ProjectPriority = "urgent" | "high" | "medium" | "low" | "none";
@@ -72,6 +74,8 @@ export interface GithubRepoResourceRef {
   default_branch_hint?: string;
   /** The primary repository supplies the default local cwd for project tasks. */
   primary?: boolean;
+  integration?: GitRepositoryIntegration | null;
+  integration_disabled?: boolean;
 }
 
 export interface LocalDirectoryResourceRef {

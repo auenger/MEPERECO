@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Virtuoso, type Components } from "react-virtuoso";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
@@ -33,6 +34,18 @@ import { removeChatMessageFromCaches } from "@silieco/core/realtime";
 import { useT } from "../../i18n";
 
 const apiLogger = createLogger("chat.api");
+
+interface ThreadListContext {
+  footer: ReactNode;
+}
+function ThreadListFooter({ context }: { context?: ThreadListContext }) {
+  return <>{context?.footer}</>;
+}
+const THREAD_LIST_COMPONENTS: Components<ChatSession, ThreadListContext> = {
+  Footer: ThreadListFooter,
+};
+const THREAD_ROW_HEIGHT = 56;
+
 
 // IM-style timestamp: today → clock, this year → M/D, else full date.
 function formatChatTime(dateStr: string): string {
@@ -390,7 +403,7 @@ export function ChatThreadList({
   // here (via each row's hover actions).
   if (view === "archived") {
     return (
-      <>
+      <div className="flex h-full min-h-0 flex-col">
         <button
           type="button"
           onClick={() => setView("history")}
@@ -402,8 +415,18 @@ export function ChatThreadList({
             {archivedSessions.length}
           </span>
         </button>
-        {archivedSessions.map(renderRow)}
-      </>
+        <div className="min-h-0 flex-1">
+          <Virtuoso
+            key="archived"
+            style={{ height: "100%" }}
+            data={archivedSessions}
+            fixedItemHeight={THREAD_ROW_HEIGHT}
+            computeItemKey={(_, session) => session.id}
+            increaseViewportBy={224}
+            itemContent={(_, session) => renderRow(session)}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -435,10 +458,17 @@ export function ChatThreadList({
   }
 
   return (
-    <>
-      {historySessions.map(renderRow)}
-      {archivedEntry}
-    </>
+    <Virtuoso
+      key="history"
+      style={{ height: "100%" }}
+      data={historySessions}
+      fixedItemHeight={THREAD_ROW_HEIGHT}
+      computeItemKey={(_, session) => session.id}
+      increaseViewportBy={224}
+      context={{ footer: archivedEntry }}
+      components={THREAD_LIST_COMPONENTS}
+      itemContent={(_, session) => renderRow(session)}
+    />
   );
 }
 

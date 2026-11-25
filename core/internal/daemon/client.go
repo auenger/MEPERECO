@@ -206,7 +206,7 @@ func (c *Client) ClaimRun(ctx context.Context, runtimeID string) (*AgentRun, err
 	var resp struct {
 		AgentRun *AgentRun `json:"run"`
 	}
-	if err := c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/runs/claim", runtimeID), map[string]any{}, &resp); err != nil {
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/runs/claim?repo_scope=1", runtimeID), map[string]any{}, &resp); err != nil {
 		return nil, err
 	}
 	return resp.AgentRun, nil
@@ -240,7 +240,7 @@ func (c *Client) ClaimRuns(ctx context.Context, daemonID string, runtimeIDs []st
 	var resp struct {
 		Runs []*AgentRun `json:"runs"`
 	}
-	if err := c.postJSON(reqCtx, "/api/daemon/runs/claim", map[string]any{
+	if err := c.postJSON(reqCtx, "/api/daemon/runs/claim?repo_scope=1", map[string]any{
 		"daemon_id":   daemonID,
 		"runtime_ids": runtimeIDs,
 		"max_runs":    maxRuns,

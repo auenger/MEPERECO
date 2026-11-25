@@ -33,7 +33,7 @@ import { SquadsPage, SquadDetailPage as SquadDetailPageView } from "@silieco/vie
 import { InboxPage } from "@silieco/views/inbox";
 import { ChatPage } from "@silieco/views/chat";
 import { SettingsPage } from "@silieco/views/settings";
-import { ResourcesPage } from "@silieco/views/resources";
+import { WorkResourcesPage } from "@silieco/views/resources";
 import { useT } from "@silieco/views/i18n";
 import { Download, Server } from "lucide-react";
 import { DaemonSettingsTab } from "./components/daemon-settings-tab";
@@ -132,7 +132,7 @@ export const appRoutes: RouteObject[] = [
         path: ":workspaceSlug",
         element: <WorkspaceRouteLayout />,
         children: [
-          // A bare `/{slug}` URL is normalized to `/{slug}/tasks` by
+          // A bare `/{slug}` URL is normalized to `/{slug}/chat` by
           // sanitizeTabPath before it ever becomes a session, so the index
           // route is unreachable in practice; null keeps it a harmless
           // safety net instead of an in-router <Navigate> (SILI-4741
@@ -166,10 +166,11 @@ export const appRoutes: RouteObject[] = [
             element: <ProjectFilesRoute />,
             handle: { title: "Files" },
           },
+          { path: "git", element: <WorkResourcesPage legacyTab="git" /> },
           {
             path: "resources",
-            element: <ResourcesPage />,
-            handle: { title: "Resources" },
+            element: <WorkResourcesPage />,
+            handle: { title: "Work Resources" },
           },
           {
             path: "workflows",

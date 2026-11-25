@@ -271,9 +271,10 @@ type Daemon struct {
 	skillCache    *SkillBundleCache
 	logger        *slog.Logger
 
-	mu           sync.Mutex
-	workspaces   map[string]*workspaceState
-	runtimeIndex map[string]Runtime // runtimeID -> Runtime for provider lookups
+	mu            sync.Mutex
+	workspaces    map[string]*workspaceState
+	runRepoScopes map[string]runRepoScope
+	runtimeIndex  map[string]Runtime // runtimeID -> Runtime for provider lookups
 	// profileLaunchSpecs maps a custom runtime profile_id -> the absolute
 	// executable path plus fixed launch args resolved for that profile
 	// (SILI-3284). Populated in registerRuntimesForWorkspace when a profile's
@@ -1931,6 +1932,13 @@ func (d *Daemon) workspaceRepoAllowed(workspaceID, repoURL string) bool {
 	if _, allowed := ws.runRepoURLs[repoURL]; allowed {
 		return true
 	}
+	for _, scope := range d.runRepoScopes {
+		if scope.workspaceID == workspaceID {
+			if _, ok := scope.refs[repoURL]; ok {
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -2060,6 +2068,9 @@ func (d *Daemon) runRepoDefaultRef(workspaceID, runID, repoURL string) string {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if scope, ok := d.runRepoScopes[runID]; ok && scope.workspaceID == workspaceID {
+		return strings.TrimSpace(scope.refs[repoURL])
+	}
 	ws, ok := d.workspaces[workspaceID]
 	if !ok || ws.runRepoRefs == nil {
 		return ""
@@ -2074,8 +2085,16 @@ func (d *Daemon) clearRunRepoRefs(workspaceID, runID string) {
 	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if ws, ok := d.workspaces[workspaceID]; ok && ws.runRepoRefs != nil {
+	delete(d.runRepoScopes, runID)
+	if ws, ok := d.workspaces[workspaceID]; ok {
 		delete(ws.runRepoRefs, runID)
+		// Keep only repositories granted to remaining active runs.
+		ws.runRepoURLs = make(map[string]struct{})
+		for _, refs := range ws.runRepoRefs {
+			for u := range refs {
+				ws.runRepoURLs[u] = struct{}{}
+			}
+		}
 	}
 }
 
@@ -2328,7 +2347,18 @@ func (d *Daemon) ensureRepoReady(ctx context.Context, workspaceID, repoURL strin
 		return nil
 	}
 
-	d.syncWorkspaceRepos(workspaceID, resp.Repos)
+	repos := append([]RepoData(nil), resp.Repos...)
+	found := false
+	for _, repo := range repos {
+		if repo.URL == repoURL {
+			found = true
+			break
+		}
+	}
+	if !found {
+		repos = append(repos, RepoData{URL: repoURL})
+	}
+	d.syncWorkspaceRepos(workspaceID, repos)
 
 	if d.repoCache.Lookup(workspaceID, repoURL) != "" {
 		return nil
@@ -4900,6 +4930,9 @@ func (d *Daemon) executeRun(ctx context.Context, agentRun AgentRun, provider str
 	// in the per-workspace allowlist and the local cache, otherwise
 	// `silieco repo checkout` would reject project-only URLs that aren't also
 	// bound at the workspace level.
+	if agentRun.RepoScopeVersion == 1 {
+		d.setRunRepoScope(agentRun.WorkspaceID, agentRun.ID, agentRun.Repos)
+	}
 	d.registerRunRepos(agentRun.WorkspaceID, agentRun.ID, agentRun.Repos)
 	defer d.clearRunRepoRefs(agentRun.WorkspaceID, agentRun.ID)
 

@@ -83,14 +83,15 @@ func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
 // ---------------------------------------------------------------------------
 
 type RuntimeUsageResponse struct {
-	RuntimeID        string `json:"runtime_id"`
-	Date             string `json:"date"`
-	Provider         string `json:"provider"`
-	Model            string `json:"model"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	Pricing          ModelCost `json:"pricing"`
+	RuntimeID        string    `json:"runtime_id"`
+	Date             string    `json:"date"`
+	Provider         string    `json:"provider"`
+	Model            string    `json:"model"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	CacheReadTokens  int64     `json:"cache_read_tokens"`
+	CacheWriteTokens int64     `json:"cache_write_tokens"`
 	// Cost split: `CostUSDTicks` is what the provider itself charged for the
 	// rows behind this aggregate (1e-10 USD), and the `Uncosted*` token
 	// counts are the tokens from rows the provider did NOT price. The client
@@ -134,6 +135,15 @@ func (h *Handler) GetRuntimeUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rules, err := h.loadModelPricing(r.Context(), rt.WorkspaceID)
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	for i := range resp {
+		v := &resp[i]
+		v.Pricing = rules.cost(v.Provider, v.Model, v.CostUSDTicks, v.InputTokens, v.OutputTokens, v.CacheReadTokens, v.CacheWriteTokens, v.UncostedInputTokens, v.UncostedOutputTokens, v.UncostedCacheReadTokens, v.UncostedCacheWriteTokens)
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -217,13 +227,14 @@ func (h *Handler) GetRuntimeRunActivity(w http.ResponseWriter, r *http.Request) 
 // so pricing changes don't require a back-fill); provider disambiguates bare
 // model ids that collide across providers. The client groups by agent_id and sums.
 type RuntimeUsageByAgentResponse struct {
-	AgentID          string `json:"agent_id"`
-	Provider         string `json:"provider"`
-	Model            string `json:"model"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	Pricing          ModelCost `json:"pricing"`
+	AgentID          string    `json:"agent_id"`
+	Provider         string    `json:"provider"`
+	Model            string    `json:"model"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	CacheReadTokens  int64     `json:"cache_read_tokens"`
+	CacheWriteTokens int64     `json:"cache_write_tokens"`
 	// Cost split: `CostUSDTicks` is what the provider itself charged for the
 	// rows behind this aggregate (1e-10 USD), and the `Uncosted*` token
 	// counts are the tokens from rows the provider did NOT price. The client
@@ -289,6 +300,15 @@ func (h *Handler) GetRuntimeUsageByAgent(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	rules, err := h.loadModelPricing(r.Context(), rt.WorkspaceID)
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	for i := range resp {
+		v := &resp[i]
+		v.Pricing = rules.cost(v.Provider, v.Model, v.CostUSDTicks, v.InputTokens, v.OutputTokens, v.CacheReadTokens, v.CacheWriteTokens, v.UncostedInputTokens, v.UncostedOutputTokens, v.UncostedCacheReadTokens, v.UncostedCacheWriteTokens)
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -296,12 +316,14 @@ func (h *Handler) GetRuntimeUsageByAgent(w http.ResponseWriter, r *http.Request)
 // activity are omitted by the SQL — clients fill the gap to render a
 // continuous 0..23 axis. Model is preserved for client-side cost math.
 type RuntimeUsageByHourResponse struct {
-	Hour             int    `json:"hour"`
-	Model            string `json:"model"`
-	InputTokens      int64  `json:"input_tokens"`
-	OutputTokens     int64  `json:"output_tokens"`
-	CacheReadTokens  int64  `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	Pricing          ModelCost `json:"pricing"`
+	Provider         string    `json:"provider"`
+	Hour             int       `json:"hour"`
+	Model            string    `json:"model"`
+	InputTokens      int64     `json:"input_tokens"`
+	OutputTokens     int64     `json:"output_tokens"`
+	CacheReadTokens  int64     `json:"cache_read_tokens"`
+	CacheWriteTokens int64     `json:"cache_write_tokens"`
 	// Cost split: `CostUSDTicks` is what the provider itself charged for the
 	// rows behind this aggregate (1e-10 USD), and the `Uncosted*` token
 	// counts are the tokens from rows the provider did NOT price. The client
@@ -355,6 +377,7 @@ func (h *Handler) GetRuntimeUsageByHour(w http.ResponseWriter, r *http.Request) 
 	for i, row := range rows {
 		resp[i] = RuntimeUsageByHourResponse{
 			Hour:                     int(row.Hour),
+			Provider:                 row.Provider,
 			Model:                    row.Model,
 			InputTokens:              row.InputTokens,
 			OutputTokens:             row.OutputTokens,
@@ -369,6 +392,15 @@ func (h *Handler) GetRuntimeUsageByHour(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	rules, err := h.loadModelPricing(r.Context(), rt.WorkspaceID)
+	if err != nil {
+		writeError(w, 500, "failed to load model pricing")
+		return
+	}
+	for i := range resp {
+		v := &resp[i]
+		v.Pricing = rules.cost(v.Provider, v.Model, v.CostUSDTicks, v.InputTokens, v.OutputTokens, v.CacheReadTokens, v.CacheWriteTokens, v.UncostedInputTokens, v.UncostedOutputTokens, v.UncostedCacheReadTokens, v.UncostedCacheWriteTokens)
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 

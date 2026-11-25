@@ -29,7 +29,7 @@ export default function Page() {
 
   return (
     <NewWorkspacePage
-      onSuccess={(ws) => router.push(paths.workspace(ws.slug).tasks())}
+      onSuccess={(ws) => router.push(paths.workspace(ws.slug).chat())}
       onBack={onBack}
     />
   );

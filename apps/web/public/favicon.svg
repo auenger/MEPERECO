@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Silieco">
-  <rect width="64" height="64" rx="14" fill="#0b0d12"/>
-  <path d="M18 18h12v12H18zM34 18h12v12H34zM18 34h12v12H18zM34 34h12v12H34z" fill="#f3f6fb"/>
-  <path d="M34 18h12v12H34zM18 34h12v12H18z" fill="#3978f6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img"><title>MEPER Studio meper-studio-app</title><defs><linearGradient id="m-left" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#07A8CE"/><stop offset="1" stop-color="#0879DC"/></linearGradient><linearGradient id="m-right" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#1886EC"/><stop offset="1" stop-color="#1246C8"/></linearGradient><linearGradient id="tile" x1="0%" y1="0%" x2="100%" y2="100%"><stop stop-color="#248DF2"/><stop offset="1" stop-color="#123DAE"/></linearGradient></defs><rect x="0" y="0" width="256" height="256" rx="58.112" fill="url(#tile)" /><g transform="translate(35.84 32.256) scale(1.7715199999999998)" opacity="1"><path fill="#FFFFFF" d="M7 86V24L20 17L46 43L34 55L27 48V86Z"/><path fill="#FFFFFF" d="M41 61L83 17L96 24V86H76V49L55 75Z"/></g></svg>

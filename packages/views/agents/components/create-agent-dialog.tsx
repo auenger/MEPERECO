@@ -430,6 +430,10 @@ export function CreateAgentDialog({
               }}
             />
 
+            <p className="text-caption leading-[1.5] text-muted-foreground">
+              {t(($) => $.create_dialog.runtime_install_hint)}
+            </p>
+
             <ModelDropdown
               runtimeId={selectedRuntime?.id ?? null}
               runtimeOnline={selectedRuntime?.status === "online"}

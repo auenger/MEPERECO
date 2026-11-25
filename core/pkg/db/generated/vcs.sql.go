@@ -22,6 +22,9 @@ cleared_links AS (
         WHERE vcs_pull_request.connection_id IN (SELECT target.id FROM target)
     )
 ),
+cleared_repo_statuses AS (
+    DELETE FROM vcs_repo_commit_status WHERE connection_id IN (SELECT target.id FROM target)
+),
 cleared_statuses AS (
     DELETE FROM vcs_commit_status WHERE connection_id IN (SELECT target.id FROM target)
 ),
@@ -250,7 +253,7 @@ WITH checks AS (
     GROUP BY pr.id
 )
 SELECT
-    pr.id, pr.workspace_id, pr.connection_id, pr.provider, pr.repo_owner, pr.repo_name, pr.pr_number, pr.title, pr.state, pr.html_url, pr.branch, pr.head_sha, pr.author_login, pr.author_avatar_url, pr.merged_at, pr.closed_at, pr.pr_created_at, pr.pr_updated_at, pr.additions, pr.deletions, pr.changed_files, pr.created_at, pr.updated_at,
+    pr.id, pr.workspace_id, pr.connection_id, pr.provider, pr.repo_owner, pr.repo_name, pr.pr_number, pr.title, pr.state, pr.html_url, pr.branch, pr.head_sha, pr.author_login, pr.author_avatar_url, pr.merged_at, pr.closed_at, pr.pr_created_at, pr.pr_updated_at, pr.additions, pr.deletions, pr.changed_files, pr.created_at, pr.updated_at, pr.external_repo_id,
     COALESCE(c.total, 0)::bigint   AS checks_total,
     COALESCE(c.passed, 0)::bigint  AS checks_passed,
     COALESCE(c.failed, 0)::bigint  AS checks_failed,
@@ -286,6 +289,7 @@ type ListVCSPullRequestsByTaskRow struct {
 	ChangedFiles    int32              `json:"changed_files"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ExternalRepoID  pgtype.Text        `json:"external_repo_id"`
 	ChecksTotal     int64              `json:"checks_total"`
 	ChecksPassed    int64              `json:"checks_passed"`
 	ChecksFailed    int64              `json:"checks_failed"`
@@ -330,6 +334,7 @@ func (q *Queries) ListVCSPullRequestsByTask(ctx context.Context, taskID pgtype.U
 			&i.ChangedFiles,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ExternalRepoID,
 			&i.ChecksTotal,
 			&i.ChecksPassed,
 			&i.ChecksFailed,
@@ -482,12 +487,12 @@ INSERT INTO vcs_pull_request (
     workspace_id, connection_id, provider, repo_owner, repo_name, pr_number,
     title, state, html_url, branch, author_login, author_avatar_url,
     merged_at, closed_at, pr_created_at, pr_updated_at,
-    additions, deletions, changed_files, head_sha
+    additions, deletions, changed_files, head_sha, external_repo_id
 ) VALUES (
     $1, $2, $3, $4, $5, $6,
     $7, $8, $9, $16, $17, $18,
     $19, $20, $10, $11,
-    $12, $13, $14, $15
+    $12, $13, $14, $15, $21
 )
 ON CONFLICT (connection_id, repo_owner, repo_name, pr_number) DO UPDATE SET
     workspace_id      = CASE WHEN EXCLUDED.pr_updated_at >= vcs_pull_request.pr_updated_at THEN EXCLUDED.workspace_id      ELSE vcs_pull_request.workspace_id      END,
@@ -505,8 +510,9 @@ ON CONFLICT (connection_id, repo_owner, repo_name, pr_number) DO UPDATE SET
     deletions         = CASE WHEN EXCLUDED.pr_updated_at >= vcs_pull_request.pr_updated_at THEN EXCLUDED.deletions         ELSE vcs_pull_request.deletions         END,
     changed_files     = CASE WHEN EXCLUDED.pr_updated_at >= vcs_pull_request.pr_updated_at THEN EXCLUDED.changed_files     ELSE vcs_pull_request.changed_files     END,
     head_sha          = CASE WHEN EXCLUDED.pr_updated_at >= vcs_pull_request.pr_updated_at THEN EXCLUDED.head_sha          ELSE vcs_pull_request.head_sha          END,
+    external_repo_id = CASE WHEN EXCLUDED.pr_updated_at >= vcs_pull_request.pr_updated_at THEN COALESCE(EXCLUDED.external_repo_id, vcs_pull_request.external_repo_id) ELSE vcs_pull_request.external_repo_id END,
     updated_at        = now()
-RETURNING id, workspace_id, connection_id, provider, repo_owner, repo_name, pr_number, title, state, html_url, branch, head_sha, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, additions, deletions, changed_files, created_at, updated_at
+RETURNING id, workspace_id, connection_id, provider, repo_owner, repo_name, pr_number, title, state, html_url, branch, head_sha, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, additions, deletions, changed_files, created_at, updated_at, external_repo_id
 `
 
 type UpsertVCSPullRequestParams struct {
@@ -530,6 +536,7 @@ type UpsertVCSPullRequestParams struct {
 	AuthorAvatarUrl pgtype.Text        `json:"author_avatar_url"`
 	MergedAt        pgtype.Timestamptz `json:"merged_at"`
 	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
+	ExternalRepoID  pgtype.Text        `json:"external_repo_id"`
 }
 
 // =====================
@@ -563,6 +570,7 @@ func (q *Queries) UpsertVCSPullRequest(ctx context.Context, arg UpsertVCSPullReq
 		arg.AuthorAvatarUrl,
 		arg.MergedAt,
 		arg.ClosedAt,
+		arg.ExternalRepoID,
 	)
 	var i VcsPullRequest
 	err := row.Scan(
@@ -589,6 +597,7 @@ func (q *Queries) UpsertVCSPullRequest(ctx context.Context, arg UpsertVCSPullReq
 		&i.ChangedFiles,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ExternalRepoID,
 	)
 	return i, err
 }

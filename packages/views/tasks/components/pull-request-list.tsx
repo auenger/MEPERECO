@@ -93,7 +93,7 @@ export function PullRequestList({ taskId }: { taskId: string }) {
   );
 }
 
-function PullRequestRow({ pr }: { pr: GitHubPullRequest }) {
+export function PullRequestRow({ pr }: { pr: GitHubPullRequest }) {
   const { t } = useT("tasks");
   const cfg = STATE_ICON[pr.state] ?? { icon: GitPullRequest, className: "" };
   const StateIcon = cfg.icon;

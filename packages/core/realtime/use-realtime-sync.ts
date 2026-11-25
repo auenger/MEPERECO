@@ -44,8 +44,9 @@ import {
   type SystemNotificationPayload,
 } from "../platform/system-notification";
 import type { Workspace } from "../types/workspace";
-import { chatKeys, mergeAgentRunMessagesBySeq, sortChatSessions } from "../chat/queries";
+import { chatKeys, sortChatSessions, syncLatestChatMessageQueries } from "../chat/queries";
 import { useChatStore } from "../chat";
+import { applyObservedRunMessageBatch } from "../chat/run-cache";
 import { resolvePostAuthDestination, useHasOnboarded } from "../paths";
 import type {
   MemberAddedPayload,
@@ -164,7 +165,7 @@ export function applyChatDoneToCache(
   qc.setQueryData(chatKeys.pendingRun(sessionId), {});
   // Authoritative refetch reconciles redaction / migrations / clients
   // that took the fallback branch above.
-  invalidateChatMessageQueries(qc, sessionId);
+  syncLatestChatMessageQueries(qc, sessionId);
   qc.invalidateQueries({ queryKey: chatKeys.pendingRun(sessionId) });
 }
 
@@ -492,6 +493,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: workspaceKeys.skills(wsId) });
     qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) });
     qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
+    qc.invalidateQueries({ queryKey: ["git", wsId] });
     qc.invalidateQueries({ queryKey: workflowKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: autopilotKeys.all(wsId) });
@@ -628,7 +630,13 @@ export function useRealtimeSync(
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: workspaceKeys.skills(wsId) });
       },
+      project_resource: () => {
+        const wsId = getCurrentWsId();
+        if (wsId) { qc.invalidateQueries({ queryKey: ["git", wsId] }); qc.invalidateQueries({ queryKey: projectKeys.all(wsId) }); }
+      },
       project: () => {
+        const gitWs = getCurrentWsId();
+        if (gitWs) qc.invalidateQueries({ queryKey: ["git", gitWs] });
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
       },
@@ -692,6 +700,8 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: autopilotKeys.all(wsId) });
       },
       github_installation: () => {
+        const gitWs = getCurrentWsId();
+        if (gitWs) qc.invalidateQueries({ queryKey: ["git", gitWs] });
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: githubKeys.installations(wsId) });
       },
@@ -704,10 +714,14 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: slackKeys.installations(wsId) });
       },
       vcs_connection: () => {
+        const gitWs = getCurrentWsId();
+        if (gitWs) qc.invalidateQueries({ queryKey: ["git", gitWs] });
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: ["vcs", wsId] });
       },
       pull_request: () => {
+        const gitWs = getCurrentWsId();
+        if (gitWs) qc.invalidateQueries({ queryKey: ["git", gitWs] });
         // PR list is keyed by task id, not workspace, so we invalidate all
         // PR queries — the open task detail page will refetch its own list.
         qc.invalidateQueries({ queryKey: ["github", "pull-requests"] });
@@ -1113,17 +1127,43 @@ export function useRealtimeSync(
     // run:completed / run:failed invalidate messages + pending-run so the
     // DB remains authoritative.
 
+    // Collect a short burst per run, then write each cache once rather than
+    // rebuilding every timeline for every streamed event. Flush terminal
+    // events synchronously so the live → persisted row sees the final batch.
+    const runMessageBatches = new Map<string, AgentRunMessagePayload[]>();
+    let runMessageTimer: ReturnType<typeof setTimeout> | null = null;
+    let batchUserId = authStore.getState().user?.id;
+    const flushRunMessages = (runId?: string) => {
+      if (batchUserId !== authStore.getState().user?.id) {
+        runMessageBatches.clear();
+      }
+      const ids = runId ? [runId] : [...runMessageBatches.keys()];
+      for (const id of ids) {
+        const batch = runMessageBatches.get(id);
+        runMessageBatches.delete(id);
+        applyObservedRunMessageBatch(qc, chatKeys.agentRunMessages(id), batch);
+      }
+      if (runMessageBatches.size === 0 && runMessageTimer) {
+        clearTimeout(runMessageTimer);
+        runMessageTimer = null;
+      }
+    };
     const unsubAgentRunMessage = ws.on("run:message", (p) => {
       const payload = p as AgentRunMessagePayload;
-      qc.setQueryData<AgentRunMessagePayload[]>(
-        chatKeys.agentRunMessages(payload.run_id),
-        (old = []) => mergeAgentRunMessagesBySeq(old, [payload]),
-      );
-      chatWsLogger.debug("run:message (global)", {
-        run_id: payload.run_id,
-        seq: payload.seq,
-        type: payload.type,
-      });
+      const userId = authStore.getState().user?.id;
+      if (batchUserId !== userId) {
+        runMessageBatches.clear();
+        batchUserId = userId;
+      }
+      const batch = runMessageBatches.get(payload.run_id);
+      if (batch) batch.push(payload);
+      else runMessageBatches.set(payload.run_id, [payload]);
+      if (!runMessageTimer) {
+        runMessageTimer = setTimeout(() => {
+          runMessageTimer = null;
+          flushRunMessages();
+        }, 50);
+      }
     });
 
     // Helpers reused by chat lifecycle handlers.
@@ -1165,7 +1205,7 @@ export function useRealtimeSync(
     const unsubChatMessage = ws.on("chat:message", (p) => {
       const payload = p as { chat_session_id: string };
       chatWsLogger.info("chat:message (global)", { chat_session_id: payload.chat_session_id });
-      invalidateChatMessageQueries(qc, payload.chat_session_id);
+      syncLatestChatMessageQueries(qc, payload.chat_session_id);
       qc.invalidateQueries({ queryKey: chatKeys.pendingRun(payload.chat_session_id) });
       // Group chat messages can be ordinary human messages with no task
       // lifecycle event. Refresh list order, preview and each participant's
@@ -1178,6 +1218,7 @@ export function useRealtimeSync(
 
     const unsubChatDone = ws.on("chat:done", (p) => {
       const payload = p as ChatDonePayload;
+      flushRunMessages(payload.run_id);
       chatWsLogger.info("chat:done (global)", {
         run_id: payload.run_id,
         chat_session_id: payload.chat_session_id,
@@ -1210,6 +1251,7 @@ export function useRealtimeSync(
     // else re-fetches at that point.
     const unsubChatCancelFinalized = ws.on("chat:cancel_finalized", (p) => {
       const payload = p as ChatCancelFinalizedPayload;
+      flushRunMessages(payload.run_id);
       chatWsLogger.info("chat:cancel_finalized (global)", {
         run_id: payload.run_id,
         chat_session_id: payload.chat_session_id,
@@ -1314,6 +1356,7 @@ export function useRealtimeSync(
     // message page along with clearing pending.
     const unsubRunCancelled = ws.on("run:cancelled", (p) => {
       const payload = p as RunCancelledPayload;
+      flushRunMessages(payload.run_id);
       if (!payload.chat_session_id) return;
       chatWsLogger.info("run:cancelled (global, chat)", {
         run_id: payload.run_id,
@@ -1326,6 +1369,7 @@ export function useRealtimeSync(
 
     const unsubRunCompleted = ws.on("run:completed", (p) => {
       const payload = p as RunCompletedPayload;
+      flushRunMessages(payload.run_id);
       if (!payload.chat_session_id) return; // task tasks handled elsewhere
       chatWsLogger.info("run:completed (global, chat)", {
         run_id: payload.run_id,
@@ -1342,6 +1386,7 @@ export function useRealtimeSync(
 
     const unsubRunFailed = ws.on("run:failed", (p) => {
       const payload = p as RunFailedPayload;
+      flushRunMessages(payload.run_id);
       if (!payload.chat_session_id) return;
       chatWsLogger.warn("run:failed (global, chat)", {
         run_id: payload.run_id,
@@ -1354,7 +1399,7 @@ export function useRealtimeSync(
       // this branch only flipped pending — the comment "No new message"
       // was true then, but FailTask now persists a row.
       qc.setQueryData(chatKeys.pendingRun(payload.chat_session_id), {});
-      invalidateChatMessageQueries(qc, payload.chat_session_id);
+      syncLatestChatMessageQueries(qc, payload.chat_session_id);
       qc.invalidateQueries({ queryKey: chatKeys.pendingRun(payload.chat_session_id) });
       invalidatePendingAggregate();
       // FailTask persisted a failure chat_message, so the thread list's
@@ -1441,6 +1486,8 @@ export function useRealtimeSync(
       unsubInvitationDeclined();
       unsubInvitationRevoked();
       unsubAgentRunMessage();
+      flushRunMessages();
+      if (runMessageTimer) clearTimeout(runMessageTimer);
       unsubChatMessage();
       unsubChatDone();
       unsubChatCancelFinalized();

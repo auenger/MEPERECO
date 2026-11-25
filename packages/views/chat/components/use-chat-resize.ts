@@ -82,8 +82,12 @@ export function useChatResize(
     dir: DragDir;
   } | null>(null);
 
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
   const startDrag = useCallback(
     (e: React.PointerEvent, dir: DragDir) => {
+      dragCleanupRef.current?.();
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -119,12 +123,16 @@ export function useChatResize(
         setIsDragging(false);
         document.removeEventListener("pointermove", onPointerMove);
         document.removeEventListener("pointerup", onPointerUp);
+        document.removeEventListener("pointercancel", onPointerUp);
+        dragCleanupRef.current = null;
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
       };
 
       document.addEventListener("pointermove", onPointerMove);
       document.addEventListener("pointerup", onPointerUp);
+      document.addEventListener("pointercancel", onPointerUp);
+      dragCleanupRef.current = onPointerUp;
 
       const cursorMap: Record<DragDir, string> = {
         left: "col-resize",

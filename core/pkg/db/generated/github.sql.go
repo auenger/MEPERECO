@@ -145,7 +145,7 @@ func (q *Queries) GetGitHubInstallationByID(ctx context.Context, id pgtype.UUID)
 }
 
 const getGitHubPullRequest = `-- name: GetGitHubPullRequest :one
-SELECT id, workspace_id, installation_id, repo_owner, repo_name, pr_number, title, state, html_url, branch, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, created_at, updated_at, head_sha, mergeable_state, additions, deletions, changed_files, api_mergeable, api_merge_state_status, checks_rollup_state, snapshot_head_sha, snapshot_fetched_at FROM github_pull_request
+SELECT id, workspace_id, installation_id, repo_owner, repo_name, pr_number, title, state, html_url, branch, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, created_at, updated_at, head_sha, mergeable_state, additions, deletions, changed_files, api_mergeable, api_merge_state_status, checks_rollup_state, snapshot_head_sha, snapshot_fetched_at, external_repo_id FROM github_pull_request
 WHERE workspace_id = $1 AND repo_owner = $2 AND repo_name = $3 AND pr_number = $4
 `
 
@@ -193,6 +193,7 @@ func (q *Queries) GetGitHubPullRequest(ctx context.Context, arg GetGitHubPullReq
 		&i.ChecksRollupState,
 		&i.SnapshotHeadSha,
 		&i.SnapshotFetchedAt,
+		&i.ExternalRepoID,
 	)
 	return i, err
 }
@@ -683,7 +684,7 @@ INSERT INTO github_pull_request (
     title, state, html_url, branch, author_login, author_avatar_url,
     merged_at, closed_at, pr_created_at, pr_updated_at,
     head_sha, mergeable_state,
-    additions, deletions, changed_files
+    additions, deletions, changed_files, external_repo_id
 ) SELECT
     $1 AS workspace_id,
     $2 AS installation_id,
@@ -704,7 +705,8 @@ INSERT INTO github_pull_request (
     $20 AS mergeable_state,
     $12 AS additions,
     $13 AS deletions,
-    $14 AS changed_files
+    $14 AS changed_files,
+    $21 AS external_repo_id
 WHERE (($1)::uuid IS NULL OR EXISTS (SELECT 1 FROM workspace AS ref_workspace_id WHERE ref_workspace_id.id = ($1) FOR KEY SHARE))
 
 ON CONFLICT (workspace_id, repo_owner, repo_name, pr_number) DO UPDATE SET
@@ -720,15 +722,16 @@ ON CONFLICT (workspace_id, repo_owner, repo_name, pr_number) DO UPDATE SET
     pr_updated_at = EXCLUDED.pr_updated_at,
     head_sha = EXCLUDED.head_sha,
     mergeable_state = CASE
-        WHEN COALESCE($21::boolean, FALSE) THEN NULL
+        WHEN COALESCE($22::boolean, FALSE) THEN NULL
         WHEN EXCLUDED.mergeable_state IS NOT NULL THEN EXCLUDED.mergeable_state
         ELSE github_pull_request.mergeable_state
     END,
     additions     = EXCLUDED.additions,
     deletions     = EXCLUDED.deletions,
     changed_files = EXCLUDED.changed_files,
+    external_repo_id = COALESCE(EXCLUDED.external_repo_id, github_pull_request.external_repo_id),
     updated_at = now()
-RETURNING id, workspace_id, installation_id, repo_owner, repo_name, pr_number, title, state, html_url, branch, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, created_at, updated_at, head_sha, mergeable_state, additions, deletions, changed_files, api_mergeable, api_merge_state_status, checks_rollup_state, snapshot_head_sha, snapshot_fetched_at
+RETURNING id, workspace_id, installation_id, repo_owner, repo_name, pr_number, title, state, html_url, branch, author_login, author_avatar_url, merged_at, closed_at, pr_created_at, pr_updated_at, created_at, updated_at, head_sha, mergeable_state, additions, deletions, changed_files, api_mergeable, api_merge_state_status, checks_rollup_state, snapshot_head_sha, snapshot_fetched_at, external_repo_id
 `
 
 type UpsertGitHubPullRequestParams struct {
@@ -752,6 +755,7 @@ type UpsertGitHubPullRequestParams struct {
 	MergedAt            pgtype.Timestamptz `json:"merged_at"`
 	ClosedAt            pgtype.Timestamptz `json:"closed_at"`
 	MergeableState      pgtype.Text        `json:"mergeable_state"`
+	ExternalRepoID      pgtype.Text        `json:"external_repo_id"`
 	ClearMergeableState pgtype.Bool        `json:"clear_mergeable_state"`
 }
 
@@ -790,6 +794,7 @@ func (q *Queries) UpsertGitHubPullRequest(ctx context.Context, arg UpsertGitHubP
 		arg.MergedAt,
 		arg.ClosedAt,
 		arg.MergeableState,
+		arg.ExternalRepoID,
 		arg.ClearMergeableState,
 	)
 	var i GithubPullRequest
@@ -822,6 +827,7 @@ func (q *Queries) UpsertGitHubPullRequest(ctx context.Context, arg UpsertGitHubP
 		&i.ChecksRollupState,
 		&i.SnapshotHeadSha,
 		&i.SnapshotFetchedAt,
+		&i.ExternalRepoID,
 	)
 	return i, err
 }

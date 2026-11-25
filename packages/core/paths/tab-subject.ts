@@ -63,6 +63,26 @@ function splitUrl(url: string): { segments: string[]; query: URLSearchParams } {
   };
 }
 
+/** Project sidebar destinations share one pathname but are independent surfaces. */
+export type ProjectTabSurface =
+  | { kind: "tasks" }
+  | { kind: "resources" }
+  | { kind: "sop" }
+  | { kind: "run"; id: string };
+
+export function parseProjectTabSurface(url: string): ProjectTabSurface | null {
+  const { segments, query } = splitUrl(url);
+  if (segments.length !== 3 || segments[1] !== "projects") return null;
+  const run = query.get("run");
+  if (run) return { kind: "run", id: run };
+  const section = query.get("section");
+  if (section === "sop") return { kind: "sop" };
+  if (section === "resources" || section === "git" || section === "files") {
+    return { kind: "resources" };
+  }
+  return { kind: "tasks" };
+}
+
 /**
  * Resolve a workspace tab URL into a {@link TabSubject}.
  *

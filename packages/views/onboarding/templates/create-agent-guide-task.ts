@@ -76,8 +76,7 @@ Now create an task (or reassign an existing one) → set assignee = Sili Agent �
 
 - **Skills** — reusable instruction packs you can attach to any agent.
 - **Squads** — groups of agents that can be assigned together.
-- **Autopilots** — scheduled or webhook-triggered runs.
-- **Docs** — https://silieco.ai/docs.`;
+- **Autopilots** — scheduled or webhook-triggered runs.`;
 }
 
 function zhBody(installRuntimeMention: string): string {
@@ -118,6 +117,5 @@ ${HELPER_INSTRUCTIONS.zh}
 
 - **Skills** —— 可复用的指令包，可挂到任何 agent 上。
 - **Squads** —— 可一起被分派的一组 agent。
-- **Autopilots** —— 定时或 webhook 触发的运行。
-- **文档** —— https://silieco.ai/docs。`;
+- **Autopilots** —— 定时或 webhook 触发的运行。`;
 }

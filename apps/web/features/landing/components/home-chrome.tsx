@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
-import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { useLocale, locales, localeLabels } from "../i18n";
 
 const labels = {
@@ -45,9 +44,15 @@ export function HomeHeader({
     <header className="home-header">
       <div className="home-shell home-header-inner">
         <a href="#product" className="home-brand">
-          <SiliecoIcon className="size-8" noSpin />
           <span>
-            Silieco<small>HUMAN × AGENT</small>
+            <img
+              src={theme === "dark" ? "/brand/meper-studio-horizontal-white.svg" : "/brand/meper-studio-horizontal-color.svg"}
+              alt="MEPER Studio"
+              width={510}
+              height={112}
+              className="h-auto w-[160px] sm:w-[180px]"
+            />
+            <small>HUMAN × AGENT</small>
           </span>
         </a>
         <nav className="home-desktop-nav" aria-label={t.header.navigation}>

@@ -1,12 +1,11 @@
 "use client";
-import { ProjectDirectoryBrowser } from "../projects/components/project-directory-browser";
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, CornerDownRight, Download, FileText, FolderGit, Link2, Loader2, PackageOpen, Search, X } from "lucide-react";
+import { Check, CornerDownRight, Download, FileText, Link2, Loader2, PackageOpen, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceId } from "@silieco/core/hooks";
-import { useCurrentWorkspace, useWorkspacePaths } from "@silieco/core/paths";
+import { useWorkspacePaths } from "@silieco/core/paths";
 import {
   useFileResources,
   useCreateAttachmentReference,
@@ -408,10 +407,9 @@ export function AttachExistingFileButton({
   );
 }
 
-export function ResourcesPage() {
+export function ResourcesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useT("resources");
   const wsId = useWorkspaceId();
-  const workspace = useCurrentWorkspace();
   const fileQuery = useFileResources(wsId);
   const { files, isLoading } = fileQuery;
   const { data: workspaceReferences, isLoading: referencesLoading } = useQuery(
@@ -429,33 +427,9 @@ export function ResourcesPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <CollectionPageHeader
-        icon={FileText}
-        title={t(($) => $.title)}
-        count={fileQuery.total}
-        description={t(($) => $.description)}
-      />
+      {!embedded && <CollectionPageHeader icon={FileText} title={t(($) => $.title)} count={fileQuery.total} description={t(($) => $.description)} />}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {(workspace?.repos?.length ?? 0) > 0 ? (
-          <section className="border-b px-5 py-4">
-            <h2 className="mb-2 text-body font-medium">{t(($) => $.shared_repositories)}</h2>
-            <div className="flex flex-wrap gap-2">
-              {workspace?.repos?.map((repo) => (
-                <a
-                  key={repo.url}
-                  href={repo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex max-w-full items-center gap-2 rounded-md border px-3 py-2 text-caption hover:bg-muted/50"
-                >
-                  <FolderGit className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{repo.url}</span>
-                </a>
-              ))}
-            </div>
-          </section>
-        ) : null}
-        <div className="px-5 py-3 text-body font-medium">{t(($) => $.shared_files)}</div>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 px-5 py-3"><div><h2 className="text-body font-medium">{t(($) => $.shared_files)}</h2>{embedded && <p className="text-caption text-muted-foreground">{t(($) => $.description)}</p>}</div><span className="text-caption text-muted-foreground tabular-nums">{t(($) => $.file_count, { count: fileQuery.total ?? files.length })}</span></div>
         {isLoading || referencesLoading ? <LoadingList /> : files.length === 0 ? (
           <ResourceList files={[]} />
         ) : (
@@ -594,7 +568,6 @@ export function ProjectFilesPage({
         ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <ProjectDirectoryBrowser key={projectId} projectId={projectId} />
         {isLoading ? (
           <LoadingList />
         ) : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, FolderKanban, FolderOpen, GitBranch, Plus, Route, SquarePen } from "lucide-react";
+import { FileText, FolderKanban, GitBranch, Plus, Route, SquarePen } from "lucide-react";
 import type { Project, WorkflowInstance } from "@silieco/core/types";
 import { useWorkspacePaths } from "@silieco/core/paths";
 import { useModalStore } from "@silieco/core/modals";
@@ -36,11 +36,11 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
   const active = pathname === href || pathname.startsWith(`${href}/`);
   const section = searchParams.get("section");
   const runId = searchParams.get("run");
-  const filesActive = pathname === p.projectFiles(project.id);
+  const filesActive = pathname === p.projectFilesStandalone(project.id);
+  const resourceActive = filesActive || section === "resources" || section === "git" || section === "files";
   const links = [
-    { label: t(($) => $.tab.task), href, icon: SquarePen, active: active && !filesActive && !runId && section !== "resources" && section !== "sop" },
-    { label: t(($) => $.nav.resources), href: p.projectResources(project.id), icon: FileText, active: active && !filesActive && !runId && section === "resources" },
-    { label: t(($) => $.sidebar.project_files), href: p.projectFiles(project.id), icon: FolderOpen, active: filesActive },
+    { label: t(($) => $.tab.task), href, icon: SquarePen, active: active && !resourceActive && !runId && section !== "sop" },
+    { label: t(($) => $.nav.resources), href: p.projectResources(project.id), icon: FileText, active: active && !runId && resourceActive },
     { label: "SOP", href: p.projectSop(project.id), icon: GitBranch, active: active && !filesActive && !runId && section === "sop" },
   ];
 
@@ -57,7 +57,7 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
           </div>
           <DropdownMenuSeparator />
           {links.map((item) => (
-            <DropdownMenuItem key={item.href} render={<AppLink href={item.href} aria-current={item.active ? "page" : undefined} />} className={cn("min-h-9", item.active && "bg-accent text-accent-foreground font-medium")}>
+            <DropdownMenuItem key={item.href} render={<AppLink openInAppTab href={item.href} aria-current={item.active ? "page" : undefined} />} className={cn("min-h-9", item.active && "bg-accent text-accent-foreground font-medium")}>
               <item.icon className="size-4" />{item.label}
             </DropdownMenuItem>
           ))}
@@ -68,7 +68,7 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
           {runs.length > 0 ? (
             <div className="max-h-48 overflow-y-auto">
               {runs.map((run) => (
-                <DropdownMenuItem key={run.id} render={<AppLink href={p.projectWorkflowRun(project.id, run.id)} aria-current={active && runId === run.id ? "page" : undefined} />} className={cn("min-h-9", active && runId === run.id && "bg-accent text-accent-foreground font-medium")}>
+                <DropdownMenuItem key={run.id} render={<AppLink openInAppTab href={p.projectWorkflowRun(project.id, run.id)} aria-current={active && runId === run.id ? "page" : undefined} />} className={cn("min-h-9", active && runId === run.id && "bg-accent text-accent-foreground font-medium")}>
                   <Route className="size-4 text-brand" /><span className="min-w-0 truncate" title={run.title}>{run.title}</span>
                 </DropdownMenuItem>
               ))}
@@ -93,7 +93,7 @@ export function CollapsedProjects({ projects, runsByProject }: {
       <div className="w-6 border-t border-sidebar-border" />
       <SidebarMenu className="items-center gap-1" aria-label={t(($) => $.nav.projects)}>
         <SidebarMenuItem>
-          <SidebarMenuButton tooltip={t(($) => $.sidebar.view_projects)} aria-label={t(($) => $.sidebar.view_projects)} isActive={pathname === p.projects()} render={<AppLink href={p.projects()} />}>
+          <SidebarMenuButton tooltip={t(($) => $.sidebar.view_projects)} aria-label={t(($) => $.sidebar.view_projects)} isActive={pathname === p.projects()} render={<AppLink openInAppTab href={p.projects()} />}>
             <FolderKanban />
           </SidebarMenuButton>
         </SidebarMenuItem>

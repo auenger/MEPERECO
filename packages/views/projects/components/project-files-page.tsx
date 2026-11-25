@@ -17,7 +17,7 @@ export function ProjectFilesPage({ projectId }: { projectId: string }) {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-background">
       <header className="flex min-w-0 items-center gap-3 border-b px-5 py-3">
-        <AppLink href={paths.projectResources(projectId)} aria-label={t(($) => $.directory_back)} title={t(($) => $.directory_back)} className="rounded-md p-2 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+        <AppLink href={paths.projectFiles(projectId)} aria-label={t(($) => $.directory_back)} title={t(($) => $.directory_back)} className="rounded-md p-2 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
           <ArrowLeft className="size-4" />
         </AppLink>
         <h1 className="truncate text-body font-medium">{project.data?.title ?? t(($) => $.directory_title)}</h1>

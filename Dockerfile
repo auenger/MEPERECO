@@ -21,6 +21,7 @@ RUN cd core && CGO_ENABLED=0 go build -ldflags "-s -w -X main.version=${VERSION}
 RUN cd core && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/migrate ./cmd/migrate
 RUN cd core && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_agent_run_usage_hourly ./cmd/backfill_agent_run_usage_hourly
 RUN cd core && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_codex_usage_cache ./cmd/backfill_codex_usage_cache
+RUN cd core && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/git-bindings-backfill ./cmd/git-bindings-backfill
 
 # --- Runtime stage ---
 FROM alpine:3.21
@@ -34,6 +35,7 @@ COPY --from=builder /src/core/bin/silieco .
 COPY --from=builder /src/core/bin/migrate .
 COPY --from=builder /src/core/bin/backfill_agent_run_usage_hourly .
 COPY --from=builder /src/core/bin/backfill_codex_usage_cache .
+COPY --from=builder /src/core/bin/git-bindings-backfill .
 COPY core/migrations/ ./migrations/
 COPY docker/entrypoint.sh .
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh

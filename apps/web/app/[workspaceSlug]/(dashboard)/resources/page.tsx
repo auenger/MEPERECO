@@ -1,1 +1,1 @@
-export { ResourcesPage as default } from "@silieco/views/resources";
+export { WorkResourcesPage as default } from "@silieco/views/resources";

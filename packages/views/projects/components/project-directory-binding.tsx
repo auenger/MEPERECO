@@ -5,6 +5,7 @@ import {
   useCreateProjectResource,
 } from "@silieco/core/projects";
 import { Button } from "@silieco/ui/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@silieco/ui/components/ui/select";
 import { Input } from "@silieco/ui/components/ui/input";
 import type { RuntimeMachine } from "../../runtimes/components/runtime-machines";
 import { useT } from "../../i18n";
@@ -59,21 +60,10 @@ export function ProjectDirectoryBinding({
         <div className="mt-2 space-y-2 rounded border p-3">
           <label className="block text-caption">
             {t(($) => $.directory_machine)}
-            <select
-              className="mt-1 block w-full rounded border bg-background p-2"
-              value={selectedDaemon}
-              disabled={busy}
-              onChange={(e) => setDaemonId(e.target.value)}
-            >
-              <option value="" disabled>
-                {t(($) => $.directory_machine)}
-              </option>
-              {machines.map((m) => (
-                <option key={m.id} value={m.daemonId ?? ""}>
-                  {m.title}
-                </option>
-              ))}
-            </select>
+            <Select items={machines.filter(m => m.daemonId).map(m => ({ value: m.daemonId!, label: m.title }))} value={selectedDaemon || null} onValueChange={value => { if (value) setDaemonId(value); }} disabled={busy || !machines.length}>
+              <SelectTrigger aria-label={t($ => $.directory_machine)} className="mt-1 w-full"><SelectValue placeholder={t($ => $.directory_machine)} /></SelectTrigger>
+              <SelectContent>{machines.filter(m => m.daemonId).map(m => <SelectItem key={m.id} value={m.daemonId!}>{m.title}</SelectItem>)}</SelectContent>
+            </Select>
           </label>
           <label className="block text-caption">
             {t(($) => $.directory_path)}
@@ -88,19 +78,10 @@ export function ProjectDirectoryBinding({
           {repositories.length > 0 && (
             <label className="block text-caption">
               {t(($) => $.directory_repository)}
-              <select
-                className="mt-1 block w-full rounded border bg-background p-2"
-                value={repositoryId}
-                disabled={busy}
-                onChange={(e) => setRepositoryId(e.target.value)}
-              >
-                <option value="">{t(($) => $.directory_standalone)}</option>
-                {repositories.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
+              <Select items={[{value:"standalone",label:t($ => $.directory_standalone)},...repositories.map(r=>({value:`repo:${r.id}`,label:r.label}))]} value={repositoryId ? `repo:${repositoryId}` : "standalone"} disabled={busy} onValueChange={value => { if (value) setRepositoryId(value === "standalone" ? "" : value.slice(5)); }}>
+                <SelectTrigger aria-label={t($ => $.directory_repository)} className="mt-1 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="standalone">{t($ => $.directory_standalone)}</SelectItem>{repositories.map(r => <SelectItem key={r.id} value={`repo:${r.id}`}>{r.label}</SelectItem>)}</SelectContent>
+              </Select>
             </label>
           )}
           <p className="text-caption text-muted-foreground">

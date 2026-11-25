@@ -68,6 +68,9 @@ WITH RECURSIVE cleanup_target_project AS MATERIALIZED (
 cleanup_target_project_resource AS MATERIALIZED (
     SELECT child.* FROM "project_resource" child WHERE EXISTS (SELECT 1 FROM cleanup_target_project parent WHERE child."project_id" = parent."id")
 ),
+cleanup_delete_project_repo_binding AS (
+    DELETE FROM project_repo_binding WHERE workspace_id = $2 AND project_id IN (SELECT id FROM cleanup_target_project)
+),
 cleanup_delete_project_resource AS (
     DELETE FROM "project_resource" child WHERE (child."id") IN (SELECT "id" FROM cleanup_target_project_resource)
 ),

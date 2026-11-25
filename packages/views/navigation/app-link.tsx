@@ -11,6 +11,8 @@ interface AppLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
    * path.
    */
   newTabTitle?: string;
+  /** Open a foreground in-app tab on desktop; normal navigation on web. */
+  openInAppTab?: boolean;
 }
 
 export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
@@ -24,6 +26,7 @@ export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
       onFocus,
       target,
       newTabTitle,
+      openInAppTab,
       ...props
     },
     ref,
@@ -56,6 +59,10 @@ export const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(
       // (close popover, clear selection, blur the trigger) lands in the
       // same tick rather than getting deferred behind the transition.
       onClick?.(e);
+      if (openInAppTab && openInNewTab) {
+        openInNewTab(href, newTabTitle, { activate: true });
+        return;
+      }
       push(href);
     };
 

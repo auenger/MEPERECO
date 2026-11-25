@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
+import { Virtuoso } from "react-virtuoso";
 import { Minus, ExternalLink, ChevronDown, Plus, Check, Archive, Pencil, Loader2, Square, UsersRound } from "lucide-react";
 import { Button } from "@silieco/ui/components/ui/button";
 import { cn } from "@silieco/ui/lib/utils";
@@ -35,6 +36,7 @@ import { ArchivedAgentBanner } from "./archived-agent-banner";
 import {
   chatSessionsOptions,
   chatMessagesPageOptions,
+  syncLatestChatMessageQueries,
   pendingChatRunOptions,
   pendingChatRunsOptions,
   chatKeys,
@@ -49,6 +51,7 @@ import {
 } from "@silieco/core/chat/mutations";
 import { useChatStore } from "@silieco/core/chat";
 import { removeChatMessageFromCaches } from "@silieco/core/realtime";
+import { useChatMessageWindow, appendChatMessageToLatestPageCache } from "./use-chat-message-window";
 import { useChatDraftRestore } from "./use-chat-draft-restore";
 import { ChatGroupAvatar } from "./chat-group-avatar";
 import { ChatMessageList, ChatMessageSkeleton } from "./chat-message-list";
@@ -63,7 +66,7 @@ import {
 } from "./use-chat-controller";
 import { useChatProjectContextSupport } from "./use-chat-project-context-support";
 import { createLogger } from "@silieco/core/logger";
-import type { Agent, Attachment, ChatMessage, ChatMessagesPage, ChatPendingRun, ChatSession, PendingChatRunsResponse } from "@silieco/core/types";
+import type { Agent, Attachment, ChatMessage, ChatPendingRun, ChatSession, PendingChatRunsResponse } from "@silieco/core/types";
 import { useT } from "../../i18n";
 import { useNavigation } from "../../navigation";
 import { useWorkspacePaths } from "@silieco/core/paths";
@@ -74,41 +77,11 @@ import { WorkflowChatStatus } from "../../workflows/components/workflow-chat-sta
 
 const uiLogger = createLogger("chat.ui");
 const apiLogger = createLogger("chat.api");
-const CHAT_VIRTUOSO_INITIAL_FIRST_ITEM_INDEX = 1_000_000;
 
-function appendChatMessageToLatestPageCache(
-  qc: ReturnType<typeof useQueryClient>,
-  sessionId: string,
-  message: ChatMessage,
-) {
-  qc.setQueryData<InfiniteData<ChatMessagesPage>>(
-    chatKeys.messagesPage(sessionId),
-    (old) => {
-      if (!old) {
-        return {
-          pages: [{
-            messages: [message],
-            limit: 50,
-            has_more: false,
-            next_cursor: null,
-          }],
-          pageParams: [null],
-        };
-      }
-      if (old.pages.some((page) => page.messages.some((m) => m.id === message.id))) {
-        return old;
-      }
-      return {
-        ...old,
-        pages: old.pages.map((page, index) =>
-          index === 0 ? { ...page, messages: [...page.messages, message] } : page,
-        ),
-      };
-    },
-  );
-}
-
-export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" }) {
+export function ChatWindow({ anchor = "bottom", onSendingChange }: {
+  anchor?: "top" | "bottom";
+  onSendingChange?: (sending: boolean) => void;
+}) {
   const navigation = useNavigation();
   const workspacePaths = useWorkspacePaths();
   const reduceMotion = useReducedMotion();
@@ -146,16 +119,11 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
   // above the initial latest page. The Virtuoso firstItemIndex is client-owned:
   // it starts from a large stable base and only subtracts the count of loaded
   // prepended rows, so concurrent server inserts cannot drift the scroll anchor.
-  const messagePages = activeSessionId ? rawMessagePages?.pages ?? [] : [];
   const workflowEditor = useWorkflowChatEditorStore((s) => s.editor);
   const workflowSessionId = useWorkflowChatEditorStore((s) => s.sessionId);
   const workflowRequest = useWorkflowChatEditorStore((s) => s.request);
-  const rawMessages = [...messagePages].reverse().flatMap((page) => page.messages);
+  const { messages: rawMessages, firstItemIndex } = useChatMessageWindow(activeSessionId, rawMessagePages);
   const messages = rawMessages;
-  const olderMessageCount = messagePages.slice(1).reduce((sum, page) => sum + page.messages.length, 0);
-  const firstItemIndex = messages.length > 0
-    ? CHAT_VIRTUOSO_INITIAL_FIRST_ITEM_INDEX - olderMessageCount
-    : 0;
   // Skeleton only shows for an un-cached session fetch. Cached switches
   // return data synchronously — no flash. `enabled: false` (new chat)
   // keeps isLoading false so the starter prompts aren't hidden.
@@ -166,9 +134,12 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
   // (chat:message / chat:done / run:*) keep it invalidated in real time.
   //
   // This is the SOLE source for pendingRunId — no mirror in the store.
-  const { data: pendingRun, isSuccess: pendingRunLoaded } = useQuery(
-    pendingChatRunOptions(activeSessionId ?? ""),
-  );
+  const { data: pendingRun, isSuccess: pendingRunLoaded } = useQuery({
+    ...pendingChatRunOptions(activeSessionId ?? ""),
+    // A newly awakened overlay reconciles the server's current run even if
+    // the last terminal event was missed while it had no mounted observers.
+    refetchOnMount: "always",
+  });
   const pendingRunId = pendingRun?.run_id ?? null;
   useEffect(() => {
     if (!workflowRequest?.runId || !pendingRunLoaded || pendingRunId || !activeSessionId) return;
@@ -180,9 +151,9 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
   // page controller — the skip/apply/consume/reconcile state machine must not
   // diverge between the two composers.
   //
-  // Gated on isOpen AND app foreground: this window stays MOUNTED when closed
-  // (it is only hidden, see isVisible below), and isOpen alone is also true for a
-  // backgrounded browser tab. Its ChatInput would otherwise adopt and consume a
+  // Gated on isOpen AND app foreground: the window remains mounted during
+  // exit animation, pending send acceptance and embedded workflow editing.
+  // isOpen alone is also true for a backgrounded browser tab. Its ChatInput would otherwise adopt and consume a
   // restore with nobody looking at it — stealing the prompt from the composer the
   // user is actually waiting on, possibly on another device. Only a composer the
   // user can actually see claims; a re-foregrounded window recovers on its next
@@ -223,15 +194,27 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
   }, [projectsLoaded, projects, selectedProjectId, setSelectedProjectId]);
 
   const qc = useQueryClient();
+
+  // Warm-cache wake: display the cached messages right away, then reconcile
+  // the authoritative newest window. Initial/invalidated queries already
+  // fetch themselves; don't duplicate those requests. A run that finished
+  // while UI slept must still surface its final persisted reply.
+  useEffect(() => {
+    if (!isOpen || !activeSessionId) return;
+    const state = qc.getQueryState(chatKeys.messagesPage(activeSessionId));
+    if (state?.data && state.fetchStatus === "idle" && !state.isInvalidated) {
+      syncLatestChatMessageQueries(qc, activeSessionId);
+    }
+  }, [isOpen, activeSessionId, qc]);
   const createSession = useCreateChatSession();
   const markRead = useMarkChatSessionRead();
   const setSessionProject = useSetChatSessionProject();
 
   const currentMember = members.find((m) => m.user_id === user?.id);
   const memberRole = currentMember?.role;
-  const availableAgents = agents.filter(
+  const availableAgents = useMemo(() => agents.filter(
     (a) => !a.archived_at && canAssignAgent(a, user?.id, memberRole),
-  );
+  ), [agents, user?.id, memberRole]);
 
   // The agent bound to the OPEN session, resolved from the full agent list
   // (archived included). An archived agent is filtered out of availableAgents,
@@ -253,16 +236,16 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
       availableAgents[0] ??
       null;
 
-  const groupParticipantMembers = isGroupSession
+  const groupParticipantMembers = useMemo(() => isGroupSession
     ? members.filter((member) => currentSession?.participants?.some(
         (participant) => participant.type === "member" && participant.id === member.user_id,
       ))
-    : [];
-  const groupParticipantAgents = isGroupSession
+    : [], [isGroupSession, members, currentSession?.participants]);
+  const groupParticipantAgents = useMemo(() => isGroupSession
     ? availableAgents.filter((agent) => currentSession?.participants?.some(
         (participant) => participant.type === "agent" && participant.id === agent.id,
       ))
-    : [];
+    : [], [isGroupSession, availableAgents, currentSession?.participants]);
 
   const projectContextSupport = useChatProjectContextSupport(wsId, activeAgent);
 
@@ -610,8 +593,7 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
           toast.error(t(($) => $.input.attachment_bind_failed_toast));
         }
       }
-      qc.invalidateQueries({ queryKey: chatKeys.messages(sessionId) });
-      qc.invalidateQueries({ queryKey: chatKeys.messagesPage(sessionId) });
+      syncLatestChatMessageQueries(qc, sessionId);
       qc.invalidateQueries({ queryKey: chatKeys.sessions(wsId) });
       return true;
     },
@@ -629,6 +611,16 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
       wsId,
     ],
   );
+
+  const sendCountRef = useRef(0);
+  const sendWhileMounted = useCallback(async (...args: Parameters<typeof handleSend>) => {
+    if (sendCountRef.current++ === 0) onSendingChange?.(true);
+    try {
+      return await handleSend(...args);
+    } finally {
+      if (--sendCountRef.current === 0) onSendingChange?.(false);
+    }
+  }, [handleSend, onSendingChange]);
 
   const handleStop = useCallback(() => {
     if (!pendingRunId || !activeSessionId) {
@@ -810,6 +802,8 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
     <motion.div
       ref={windowRef}
       data-chat-window=""
+      inert={!isOpen}
+      aria-hidden={!isOpen || undefined}
       className={containerClass}
       style={containerStyle}
       initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : anchor === "top" ? -8 : 8, width: renderWidth, height: renderHeight }}
@@ -820,6 +814,7 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
         width: renderWidth,
         height: renderHeight,
       }}
+      exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.97, y: reduceMotion ? 0 : anchor === "top" ? -8 : 8 }}
       transition={{
         width: isDragging ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 },
         height: isDragging ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 },
@@ -941,7 +936,7 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
           <EmptyState
             hasSessions={sessions.length > 0}
             agentName={activeAgent?.name}
-            onPickPrompt={(text) => handleSend(text)}
+            onPickPrompt={(text) => sendWhileMounted(text)}
           />
         </div>
       )}
@@ -967,7 +962,9 @@ export function ChatWindow({ anchor = "bottom" }: { anchor?: "top" | "bottom" })
        *  agent has been archived (read-only); locked out entirely when there's
        *  no agent (the EmptyState above carries the CTA). */}
       <ChatInput
-        onSend={handleSend}
+        onSend={sendWhileMounted}
+        preserveDraftOnUnmount
+        suspending={!isOpen}
         restoreDraftRequest={restoreDraftRequest}
         onRestoreDraftApplied={handleRestoreDraftApplied}
         uploadEnabled={isGroupSession || !!activeAgent}
@@ -1178,6 +1175,7 @@ function SessionDropdown({
   // session id (not the full session) so a stale closure can't overwrite a
   // newer rename pulled in via WS.
   const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const setArchived = useSetChatSessionArchived();
   const updateSession = useUpdateChatSession();
   const setActiveSession = useChatStore((s) => s.setActiveSession);
@@ -1386,7 +1384,8 @@ function SessionDropdown({
         <div className="min-w-0 flex-1">
           {isRenaming ? (
             <SessionRenameInput
-              initialValue={session.title ?? ""}
+              value={renameDraft}
+              onChange={setRenameDraft}
               onSubmit={(value) => handleSubmitRename(session.id, value)}
               onCancel={() => setRenamingId(null)}
             />
@@ -1490,6 +1489,7 @@ function SessionDropdown({
                       onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        setRenameDraft(session.title ?? "");
                         setRenamingId(session.id);
                       }}
                       className="inline-flex size-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground focus-visible:outline-none"
@@ -1527,7 +1527,10 @@ function SessionDropdown({
 
   return (
     <>
-      <Popover open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+      <Popover open={isHistoryOpen} onOpenChange={(open) => {
+        setIsHistoryOpen(open);
+        if (!open) setRenamingId(null);
+      }}>
         <div className="flex min-w-0 items-center gap-1">
           <PopoverTrigger className="flex max-w-96 min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-accent data-[popup-open]:bg-accent data-open:bg-accent">
             {activeSession?.kind === "group" ? (
@@ -1572,7 +1575,7 @@ function SessionDropdown({
         </div>
         <PopoverContent
           align="start"
-          className="max-h-96 w-auto min-w-[max(16rem,var(--anchor-width,16rem))] max-w-96 gap-0 overflow-y-auto p-1"
+          className="max-h-96 w-auto min-w-[max(16rem,var(--anchor-width,16rem))] max-w-96 gap-0 overflow-hidden p-1"
           onClick={(e) => e.stopPropagation()}
         >
           {historySessions.length === 0 ? (
@@ -1584,7 +1587,16 @@ function SessionDropdown({
               <div className="px-1.5 py-1 text-caption font-medium text-muted-foreground">
                 {t(($) => $.window.history_group)}
               </div>
-              {historySessions.map(renderRow)}
+              {historySessions.length <= 7 ? historySessions.map(renderRow) : (
+                <Virtuoso
+                  style={{ height: Math.min(320, historySessions.length * 44) }}
+                  data={historySessions}
+                  computeItemKey={(_, session) => session.id}
+                  defaultItemHeight={44}
+                  increaseViewportBy={132}
+                  itemContent={(_, session) => renderRow(session)}
+                />
+              )}
             </div>
           )}
         </PopoverContent>
@@ -1605,16 +1617,17 @@ function SessionDropdown({
  * listener commits only when the user actually clicks outside the input.
  */
 function SessionRenameInput({
-  initialValue,
+  value,
+  onChange,
   onSubmit,
   onCancel,
 }: {
-  initialValue: string;
+  value: string;
+  onChange: (value: string) => void;
   onSubmit: (value: string) => void;
   onCancel: () => void;
 }) {
   const { t } = useT("chat");
-  const [value, setValue] = useState(initialValue);
   const inputRef = useRef<HTMLInputElement>(null);
   // Hold the latest value + callback in refs so the mount-only effect's
   // listener always sees fresh state without re-subscribing on every
@@ -1650,7 +1663,7 @@ function SessionRenameInput({
       value={value}
       maxLength={200}
       aria-label={t(($) => $.session_history.row_rename_aria)}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => onChange(e.target.value)}
       onClick={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
       onKeyDown={(e) => {

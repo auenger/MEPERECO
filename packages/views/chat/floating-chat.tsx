@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback, useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { createPortal } from "react-dom";
 import { useWorkflowChatEditorStore } from "@silieco/core/workflows";
 import { useWorkspaceId } from "@silieco/core/hooks";
@@ -26,6 +28,14 @@ export function FloatingChat({ showLauncher = true }: { showLauncher?: boolean }
   const editor = useWorkflowChatEditorStore((s) => s.editor);
   const target = editor?.wsId === wsId ? document.getElementById(editor.portalId) : null;
   const enabled = useChatStore((s) => s.floatingChatEnabled);
+  const isOpen = useChatStore((s) => s.isOpen);
+  // Keep the composer alive just until its HTTP send settles, not for the
+  // lifetime of the background Agent run. A quick reopen must not bypass
+  // the composer's existing single-flight send guard.
+  const [sendingWorkspace, setSendingWorkspace] = useState<string | null>(null);
+  const onSendingChange = useCallback((sending: boolean) => {
+    setSendingWorkspace((previous) => sending ? wsId : previous === wsId ? null : previous);
+  }, [wsId]);
   const { pathname } = useNavigation();
   const wsPaths = useWorkspacePaths();
 
@@ -35,11 +45,21 @@ export function FloatingChat({ showLauncher = true }: { showLauncher?: boolean }
     return null;
   }
 
-  if (target) return createPortal(<ChatWindow />, target);
+  // Workflow bridge owns its mounted editor and completion effects; keep
+  // that embedded surface alive as before, even when the launcher is closed.
+  if (target) return createPortal(<ChatWindow key={wsId} onSendingChange={onSendingChange} />, target);
 
   return (
     <>
-      <ChatWindow anchor={showLauncher ? "bottom" : "top"} />
+      <AnimatePresence key={wsId}>
+        {(isOpen || sendingWorkspace === wsId) && (
+          <ChatWindow
+            key={wsId}
+            anchor={showLauncher ? "bottom" : "top"}
+            onSendingChange={onSendingChange}
+          />
+        )}
+      </AnimatePresence>
       {showLauncher && !browserSessionFromPath(pathname) && <ChatFab />}
     </>
   );

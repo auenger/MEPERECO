@@ -1,0 +1,9 @@
+MEPER Studio | 接力切口 | Logo v1
+横版组合：horizontal-color 用于浅底；horizontal-white 用于深底；horizontal-black 用于单色。
+竖版组合：stacked 适合方形版面或独立居中场景。
+独立 M：mark 用于侧栏及标识；small-mark 加宽切口，适用于 16–32 px。
+App：app 为蓝底图标；favicon 系列按目标尺寸预渲染为 PNG。
+SVG 字标均已转为轮廓，不依赖本机安装字体。PNG 透明底（App 图标内部有蓝底）。
+建议：横版组合至少 150 CSS px；图形单独至少 16 CSS px，32 px 以下使用小尺寸版。
+建议留白：标志外至少留一条竖笔画的宽度。请勿拉伸或自行加描边。
+主色：接力青 #0698C8，执行蓝 #1246C8，深墨蓝 #0B1B31，浅底 #ECF3FB。

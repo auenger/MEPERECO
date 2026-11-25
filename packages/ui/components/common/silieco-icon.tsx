@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { cn } from "../../lib/utils";
+import { MEPER_APP_ICON_DATA_URL, MEPER_MARK_DATA_URL, MEPER_SMALL_MARK_DATA_URL } from "@silieco/core/brand-assets";
 
 interface SiliecoIconProps extends React.ComponentProps<"span"> {
   animate?: boolean;
   noSpin?: boolean;
   bordered?: boolean;
   size?: "sm" | "md" | "lg";
+  variant?: "mark" | "small" | "app";
 }
 
 const borderedSizes = {
@@ -14,24 +16,16 @@ const borderedSizes = {
   lg: { wrapper: "p-2.5", icon: "size-5" },
 };
 
-function SiliecoMark({ className }: { className?: string }) {
+function MEPERMark({ className, variant }: { className?: string; variant: "mark" | "small" | "app" }) {
+  const src = variant === "app" ? MEPER_APP_ICON_DATA_URL : variant === "small" ? MEPER_SMALL_MARK_DATA_URL : MEPER_MARK_DATA_URL;
   return (
-    <svg
+    <img
       aria-hidden="true"
-      className={className}
-      viewBox="0 0 64 64"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect width="64" height="64" rx="14" fill="#0b0d12" />
-      <path
-        d="M18 18h12v12H18zM34 18h12v12H34zM18 34h12v12H18zM34 34h12v12H34z"
-        fill="#f3f6fb"
-      />
-      <path
-        d="M34 18h12v12H34zM18 34h12v12H18z"
-        fill="#3978f6"
-      />
-    </svg>
+      alt=""
+      draggable={false}
+      src={src}
+      className={cn("object-contain", variant === "small" && "dark:brightness-0 dark:invert", className)}
+    />
   );
 }
 
@@ -41,6 +35,7 @@ export function SiliecoIcon({
   noSpin = false,
   bordered = false,
   size = "sm",
+  variant = bordered ? "app" : "mark",
   ...props
 }: SiliecoIconProps) {
   const [entranceDone, setEntranceDone] = useState(!animate);
@@ -68,7 +63,7 @@ export function SiliecoIcon({
         )}
         {...props}
       >
-        <SiliecoMark className={cn(sizeConfig.icon, animationClass)} />
+        <MEPERMark variant={variant} className={cn(sizeConfig.icon, animationClass)} />
       </span>
     );
   }
@@ -79,7 +74,7 @@ export function SiliecoIcon({
       className={cn("inline-block size-[1em]", className)}
       {...props}
     >
-      <SiliecoMark className={cn("size-full", animationClass)} />
+      <MEPERMark variant={variant} className={cn("size-full", animationClass)} />
     </span>
   );
 }

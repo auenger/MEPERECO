@@ -353,6 +353,8 @@ function ScanningView() {
         {", "}
         <span className="font-medium text-foreground">{"Codex"}</span>
         {", "}
+        <span className="font-medium text-foreground">{"Pi"}</span>
+        {", "}
         <span className="font-medium text-foreground">{"Cursor"}</span>
         {t(($) => $.step_runtime.scanning_lede_suffix)}
       </p>
@@ -463,6 +465,8 @@ function EmptyView({
         <span className="font-medium text-foreground">{"Claude Code"}</span>
         {", "}
         <span className="font-medium text-foreground">{"Codex"}</span>
+        {", "}
+        <span className="font-medium text-foreground">{"Pi"}</span>
         {", "}
         <span className="font-medium text-foreground">{"Cursor"}</span>
         {t(($) => $.step_runtime.empty_lede_suffix)}

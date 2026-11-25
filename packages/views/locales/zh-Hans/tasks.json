@@ -285,6 +285,7 @@
     "prop_output": "输出",
     "prop_cache": "缓存",
     "prop_cache_value": "{{read}} 读 / {{write}} 写",
+    "prop_cost": "费用",
     "prop_runs": "运行次数",
     "activity_section": "动态",
     "subscribe": "订阅",

@@ -1,4 +1,5 @@
 "use client";
+import { currencyFactor, currencySymbol, formatModelMoney, usePricingCurrency } from "../pricing-currency";
 
 import { useMemo, useState } from "react";
 import { BarChart3, ChevronRight, AlertCircle } from "lucide-react";
@@ -17,6 +18,7 @@ import {
   runtimeUsageOptions,
   runtimeUsageByAgentOptions,
 } from "@silieco/core/runtimes/queries";
+import { AggregatedCostValue, ModelCostValue, ModelCostHint, ModelPricingNotice, sumModelCosts } from "./model-cost-display";
 import { useCustomPricingStore } from "@silieco/core/runtimes/custom-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import {
@@ -116,10 +118,7 @@ function Segmented<T extends string | number>({
   );
 }
 
-function fmtMoney(n: number): string {
-  if (n >= 100) return `$${n.toFixed(0)}`;
-  return `$${n.toFixed(2)}`;
-}
+
 
 // ---------------------------------------------------------------------------
 // Top-level orchestrator. Owns the time window, fetches a 180-day usage
@@ -133,6 +132,8 @@ function fmtMoney(n: number): string {
 // ---------------------------------------------------------------------------
 
 export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
+  const currency=usePricingCurrency();
+  const fmtMoney=(n:number)=>formatModelMoney(n,currency);
   const { t, i18n } = useT("runtimes");
   const runtimeId = runtime.id;
   // Reports render in the viewer's timezone — the backend slices the UTC
@@ -171,6 +172,7 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
     }
   };
   const totals = computeTotals(filtered);
+  const pricingSummary=sumModelCosts(filtered);
   const prevTotals = computeTotals(prevFiltered);
 
   const tokensTotal =
@@ -226,20 +228,20 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
           the chart would render normally and the unmapped tokens would silently
           contribute $0 to totals. Stays reachable once every model is priced
           if the user has saved overrides, so those rates remain editable. */}
-      <CustomPricingBar usage={filtered} />
+      {pricingSummary ? <ModelPricingNotice cost={pricingSummary} /> : <CustomPricingBar usage={filtered} />}
 
       <div className="grid grid-cols-3 divide-x rounded-lg border bg-card">
         <KpiCard
           label={t(($) => $.usage.kpi_cost_label, { days })}
           value={
-            <CurrencyNumberFlow
-              value={totals.cost}
+            pricingSummary ? <ModelCostValue cost={pricingSummary} /> : <CurrencyNumberFlow
+              value={totals.cost*currencyFactor(currency)} prefix={currencySymbol(currency)}
               locales={locales}
               aria-label={fmtMoney(totals.cost)}
             />
           }
           hint={
-            costDelta == null ? undefined : (
+            pricingSummary ? <ModelCostHint cost={pricingSummary} /> : costDelta == null ? undefined : (
               <span
                 className={
                   costDelta > 0
@@ -260,8 +262,8 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
         <KpiCard
           label={t(($) => $.usage.kpi_cache_label, { days })}
           value={
-            <CurrencyNumberFlow
-              value={totals.cacheSavings}
+            pricingSummary?.unknown_tokens && pricingSummary.priced_tokens===0 ? <span>—</span> : <CurrencyNumberFlow
+              value={totals.cacheSavings*currencyFactor(currency)} prefix={currencySymbol(currency)}
               locales={locales}
               aria-label={fmtMoney(totals.cacheSavings)}
             />
@@ -370,7 +372,6 @@ function WhenChart({
   );
 
   const metricToggleVisible = !showHeatmap;
-  const legendIncludesCacheRead = !showHeatmap && chartMetric === "tokens";
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -408,7 +409,7 @@ function WhenChart({
           </button>
         </div>
         {!showHeatmap && (
-          <ChartLegend includeCacheRead={legendIncludesCacheRead} />
+          <ChartLegend includeCacheRead={true} />
         )}
       </div>
 
@@ -784,7 +785,7 @@ function CostByList({
               {formatTokens(row.tokens)}
             </div>
             <div className="text-right text-body font-medium tabular-nums">
-              ${row.cost.toFixed(2)}
+              <AggregatedCostValue cost={row.cost} tokens={row.tokens} unknownTokens={row.unknownTokens} />
             </div>
           </div>
         );

@@ -48,6 +48,7 @@ export interface DailyCostStack {
   label: string;
   input: number;
   output: number;
+  cacheRead: number;
   cacheWrite: number;
   total: number;
 }
@@ -65,29 +66,31 @@ function formatDateLabel(d: string): string {
 // segments the stacked bar chart consumes. Stable sort by date asc so the
 // chart x-axis is left-to-right oldest-to-newest.
 export function aggregateDailyCost(usage: DashboardUsageDaily[]): DailyCostStack[] {
-  const map = new Map<string, { input: number; output: number; cacheWrite: number }>();
+  const map = new Map<string, { input: number; output: number; cacheRead: number; cacheWrite: number }>();
   for (const u of usage) {
     const b = estimateCostBreakdown(u);
-    const entry = map.get(u.date) ?? { input: 0, output: 0, cacheWrite: 0 };
+    const entry = map.get(u.date) ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     entry.input += b.input;
     entry.output += b.output;
+    entry.cacheRead += b.cacheRead;
     entry.cacheWrite += b.cacheWrite;
     map.set(u.date, entry);
   }
-  const round = (n: number) => Math.round(n * 100) / 100;
   return Array.from(map.entries())
     .toSorted(([a], [b]) => a.localeCompare(b))
     .map(([date, s]) => {
-      const input = round(s.input);
-      const output = round(s.output);
-      const cacheWrite = round(s.cacheWrite);
+      const input = s.input;
+      const output = s.output;
+      const cacheRead = s.cacheRead;
+      const cacheWrite = s.cacheWrite;
       return {
         date,
         label: formatDateLabel(date),
         input,
         output,
+        cacheRead,
         cacheWrite,
-        total: round(input + output + cacheWrite),
+        total: input + output + cacheRead + cacheWrite,
       };
     });
 }
@@ -134,6 +137,7 @@ export interface DashboardTokenTotals {
   cacheRead: number;
   cacheWrite: number;
   cost: number;
+  unknownTokens?: number;
   taskCount: number;
 }
 
@@ -160,6 +164,7 @@ export interface AgentCostRow {
   agentId: string;
   tokens: number;
   cost: number;
+  unknownTokens?: number;
   taskCount: number;
 }
 
@@ -178,6 +183,7 @@ export function aggregateAgentTokens(rows: DashboardUsageByAgent[]): AgentCostRo
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
+    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
     entry.taskCount += r.run_count;
     map.set(r.agent_id, entry);
   }
@@ -188,6 +194,7 @@ export interface AgentDashboardRow {
   agentId: string;
   tokens: number;
   cost: number;
+  unknownTokens?: number;
   seconds: number;
   taskCount: number;
 }
@@ -215,6 +222,7 @@ export function mergeAgentDashboardRows(
       agentId: r.agentId,
       tokens: r.tokens,
       cost: r.cost,
+      unknownTokens:r.unknownTokens,
       seconds: rt?.total_seconds ?? 0,
       taskCount: rt ? rt.run_count : r.taskCount,
     });
@@ -300,6 +308,7 @@ export function bucketUnknownAgentRows(
     hasDeleted = true;
     bucket.tokens += r.tokens;
     bucket.cost += r.cost;
+    bucket.unknownTokens=(bucket.unknownTokens??0)+(r.unknownTokens??0);
   }
   return hasDeleted ? [...known, bucket] : known;
 }

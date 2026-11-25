@@ -48,7 +48,7 @@ function WindowOverlayInner() {
       {overlay.type === "workspaces" && <WorkspacesPage />}
       {overlay.type === "new-workspace" && (
         <NewWorkspacePage
-          onSuccess={(ws) => push(paths.workspace(ws.slug).tasks())}
+          onSuccess={(ws) => push(paths.workspace(ws.slug).chat())}
           onBack={onBack ?? (() => push(paths.workspaces()))}
         />
       )}
@@ -68,7 +68,7 @@ function WindowOverlayInner() {
             if (ws && taskId) {
               push(paths.workspace(ws.slug).taskDetail(taskId));
             } else if (ws) {
-              push(paths.workspace(ws.slug).tasks());
+              push(paths.workspace(ws.slug).chat());
             } else {
               push(paths.workspaces());
             }

@@ -58,7 +58,7 @@ export function formatRouteErrorReport({
  */
 function useRecoveryRoute(): string | null {
   const activeWorkspaceSlug = useTabStore((state) => state.activeWorkspaceSlug);
-  return activeWorkspaceSlug ? `/${activeWorkspaceSlug}/tasks` : null;
+  return activeWorkspaceSlug ? `/${activeWorkspaceSlug}/chat` : null;
 }
 
 export function DesktopRouteErrorPage() {

@@ -1244,6 +1244,7 @@ type ghPullRequestPayload struct {
 	} `json:"pull_request"`
 	Changes    *ghPRChanges `json:"changes"`
 	Repository struct {
+		ID    int64  `json:"id"`
 		Name  string `json:"name"`
 		Owner struct {
 			Login string `json:"login"`
@@ -1388,11 +1389,21 @@ func (h *Handler) triggerPRRefreshFromCIEvent(ctx context.Context, body []byte) 
 // broadcasts the change. Invoked once per workspace bound to the delivering
 // installation.
 func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype.UUID, installationID int64, p *ghPullRequestPayload) {
+	var connectionID pgtype.UUID
+	if installations, err := h.Queries.ListGitHubInstallationsByWorkspace(ctx, wsID); err == nil {
+		for _, installation := range installations {
+			if installation.InstallationID == installationID {
+				connectionID = installation.ID
+				break
+			}
+		}
+	}
 	state := derivePRState(p.PullRequest.State, p.PullRequest.Draft, p.PullRequest.Merged)
 	mergeable, clearMergeable := derivePRMergeableState(p.Action, p.PullRequest.MergeableState, baseRefChanged(p.Changes))
 	pr, err := h.Queries.UpsertGitHubPullRequest(ctx, db.UpsertGitHubPullRequestParams{
 		WorkspaceID:         wsID,
 		InstallationID:      installationID,
+		ExternalRepoID:      providerRepositoryID(p.Repository.ID),
 		RepoOwner:           p.Repository.Owner.Login,
 		RepoName:            p.Repository.Name,
 		PrNumber:            p.PullRequest.Number,
@@ -1482,9 +1493,10 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 				continue
 			}
 			_, declared := closingIdents[id]
-			closeIntent := declared && !preserveCloseIntent
+			eligible := h.taskGitRepositoryEligible(ctx, task, "github_app", connectionID, "https://github.com", p.Repository.Owner.Login+"/"+p.Repository.Name, providerRepositoryID(p.Repository.ID).String)
+			closeIntent := declared && !preserveCloseIntent && eligible
 			_, qualifies := qualifyingIdents[id]
-			referenceOnly := !qualifies
+			referenceOnly := !qualifies || !eligible
 			if err := h.Queries.LinkTaskToPullRequest(ctx, db.LinkTaskToPullRequestParams{
 				TaskID:              task.ID,
 				PullRequestID:       pr.ID,
@@ -1498,7 +1510,9 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 				continue
 			}
 			linkedTaskIDs = append(linkedTaskIDs, uuidToString(task.ID))
-			reevalTasks = append(reevalTasks, task)
+			if eligible {
+				reevalTasks = append(reevalTasks, task)
+			}
 		}
 
 		// A terminal PR event (`merged` or `closed`) may be the moment the
@@ -1540,6 +1554,7 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 	h.publish(protocol.EventPullRequestUpdated, workspaceID, "system", "", map[string]any{
 		"pull_request":    resp,
 		"linked_task_ids": linkedTaskIDs,
+		"project_ids":     h.gitProjectsForRepository(ctx, wsID, "github_app", connectionID, p.Repository.Owner.Login+"/"+p.Repository.Name, providerRepositoryID(p.Repository.ID).String),
 	})
 }
 

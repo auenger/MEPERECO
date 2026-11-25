@@ -1,3 +1,4 @@
+import { formatModelMoney, usePricingCurrency } from "../../pricing-currency";
 import {
   BarChart,
   Bar,
@@ -26,11 +27,13 @@ import { useT } from "../../../i18n";
 export const costStackConfig = {
   input: { label: "Input", color: "var(--chart-1)" },
   output: { label: "Output", color: "var(--chart-2)" },
+  cacheRead: { label: "Cache read", color: "var(--chart-4)" },
   cacheWrite: { label: "Cache write", color: "var(--chart-3)" },
 } satisfies ChartConfig;
 
 export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
   const { t } = useT("runtimes");
+  const currency=usePricingCurrency();
   // No internal empty-state — the parent decides what to show in place of
   // the chart (often a diagnostic explaining *why* there's no cost). Letting
   // recharts render an empty axis would be both ugly and uninformative.
@@ -49,7 +52,7 @@ export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={(v: number) => `$${v}`}
+          tickFormatter={(v: number) => formatModelMoney(v,currency,true)}
           width={50}
         />
         <ChartTooltip
@@ -57,7 +60,7 @@ export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
             <ChartTooltipContent
               formatter={(value, name) =>
                 typeof value === "number"
-                  ? `$${value.toFixed(2)} ${name}`
+                  ? `${formatModelMoney(value,currency)} ${name}`
                   : `${value} ${name}`
               }
               footer={(payload) => {
@@ -71,7 +74,7 @@ export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
                   <div className="flex items-center justify-between gap-2 font-medium">
                     <span>{t(($) => $.charts.tooltip_total)}</span>
                     <span className="font-mono tabular-nums">
-                      ${total.toFixed(2)}
+                      {formatModelMoney(total,currency)}
                     </span>
                   </div>
                 );
@@ -93,6 +96,12 @@ export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
           stackId="cost"
           fill="var(--color-output)"
           radius={[0, 0, 0, 0]}
+        />
+        <Bar
+          dataKey="cacheRead"
+          stackId="cost"
+          fill="var(--color-cacheRead)"
+          radius={0}
         />
         <Bar
           dataKey="cacheWrite"

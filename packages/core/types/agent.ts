@@ -1,3 +1,4 @@
+import type { ModelCost } from "./pricing";
 export type AgentStatus = "idle" | "working" | "blocked" | "error" | "offline";
 
 export type AgentRuntimeMode = "local" | "cloud";
@@ -816,6 +817,7 @@ export interface SetAgentSkillsRequest {
 }
 
 export interface TaskUsageSummary {
+  pricing?: ModelCost;
   total_input_tokens: number;
   total_output_tokens: number;
   total_cache_read_tokens: number;
@@ -841,6 +843,7 @@ export interface TaskUsageSummary {
 // a real 0 ("nothing left to estimate"). See estimateCost in
 // packages/views/runtimes/utils.ts.
 export interface RuntimeUsage {
+  pricing?: ModelCost;
   runtime_id: string;
   date: string;
   provider: string;
@@ -867,6 +870,7 @@ export interface RuntimeHourlyActivity {
 // model ids that collide across providers) — the client groups these rows by
 // agent_id and sums cost per agent across models.
 export interface RuntimeUsageByAgent {
+  pricing?: ModelCost;
   agent_id: string;
   provider: string;
   model: string;
@@ -886,6 +890,8 @@ export interface RuntimeUsageByAgent {
 // zero activity are omitted by the server; the client fills the gap to
 // render a continuous axis. Model preserved for client-side cost math.
 export interface RuntimeUsageByHour {
+  pricing?: ModelCost;
+  provider?: string;
   hour: number;
   model: string;
   input_tokens: number;
@@ -907,6 +913,7 @@ export interface RuntimeUsageByHour {
 // (e.g. Cursor's `auto` vs another provider's `auto`) when pricing. Cost
 // stays client-side via the model pricing table.
 export interface DashboardUsageDaily {
+  pricing?: ModelCost;
   date: string;
   provider: string;
   model: string;
@@ -926,6 +933,7 @@ export interface DashboardUsageDaily {
 // wire shape to RuntimeUsageByAgent — the client folds by agent_id and
 // sums cost.
 export interface DashboardUsageByAgent {
+  pricing?: ModelCost;
   agent_id: string;
   provider: string;
   model: string;

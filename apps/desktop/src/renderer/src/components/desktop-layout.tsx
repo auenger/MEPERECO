@@ -1,8 +1,9 @@
 import { BrowserToolLifecycle } from "@/platform/browser-tool-entry";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, SquarePen } from "lucide-react";
 import { motion } from "motion/react";
 import { cn } from "@silieco/ui/lib/utils";
+import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { useTabHistory } from "@/hooks/use-tab-history";
 import {
   SidebarProvider,
@@ -11,6 +12,11 @@ import {
 } from "@silieco/ui/components/ui/sidebar";
 import { ModalRegistry } from "@silieco/views/modals/registry";
 import { AppSidebar, GlobalShortcuts } from "@silieco/views/layout";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@silieco/ui/components/ui/tooltip";
+import { openCreateTaskWithPreference } from "@silieco/core/tasks/stores/create-mode-store";
+import { useTaskDraftStore } from "@silieco/core/tasks/stores/draft-store";
+import { useShortcut, formatShortcut } from "@silieco/core/shortcuts";
+import { useT } from "@silieco/views/i18n";
 import { SearchCommand, SearchTrigger } from "@silieco/views/search";
 import { FloatingChat, ChatToolbarButton } from "@silieco/views/chat";
 import { WorkspaceSlugProvider, paths, useCurrentWorkspace } from "@silieco/core/paths";
@@ -27,6 +33,10 @@ import { WindowOverlay } from "./window-overlay";
 
 const TOP_BAR_HEIGHT_CLASS = "h-12";
 const WINDOW_TOOLBAR_CLEARANCE = 184;
+// Windows runs titleless with the native Window Controls Overlay at the
+// top-RIGHT (see main/index.ts), so unlike macOS there are no traffic
+// lights to clear at the top-left — the brand row folds into the nav strip.
+const IS_WINDOWS = window.desktopAPI.appInfo.os === "windows";
 const toolbarMotion = {
   type: "spring",
   stiffness: 420,
@@ -88,6 +98,63 @@ function SidebarTopSpacer() {
   return <div className={cn("shrink-0", TOP_BAR_HEIGHT_CLASS)} />;
 }
 
+// Windows top-left strip: brand + sidebar collapse + back/forward in one
+// in-flow row inside the sidebar (macOS keeps the fixed 184px overlay
+// toolbar with traffic-light clearance instead). The whole strip is a drag
+// region; individual controls opt out.
+function WindowsSidebarTopBar() {
+  const { t } = useT("layout");
+  const { canGoBack, canGoForward, goBack, goForward } = useTabHistory();
+  const navButtonClassName =
+    "flex size-7 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-30";
+
+  return (
+    <div
+      className={cn("flex shrink-0 items-center gap-1 pl-2 pr-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0", TOP_BAR_HEIGHT_CLASS)}
+      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+    >
+      <div
+        className="flex min-w-0 flex-1 items-center gap-2 px-1 group-data-[collapsible=icon]:hidden"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <SiliecoIcon noSpin variant="small" className="size-7 shrink-0" />
+        <p className="min-w-0 flex-1 truncate text-caption font-medium text-muted-foreground group-data-[collapsible=icon]:hidden">
+          {t(($) => $.sidebar.brand_tagline)}
+        </p>
+      </div>
+      <SidebarTrigger
+        className="size-7 shrink-0 text-muted-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      />
+      <div
+        className="flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:hidden"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <button
+          type="button"
+          onClick={goBack}
+          disabled={!canGoBack}
+          aria-label="Go back"
+          title="Go back"
+          className={navButtonClassName}
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <button
+          type="button"
+          onClick={goForward}
+          disabled={!canGoForward}
+          aria-label="Go forward"
+          title="Go forward"
+          className={navButtonClassName}
+        >
+          <ChevronRight className="size-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function useNativeNavigationGestures() {
   const { goBack, goForward } = useTabHistory();
 
@@ -102,18 +169,52 @@ function useNativeNavigationGestures() {
   }, [goBack, goForward]);
 }
 
+function NewTaskToolbarButton() {
+  const { t } = useT("layout");
+  const shortcut = useShortcut("createTask");
+  const hasDraft = useTaskDraftStore((s) => s.hasDraft());
+  const label = t(($) => $.sidebar.new_task);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        aria-label={label}
+        onClick={() => openCreateTaskWithPreference()}
+        className="relative flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <SquarePen className="size-5" />
+        {hasDraft && (
+          <span aria-hidden="true" className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-brand" />
+        )}
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={10}>
+        {label}{shortcut ? ` · ${formatShortcut(shortcut)}` : ""}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 // The main area's top bar doubles as a window drag region. When the sidebar
 // is not occupying main-flow width, leave room for the fixed window toolbar
 // so tabs do not land beneath the traffic lights / navigation controls.
 function MainTopBar({ showChat }: { showChat: boolean }) {
   const { state, isMobile } = useSidebar();
-  const toolbarClearance = isMobile ? WINDOW_TOOLBAR_CLEARANCE : state === "collapsed" ? "calc(184px - var(--sidebar-width-icon) - 1rem)" : 0;
+  // Windows keeps its nav strip inside the sidebar flow, so nothing fixed
+  // ever overlaps the tab bar and no clearance is needed.
+  const toolbarClearance = IS_WINDOWS
+    ? 0
+    : isMobile
+      ? WINDOW_TOOLBAR_CLEARANCE
+      : state === "collapsed"
+        ? "calc(184px - var(--sidebar-width-icon) - 1rem)"
+        : 0;
 
   return (
     <motion.header
       animate={{ paddingLeft: toolbarClearance }}
       className={cn("relative shrink-0 flex items-center gap-2", TOP_BAR_HEIGHT_CLASS)}
-      style={{ paddingRight: window.desktopAPI.appInfo.os === "windows" ? 144 : 8 }}
+      style={{ paddingRight: IS_WINDOWS ? "max(144px, calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)))" : 8 }}
       initial={false}
       transition={toolbarMotion}
     >
@@ -128,8 +229,15 @@ function MainTopBar({ showChat }: { showChat: boolean }) {
       <div className="relative z-10 flex h-full min-w-0 flex-1 items-center overflow-hidden">
         <TabBar />
       </div>
-      <div className="relative z-10 flex h-full w-10 shrink-0 items-center justify-center" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
-        {showChat && <ChatToolbarButton />}
+      <div className="relative z-10 flex h-full shrink-0 items-center justify-center gap-1 pr-1" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
+        {showChat && (
+          <>
+            <NewTaskToolbarButton />
+            <div className="flex size-8 shrink-0 items-center justify-center">
+              <ChatToolbarButton />
+            </div>
+          </>
+        )}
       </div>
     </motion.header>
   );
@@ -235,8 +343,15 @@ export function DesktopShell() {
         <div className="flex h-screen bg-app-shell">
           <SidebarProvider className="flex-1 bg-app-shell">
             {slug && <GlobalShortcuts />}
-            {slug && <WindowToolbar />}
-            {slug && <AppSidebar topSlot={<SidebarTopSpacer />} searchSlot={<SearchTrigger />} />}
+            {slug && !IS_WINDOWS && <WindowToolbar />}
+            {slug && (
+              <AppSidebar
+                topSlot={IS_WINDOWS ? <WindowsSidebarTopBar /> : <SidebarTopSpacer />}
+                searchSlot={<SearchTrigger />}
+                hideBrand={IS_WINDOWS}
+                taskInToolbar
+              />
+            )}
             {/* Right side: header + content container */}
             <div className="flex flex-1 min-w-0 flex-col">
               <MainTopBar showChat={Boolean(slug)} />
