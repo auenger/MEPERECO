@@ -52,3 +52,7 @@ apps/web/public/cli/*.tar.gz
 apps/web/public/cli/*.zip
 apps/web/public/cli/checksums.txt
 apps/web/public/cli/version.txt
+
+apps/web/public/cli/releases/
+apps/web/public/cli/manifest.json
+apps/web/public/cli/manifest.tsv

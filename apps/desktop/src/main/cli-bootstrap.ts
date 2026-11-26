@@ -2,19 +2,20 @@ import { app } from "electron";
 import { execFile } from "child_process";
 import { createHash } from "crypto";
 import { createReadStream, createWriteStream, existsSync } from "fs";
-import { chmod, mkdir, rename, rm } from "fs/promises";
+import { chmod, copyFile, mkdir, rename, rm, stat } from "fs/promises";
 import { join, dirname } from "path";
 import { pipeline } from "stream/promises";
 import { tmpdir } from "os";
 import { Readable } from "stream";
 
+import { parseCliManifest, cliArtifactFor } from "@silieco/core/release/cli-manifest";
 import { selectPlatformReleaseAssetName } from "./cli-release-asset";
 
 // Desktop prefers the bundled `silieco` CLI shipped inside the app for
 // same-repo builds, but it can also repair or bootstrap a managed copy in
 // userData on first launch when the bundled binary is missing or unusable.
 
-const CLI_DOWNLOAD_BASE = (process.env.MEPERSTUDIO_CLI_DOWNLOAD_BASE_URL || process.env.SILIECO_DOWNLOAD_BASE_URL || "https://studio.meper.cn/cli").replace(/\/+$/, "");
+const CLI_DOWNLOAD_BASE = (process.env.MEPERSTUDIO_CLI_DOWNLOAD_BASE_URL || process.env.MEPERSTUDIO_DOWNLOAD_BASE_URL || process.env.SILIECO_DOWNLOAD_BASE_URL || "https://studio.meper.cn/cli").replace(/\/+$/, "");
 
 function binaryName(): string {
   return process.platform === "win32" ? "meperstudio.exe" : "meperstudio";
@@ -91,15 +92,22 @@ async function extractArchive(archive: string, dest: string): Promise<void> {
 
 async function installFresh(): Promise<string> {
   const target = managedCliPath();
-  const checksums = await fetchChecksums();
-  const assetName = selectPlatformReleaseAssetName(checksums.keys());
-  const expectedChecksum = checksums.get(assetName);
-  if (!expectedChecksum) {
-    throw new Error(
-      `no checksum for ${assetName} in checksums.txt — refusing to install unverified binary`,
-    );
-  }
-  const url = `${CLI_DOWNLOAD_BASE}/${assetName}`;
+  const response = await fetch(`${CLI_DOWNLOAD_BASE}/manifest.json`);
+  let assetName: string, expectedChecksum: string, url: string;
+  let expectedSize: number | undefined, declaredBinary: string | undefined;
+  if (response.ok) {
+    const manifest = parseCliManifest(await response.json());
+    const artifact = cliArtifactFor(manifest, process.platform, process.arch);
+    assetName = artifact.archive_name; expectedChecksum = artifact.sha256;
+    url = `${CLI_DOWNLOAD_BASE}/${artifact.path}`;
+    expectedSize = artifact.size_bytes; declaredBinary = artifact.binary;
+  } else if (response.status === 404) {
+    const checksums = await fetchChecksums();
+    assetName = selectPlatformReleaseAssetName(checksums.keys());
+    expectedChecksum = checksums.get(assetName) ?? "";
+    if (!expectedChecksum) throw new Error(`No checksum for ${assetName}`);
+    url = `${CLI_DOWNLOAD_BASE}/${assetName}`;
+  } else { throw new Error(`CLI manifest HTTP ${response.status}`); }
 
   const workDir = join(tmpdir(), `meperstudio-cli-${Date.now()}`);
   await mkdir(workDir, { recursive: true });
@@ -110,6 +118,7 @@ async function installFresh(): Promise<string> {
     await downloadToFile(url, archivePath);
 
     console.log(`[cli-bootstrap] verifying ${assetName} against checksums.txt`);
+    if (expectedSize !== undefined && (await stat(archivePath)).size !== expectedSize) throw new Error(`CLI archive size mismatch: ${assetName}`);
     await verifyChecksum(archivePath, assetName, expectedChecksum);
 
     console.log(`[cli-bootstrap] extracting ${assetName}`);
@@ -117,7 +126,7 @@ async function installFresh(): Promise<string> {
 
     const branded = join(workDir, binaryName());
     const legacy = join(workDir, process.platform === "win32" ? "silieco.exe" : "silieco");
-    const extractedBin = existsSync(branded) ? branded : legacy;
+    const extractedBin = declaredBinary ? join(workDir, declaredBinary) : existsSync(branded) ? branded : legacy;
     if (!existsSync(extractedBin)) {
       throw new Error(
         `archive ${assetName} did not contain ${binaryName()} at its root`,
@@ -125,9 +134,17 @@ async function installFresh(): Promise<string> {
     }
 
     await mkdir(dirname(target), { recursive: true });
-    await rm(target, { force: true }).catch(() => {});
-    await rename(extractedBin, target);
-    await chmod(target, 0o755);
+    const staged = `${target}.new-${Date.now()}`;
+    const backup = `${target}.previous-${Date.now()}`;
+    try {
+      await copyFile(extractedBin, staged);
+      await chmod(staged, 0o755);
+      if (process.platform === "win32" && existsSync(target)) {
+        await rename(target, backup);
+        try { await rename(staged, target); } catch (error) { await rename(backup, target); throw error; }
+        await rm(backup, { force: true }).catch(() => {});
+      } else { await rename(staged, target); }
+    } finally { await rm(staged, { force: true }).catch(() => {}); }
 
     // macOS: ad-hoc sign so spawning the child never hits a gatekeeper quirk.
     // Non-fatal: unsigned binaries still execute when the parent app is trusted.

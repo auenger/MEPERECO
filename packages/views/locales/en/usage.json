@@ -4,7 +4,12 @@
   "filter": {
     "project_label": "Project",
     "all_projects": "All projects",
-    "period_label": "Period"
+    "period_label": "Period",
+    "run_kind": "Run type",
+    "all_runs": "All runs",
+    "chat_runs": "Chat",
+    "task_runs": "Task",
+    "other_runs": "Other"
   },
   "kpi": {
     "cost_label": "Cost · {{days}}D",
@@ -13,7 +18,8 @@
     "run_time_label": "Run time · {{days}}D",
     "run_time_hint": "Across {{runs}} runs",
     "tasks_label": "Runs · {{days}}D",
-    "tasks_hint": "{{failed}} failed"
+    "tasks_hint": "{{failed}} failed",
+    "run_kind_hint": "Chat {{chat}} · Task {{task}} · Other {{other}}"
   },
   "dim": {
     "label": "Dimension",
@@ -32,7 +38,8 @@
     "metric_tasks": "Runs",
     "metric_errors": "Errors",
     "no_data": "No usage in this window.",
-    "metric_label": "Metric"
+    "metric_label": "Metric",
+    "usage_unavailable": "Usage data is unavailable"
   },
   "weekly": {
     "title_cost": "Weekly cost",
@@ -98,12 +105,13 @@
     "less_than_minute": "<1m"
   },
   "pricing": {
-    "unpriced": "Unpriced",
+    "unpriced": "Not configured",
     "actual": "Actual",
     "estimated": "Estimated",
-    "unknown_tokens": "tokens unpriced",
+    "unknown_tokens": "tokens without configured pricing",
     "covered": "Pricing covered",
-    "notice": "Known spend does not include unpriced tokens. Configure model rates.",
-    "settings": "Model pricing settings"
+    "notice": "Known charges are not total costs. Configure missing models in workspace pricing.",
+    "settings": "Model pricing settings",
+    "usage_missing": "Runs are recorded, but corresponding token usage is unavailable. Cost and token totals cannot yet be shown."
   }
 }

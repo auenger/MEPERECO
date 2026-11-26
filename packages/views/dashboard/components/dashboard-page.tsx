@@ -1,5 +1,4 @@
 "use client";
-import { currencyFactor, currencySymbol, usePricingCurrency } from "../../runtimes/pricing-currency";
 
 import { useMemo, useState } from "react";
 import { BarChart3, EyeOff, FolderKanban, Trash2 } from "lucide-react";
@@ -7,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@silieco/ui/components/ui/skeleton";
 import {
   CompactNumberFlow,
-  CurrencyNumberFlow,
   NumberFlow,
   NumberFlowGroup,
 } from "@silieco/ui/components/ui/number-flow";
@@ -19,7 +17,8 @@ import {
   SelectValue,
 } from "@silieco/ui/components/ui/select";
 import { useWorkspaceId } from "@silieco/core/hooks";
-import type { Agent } from "@silieco/core/types";
+import type { Agent, DashboardRunKind } from "@silieco/core/types";
+import { useConfigStore } from "@silieco/core/config";
 import { agentListOptions } from "@silieco/core/workspace/queries";
 import { projectListOptions } from "@silieco/core/projects/queries";
 import {
@@ -33,7 +32,6 @@ import {
   type FailureClass,
 } from "@silieco/core/dashboard";
 import { useWorkspacePaths } from "@silieco/core/paths";
-import { useCustomPricingStore } from "@silieco/core/runtimes/custom-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import { PageHeader } from "../../layout/page-header";
 import { AggregatedCostValue, ModelCostValue, ModelCostHint, ModelPricingNotice, sumModelCosts } from "../../runtimes/components/model-cost-display";
@@ -239,13 +237,15 @@ function DurationNumberFlow({
  */
 export function DashboardPage() {
   const { t, i18n } = useT("usage");
-  const currency=usePricingCurrency();
   const wsId = useWorkspaceId();
   const viewTZ = useViewingTimezone();
   const locales = i18n.resolvedLanguage ?? i18n.language;
   const [dim, setDim] = useState<Dim>("daily");
   const [days, setDays] = useState<TimeRange>(30);
   const [projectValue, setProjectValue] = useState<string>(ALL_PROJECTS);
+  const runKindSupported = useConfigStore(state => state.usageRunKindFilter);
+  const [runKindValue, setRunKindValue] = useState<DashboardRunKind>("all");
+  const runKind = runKindSupported ? runKindValue : "all";
 
   const allowedRanges = rangesForDim(dim);
   const handleDimChange = (next: Dim) => {
@@ -255,10 +255,6 @@ export function DashboardPage() {
     );
     if (!stillAllowed) setDays(DEFAULT_DAYS_BY_DIM[next]);
   };
-
-  // The user can save model prices from the runtimes page; re-render when
-  // they do so the dashboard reflects the new rates.
-  const legacyPricings=useCustomPricingStore((s) => s.pricings);
 
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const agentsQuery = useQuery(agentListOptions(wsId));
@@ -285,22 +281,22 @@ export function DashboardPage() {
   const chartFetchDays = dim === "weekly" ? weekCount * 7 : days;
 
   const dailyQuery = useQuery(
-    dashboardUsageDailyOptions(wsId, chartFetchDays, projectId, viewTZ),
+    dashboardUsageDailyOptions(wsId, chartFetchDays, projectId, viewTZ, runKind),
   );
   const byAgentQuery = useQuery(
-    dashboardUsageByAgentOptions(wsId, days, projectId, viewTZ),
+    dashboardUsageByAgentOptions(wsId, days, projectId, viewTZ, runKind),
   );
   const runTimeQuery = useQuery(
-    dashboardAgentRunTimeOptions(wsId, days, projectId, viewTZ),
+    dashboardAgentRunTimeOptions(wsId, days, projectId, viewTZ, runKind),
   );
   const runTimeDailyQuery = useQuery(
-    dashboardRunTimeDailyOptions(wsId, chartFetchDays, projectId, viewTZ),
+    dashboardRunTimeDailyOptions(wsId, chartFetchDays, projectId, viewTZ, runKind),
   );
   const failuresDailyQuery = useQuery(
-    dashboardFailuresDailyOptions(wsId, chartFetchDays, projectId, viewTZ),
+    dashboardFailuresDailyOptions(wsId, chartFetchDays, projectId, viewTZ, runKind),
   );
   const failuresByAgentQuery = useQuery(
-    dashboardFailuresByAgentOptions(wsId, days, projectId, viewTZ),
+    dashboardFailuresByAgentOptions(wsId, days, projectId, viewTZ, runKind),
   );
 
   const dailyUsage = dailyQuery.data ?? EMPTY_DAILY;
@@ -357,12 +353,13 @@ export function DashboardPage() {
   // Cost / token math — re-derived when usage, days, or pricings change.
   const totals = useMemo(
     () => computeDailyTotals(dailyUsageInWindow),
-    [dailyUsageInWindow,legacyPricings],
+    [dailyUsageInWindow],
   );
-  const pricingSummary=sumModelCosts(dailyUsageInWindow);
+  const pricingSummary = sumModelCosts(dailyUsageInWindow);
+  const chartPricingSummary = sumModelCosts(dim === "weekly" ? dailyUsage : dailyUsageInWindow);
   const dailyCost = useMemo(
     () => aggregateDailyCost(dailyUsageInWindow),
-    [dailyUsageInWindow,legacyPricings],
+    [dailyUsageInWindow],
   );
   const dailyTokens = useMemo(
     () => aggregateDailyTokens(dailyUsageInWindow),
@@ -435,7 +432,7 @@ export function DashboardPage() {
   // boundaries follow the viewer's timezone.
   const weekly = useMemo(
     () => aggregateByWeek(dailyUsage, viewTZ, weekCount),
-    [dailyUsage, viewTZ, weekCount,legacyPricings],
+    [dailyUsage, viewTZ, weekCount],
   );
   const weeklyCost = weekly.weeklyCostStack;
   const weeklyTokens = weekly.weeklyTokens;
@@ -453,7 +450,7 @@ export function DashboardPage() {
   );
   const agentTokenRows = useMemo(
     () => aggregateAgentTokens(byAgentUsage),
-    [byAgentUsage,legacyPricings],
+    [byAgentUsage],
   );
 
   // Run-time totals — taskCount + failedCount summed for the KPI row.
@@ -461,13 +458,18 @@ export function DashboardPage() {
     let totalSeconds = 0;
     let taskCount = 0;
     let failedCount = 0;
-    for (const r of runTimeRows) {
+    let chatRuns = 0, taskRuns = 0, otherRuns = 0;
+    for (const r of runTimeDailyInWindow) {
       totalSeconds += r.total_seconds;
       taskCount += r.run_count;
       failedCount += r.failed_count;
+      chatRuns += r.chat_run_count ?? 0;
+      taskRuns += r.task_run_count ?? 0;
+      otherRuns += r.other_run_count ?? 0;
     }
-    return { totalSeconds, taskCount, failedCount };
-  }, [runTimeRows]);
+    return { totalSeconds, taskCount, failedCount, chatRuns, taskRuns, otherRuns };
+  }, [runTimeDailyInWindow]);
+  const usageMissing = dailyUsageInWindow.length === 0 && runTimeTotals.taskCount > 0;
 
   const agentRows = useMemo(
     () => mergeAgentDashboardRows(agentTokenRows, runTimeRows),
@@ -513,6 +515,17 @@ export function DashboardPage() {
           <h1 className="truncate text-body font-medium">{t(($) => $.title)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {runKindSupported && <Segmented<DashboardRunKind>
+            label={t(($) => $.filter.run_kind)}
+            value={runKind}
+            onChange={setRunKindValue}
+            options={[
+              { label: t(($) => $.filter.all_runs), value: "all" },
+              { label: t(($) => $.filter.chat_runs), value: "chat" },
+              { label: t(($) => $.filter.task_runs), value: "task" },
+              { label: t(($) => $.filter.other_runs), value: "other" },
+            ]}
+          />}
           <ProjectFilter
             projects={projects}
             value={projectValue}
@@ -547,6 +560,7 @@ export function DashboardPage() {
           ) : (
             <>
               {pricingSummary && <ModelPricingNotice cost={pricingSummary} />}
+              {usageMissing && <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-caption text-muted-foreground" role="status">{t(($) => $.pricing.usage_missing)}</p>}
               {/* KPI row — same 3-divide-x card grid the runtime usage
                   section uses, expanded to four tiles. */}
               <div className="grid grid-cols-1 divide-y rounded-lg border bg-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
@@ -554,13 +568,13 @@ export function DashboardPage() {
                   label={t(($) => $.kpi.cost_label, { days })}
                   hint={pricingSummary ? <ModelCostHint cost={pricingSummary} /> : undefined}
                   value={
-                    pricingSummary ? <ModelCostValue cost={pricingSummary} /> : <CurrencyNumberFlow value={totals.cost*currencyFactor(currency)} prefix={currencySymbol(currency)} locales={locales} />
+                    pricingSummary ? <ModelCostValue cost={pricingSummary} /> : <span className="text-muted-foreground">—</span>
                   }
                 />
                 <KpiCard
                   label={t(($) => $.kpi.tokens_label, { days })}
                   value={
-                    <CompactNumberFlow
+                    usageMissing ? <span className="text-muted-foreground">—</span> : <CompactNumberFlow
                       value={
                         totals.input +
                         totals.output +
@@ -570,7 +584,7 @@ export function DashboardPage() {
                       locales={locales}
                     />
                   }
-                  hint={t(($) => $.kpi.tokens_hint, {
+                  hint={usageMissing ? undefined : t(($) => $.kpi.tokens_hint, {
                     input: formatTokens(totals.input),
                     output: formatTokens(totals.output),
                   })}
@@ -585,7 +599,7 @@ export function DashboardPage() {
                     />
                   }
                   hint={t(($) => $.kpi.run_time_hint, {
-                    tasks: runTimeTotals.taskCount,
+                    runs: runTimeTotals.taskCount,
                   })}
                 />
                 <KpiCard
@@ -604,9 +618,9 @@ export function DashboardPage() {
                   // here would put two different denominators in one tile. The
                   // Errors card below states its rate with the denominator
                   // spelled out instead.
-                  hint={t(($) => $.kpi.tasks_hint, {
-                    failed: runTimeTotals.failedCount,
-                  })}
+                  hint={runKindSupported && runKind === "all" ? t(($) => $.kpi.run_kind_hint, {
+                    chat: runTimeTotals.chatRuns, task: runTimeTotals.taskRuns, other: runTimeTotals.otherRuns,
+                  }) : t(($) => $.kpi.tasks_hint, { failed: runTimeTotals.failedCount })}
                   accent={runTimeTotals.failedCount > 0 ? "default" : "default"}
                 />
               </div>
@@ -628,6 +642,8 @@ export function DashboardPage() {
                 weeklyTime={weeklyTime}
                 weeklyRuns={weeklyRuns}
                 weeklyErrors={weeklyErrors}
+                costUnconfigured={!!chartPricingSummary?.unknown_tokens && chartPricingSummary.priced_tokens === 0}
+                usageMissing={usageMissing}
                 lessThanMinuteLabel={t(($) => $.duration.less_than_minute)}
               />
 
@@ -735,6 +751,8 @@ function TrendBlock({
   weeklyTime,
   weeklyRuns,
   weeklyErrors,
+  costUnconfigured,
+  usageMissing,
   lessThanMinuteLabel,
 }: {
   dim: Dim;
@@ -748,6 +766,8 @@ function TrendBlock({
   weeklyTime: ReturnType<typeof aggregateWeeklyTime>;
   weeklyRuns: ReturnType<typeof aggregateWeeklyRuns>;
   weeklyErrors: ReturnType<typeof aggregateWeeklyErrors>;
+  costUnconfigured: boolean;
+  usageMissing: boolean;
   lessThanMinuteLabel: string;
 }) {
   const { t } = useT("usage");
@@ -830,9 +850,13 @@ function TrendBlock({
           <div className="flex aspect-[3/1] flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-muted/20 p-6 text-center">
             <BarChart3 className="h-5 w-5 text-muted-foreground/50" />
             <p className="text-caption text-muted-foreground">
-              {metric === "errors"
-                ? t(($) => $.errors.no_data)
-                : t(($) => $.daily.no_data)}
+              {metric === "cost" && costUnconfigured
+                ? t(($) => $.pricing.unpriced)
+                : usageMissing && (metric === "cost" || metric === "tokens")
+                  ? t(($) => $.daily.usage_unavailable)
+                  : metric === "errors"
+                  ? t(($) => $.errors.no_data)
+                  : t(($) => $.daily.no_data)}
             </p>
           </div>
         ) : dim === "weekly" ? (
@@ -1496,12 +1520,12 @@ function Leaderboard({
                   <div
                     className={`text-right text-caption tabular-nums ${sortBy === "tokens" ? "font-medium text-foreground" : "text-muted-foreground"}`}
                   >
-                    {formatTokens(row.tokens)}
+                    {row.hasUsage ? formatTokens(row.tokens) : "—"}
                   </div>
                   <div
                     className={`text-right tabular-nums ${sortBy === "cost" ? "text-body font-medium" : "text-caption text-muted-foreground"}`}
                   >
-                    <AggregatedCostValue cost={row.cost} tokens={row.tokens} unknownTokens={row.unknownTokens} />
+                    {row.hasUsage ? <AggregatedCostValue cost={row.cost} tokens={row.tokens} unknownTokens={row.unknownTokens} /> : "—"}
                   </div>
                   <div
                     className={`text-right text-caption tabular-nums ${sortBy === "time" ? "font-medium text-foreground" : "text-muted-foreground"}`}

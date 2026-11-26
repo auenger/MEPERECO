@@ -2,6 +2,7 @@
 """Verify the release layout and perform an isolated native shell installation."""
 from pathlib import Path
 import hashlib
+import json
 import http.server
 import os
 import platform
@@ -30,10 +31,32 @@ for prefix in ('meperstudio','silieco'):
                     assert t.getnames() == [prefix], name
                     assert t.getmember(prefix).mode & 0o111, name
 print('Verified six branded and six compatibility archives with matching SHA-256 checksums.')
+release = json.loads((DIST/'manifest.json').read_text())
+assert release['schema_version'] == 'meperstudio.cli/v1' and len(release['artifacts']) == 6
+lines = (DIST/'manifest.tsv').read_text().splitlines()
+assert lines[0] == 'meperstudio.cli/v1\t'+release['version']
+assert len(lines) == 7
+for entry,line in zip(release['artifacts'],lines[1:]):
+    assert line.split('\t') == [str(entry[k]) for k in ('os','arch','path','archive_name','binary','sha256','size_bytes')]
+    artifact = DIST/entry['path']
+    assert artifact.stat().st_size == entry['size_bytes']
+    assert hashlib.sha256(artifact.read_bytes()).hexdigest() == entry['sha256']
+print('Verified content-addressed JSON/TSV manifest and immutable release files.')
 if platform.system() not in ('Darwin','Linux'):
     raise SystemExit('Native shell install test requires macOS or Linux.')
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    mode = 'current'
     def log_message(self, *_): pass
+    def do_GET(self):
+        if self.mode == 'legacy' and self.path in ('/manifest.tsv', '/manifest.json'):
+            self.send_error(404)
+            return
+        if self.mode == 'damaged' and self.path.startswith('/releases/'):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'damaged archive')
+            return
+        super().do_GET()
 with http.server.ThreadingHTTPServer(('127.0.0.1',0), partial(QuietHandler,directory=str(DIST))) as server:
     threading.Thread(target=server.serve_forever,daemon=True).start()
     base = f'http://127.0.0.1:{server.server_port}'
@@ -47,5 +70,14 @@ with http.server.ThreadingHTTPServer(('127.0.0.1',0), partial(QuietHandler,direc
         assert 'MEPERSTUDIO_SERVER_URL' in help_text and 'SILIECO_SERVER_URL' not in help_text
         subprocess.run([str(binary),'config','set','server_url',base],env=env,cwd=tmp,check=True)
         assert (home/'.meperstudio/config.json').exists(), 'expected branded state directory'
+        expected_binary = hashlib.sha256(binary.read_bytes()).hexdigest()
+        QuietHandler.mode = 'legacy'
+        subprocess.run(['bash', str(DIST/'install.sh')], env=env, check=True, cwd=tmp)
+        assert hashlib.sha256(binary.read_bytes()).hexdigest() == expected_binary
+        QuietHandler.mode = 'damaged'
+        failed = subprocess.run(['bash', str(DIST/'install.sh')], env=env, cwd=tmp)
+        assert failed.returncode != 0, 'corrupt artifact unexpectedly installed'
+        assert hashlib.sha256(binary.read_bytes()).hexdigest() == expected_binary, 'working binary was overwritten'
+        subprocess.run([str(binary), '--version'], env=env, check=True, cwd=tmp)
     server.shutdown()
-print('Native installation and configuration succeeded in a temporary home.')
+print('Native installation, legacy fallback and damaged-release recovery succeeded in a temporary home.')

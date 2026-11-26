@@ -3,8 +3,9 @@ package service
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // WorkflowExecutionReadiness is diagnostic evidence, not an acceptance token.
@@ -28,27 +29,9 @@ func (s *WorkflowExecutionService) InspectReadiness(ctx context.Context, workspa
 
 func workflowCompletionConditions(row db.GetWorkflowExecutionReadinessRow) WorkflowExecutionReadiness {
 	result := WorkflowExecutionReadiness{Scope: "readiness_snapshot", ResultRevision: row.ResultRevision, Blockers: []string{}, IncompleteTasks: row.IncompleteTasks, ActiveCalls: row.ActiveCalls}
-	if !row.CurrentExecution.Valid || !row.CurrentExecution.Bool {
-		result.Blockers = append(result.Blockers, "execution_not_current")
-	}
-	if row.Status != "awaiting_review" {
-		result.Blockers = append(result.Blockers, "execution_not_awaiting_review")
-	}
-	if !row.HasResult {
-		result.Blockers = append(result.Blockers, "result_not_submitted")
-	}
-	if !row.MainTaskDone {
-		result.Blockers = append(result.Blockers, "main_task_not_done")
-	}
-	if !row.MainRunCompleted {
-		result.Blockers = append(result.Blockers, "main_call_not_completed")
-	}
-	if row.IncompleteTasks > 0 {
-		result.Blockers = append(result.Blockers, "required_tasks_not_done")
-	}
-	if row.ActiveCalls > 0 {
-		result.Blockers = append(result.Blockers, "calls_still_active")
-	}
+	result.Blockers = workflowcontract.EvaluateAgentCompletion(workflowcontract.AgentCompletionEvidence{
+		Current: row.CurrentExecution.Valid && row.CurrentExecution.Bool, AwaitingReview: row.Status == "awaiting_review", HasResult: row.HasResult, MainTaskDone: row.MainTaskDone, MainRunCompleted: row.MainRunCompleted, IncompleteTasks: row.IncompleteTasks, ActiveCalls: row.ActiveCalls,
+	})
 	result.ReadyForReview = len(result.Blockers) == 0
 	return result
 }

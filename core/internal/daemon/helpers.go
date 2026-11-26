@@ -3,7 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"os"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"regexp"
 	"strconv"
 	"strings"
@@ -11,7 +11,7 @@ import (
 )
 
 func envOrDefault(key, fallback string) string {
-	value := strings.TrimSpace(os.Getenv(key))
+	value := strings.TrimSpace(branding.Getenv(key))
 	if value == "" {
 		return fallback
 	}
@@ -19,7 +19,7 @@ func envOrDefault(key, fallback string) string {
 }
 
 func durationFromEnv(key string, fallback time.Duration) (time.Duration, error) {
-	value := strings.TrimSpace(os.Getenv(key))
+	value := strings.TrimSpace(branding.Getenv(key))
 	if value == "" {
 		return fallback, nil
 	}
@@ -56,7 +56,7 @@ func parseFlexDuration(value string) (time.Duration, error) {
 }
 
 func intFromEnv(key string, fallback int) (int, error) {
-	value := strings.TrimSpace(os.Getenv(key))
+	value := strings.TrimSpace(branding.Getenv(key))
 	if value == "" {
 		return fallback, nil
 	}

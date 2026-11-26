@@ -74,7 +74,7 @@
     "rename_dialog": {
       "title": "重命名机器",
       "description": "给这台机器起一个你能认出来的名字。会应用到这台机器上的所有运行时，并在给 agent 选择运行时时显示。",
-      "placeholder": "例如：我的 MacBook",
+      "placeholder": "例如：Ryan 的 MacBook",
       "hint": "留空则使用设备的默认名称。",
       "cancel": "取消",
       "save": "保存",
@@ -400,8 +400,8 @@
     "legend_cache_read": "缓存读取",
     "legend_cache_write": "缓存写入",
     "empty_no_usage": "此期间无使用记录。",
-    "empty_pricing_missing": "记录到 token，但缺少这些模型的价格：",
-    "empty_pricing_hint": "可以设置自定义价格，把它们也纳入费用统计。",
+    "empty_pricing_missing": "以下模型已有 Token 用量，但空间计价未配置：",
+    "empty_pricing_hint": "请在空间的模型计价中配置价格。",
     "empty_zero_cost": "记录到 token，但费用计算结果为零。",
     "unmapped_notice_other": "有 {{count}} 个模型没有维护价格，相关 token 未计入费用统计。",
     "custom_pricing": {

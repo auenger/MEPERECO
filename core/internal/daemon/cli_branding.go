@@ -9,15 +9,6 @@ import (
 	"strings"
 )
 
-// Keep built-in skill IDs, on-disk paths, and the legacy installed binary
-// unchanged. Present a real branded command in the run's private PATH.
-func isDefaultHelperInstruction(instructions string) bool {
-	return strings.HasPrefix(instructions, "You are Sili Agent, the built-in AI assistant for this MEPERStudio workspace.") ||
-		strings.HasPrefix(instructions, "You are MEPER Agent, the built-in AI assistant for this MEPERStudio workspace.") ||
-		strings.HasPrefix(instructions, "你是 Sili Agent，这个 MEPERStudio workspace 内置的 AI 助手。") ||
-		strings.HasPrefix(instructions, "你是 MEPER Agent，这个 MEPERStudio workspace 内置的 AI 助手。")
-}
-
 // Agent runs are isolated. A hard link keeps the same executable/signature;
 // copying is the cross-volume fallback (notably on Windows). Do not mutate
 // the installed CLI or rely on shell aliases, which fail in noninteractive

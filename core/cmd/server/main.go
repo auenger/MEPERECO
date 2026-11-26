@@ -422,6 +422,8 @@ func main() {
 	go workflowExecutionSvc.RunDispatchWorker(sweepCtx)
 	go workflowExecutionSvc.RunDeadlineWorker(sweepCtx)
 	go workflowExecutionSvc.RunAcceptanceWorker(sweepCtx)
+	workflowEvaluationQueue := registerWorkflowEvaluationListeners(bus)
+	go workflowExecutionSvc.RunAutomaticReadinessWorker(sweepCtx, workflowEvaluationQueue)
 	go workflowExecutionSvc.RunArtifactCleanupWorker(sweepCtx)
 
 	// Construct a LivenessStore that mirrors the one wired into the HTTP

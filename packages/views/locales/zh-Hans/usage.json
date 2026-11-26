@@ -4,16 +4,22 @@
   "filter": {
     "project_label": "项目",
     "all_projects": "全部项目",
-    "period_label": "时间范围"
+    "period_label": "时间范围",
+    "run_kind": "运行类型",
+    "all_runs": "全部运行",
+    "chat_runs": "聊天",
+    "task_runs": "Task",
+    "other_runs": "其他"
   },
   "kpi": {
     "cost_label": "费用 · {{days}}天",
     "tokens_label": "Token · {{days}}天",
     "tokens_hint": "输入 {{input}} · 输出 {{output}}",
     "run_time_label": "运行时长 · {{days}}天",
-    "run_time_hint": "共 {{tasks}} 个任务",
-    "tasks_label": "任务数 · {{days}}天",
-    "tasks_hint": "失败 {{failed}} 个"
+    "run_time_hint": "共 {{runs}} 次运行",
+    "tasks_label": "运行次数 · {{days}}天",
+    "tasks_hint": "失败 {{failed}} 个",
+    "run_kind_hint": "聊天 {{chat}} · Task {{task}} · 其他 {{other}}"
   },
   "dim": {
     "label": "维度",
@@ -24,21 +30,22 @@
     "title_cost": "每日费用",
     "title_tokens": "每日 Token",
     "title_time": "每日运行时长",
-    "title_tasks": "每日任务数",
+    "title_tasks": "每日运行次数",
     "title_errors": "每日错误",
     "metric_cost": "费用",
     "metric_tokens": "Token",
     "metric_time": "运行时长",
-    "metric_tasks": "任务数",
+    "metric_tasks": "运行次数",
     "metric_errors": "错误",
     "no_data": "所选时间范围内暂无消耗。",
-    "metric_label": "指标"
+    "metric_label": "指标",
+    "usage_unavailable": "用量数据暂不可用"
   },
   "weekly": {
     "title_cost": "每周费用",
     "title_tokens": "每周 Token",
     "title_time": "每周运行时长",
-    "title_tasks": "每周任务数",
+    "title_tasks": "每周运行次数",
     "title_errors": "每周错误",
     "partial_label": "{{range}}（未满 · 已过 {{covered}} / 7 天）"
   },
@@ -85,7 +92,7 @@
     "header_tokens": "Token",
     "header_cost": "费用",
     "header_time": "运行时长",
-    "header_tasks": "任务数",
+    "header_tasks": "运行次数",
     "show_all": "展开全部",
     "show_less": "只看前 {{count}} 个",
     "no_data": "所选时间范围内暂无智能体活动。"
@@ -98,12 +105,13 @@
     "less_than_minute": "<1分钟"
   },
   "pricing": {
-    "unpriced": "待计价",
+    "unpriced": "未配置",
     "actual": "实际费用",
     "estimated": "预估费用",
-    "unknown_tokens": "Token 待计价",
+    "unknown_tokens": "Token 未配置计价",
     "covered": "计价已覆盖",
-    "notice": "已知金额不代表总费用；请配置未识别模型的价格。",
-    "settings": "模型计价设置"
+    "notice": "已知金额不代表总费用；请在空间的模型计价中配置未识别模型。",
+    "settings": "模型计价设置",
+    "usage_missing": "已有运行记录，但当前统计接口没有返回对应 Token 用量数据。费用与 Token 暂不可用。"
   }
 }

@@ -8,9 +8,9 @@ import (
 	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 	"strings"
 
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 type ReworkWorkflowExecutionParams struct {
@@ -110,7 +110,7 @@ func (s *WorkflowExecutionService) ReworkExecution(ctx context.Context, p Rework
 	if err != nil {
 		return empty, err
 	}
-	if _, err := q.UpdateWorkflowInstanceState(ctx, db.UpdateWorkflowInstanceStateParams{WorkspaceID: p.WorkspaceID, ID: run.ID, Status: pgtype.Text{String: "active", Valid: true}, CurrentStageID: target.ID}); err != nil {
+	if _, err := writeWorkflowStateInTx(ctx, q, run, "active", target.ID); err != nil {
 		return empty, err
 	}
 	result := WorkflowExecutionReworkResult{Record: effects.Record}

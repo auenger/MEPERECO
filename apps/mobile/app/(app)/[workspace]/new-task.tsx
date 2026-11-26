@@ -119,7 +119,7 @@ export default function NewTaskModal() {
           <TextInput
             value={title}
             onChangeText={setTitle}
-            placeholder="Task title"
+            placeholder="e.g. Fix login page loading issue"
             placeholderTextColor={MOBILE_PLACEHOLDER_COLOR}
             className="text-2xl font-semibold text-foreground py-2"
             autoFocus

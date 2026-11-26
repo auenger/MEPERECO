@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------------------
@@ -25,9 +25,8 @@ import (
 // ?project_id=<uuid> to scope the rollup to a single project. With no
 // project_id the data spans the whole workspace.
 //
-// Cost is computed client-side from a per-model pricing table — the model
-// dimension is intentionally preserved on the wire (same convention as the
-// per-runtime usage endpoints).
+// Workspace model prices are resolved server-side from explicit configuration.
+// Retain provider/model and raw token counts on the wire.
 //
 // Access control: the workspace-wide series (usage/daily, runtime/daily,
 // failures/daily) carry no agent dimension and need workspace membership only —
@@ -138,6 +137,21 @@ func parseProjectIDParam(w http.ResponseWriter, r *http.Request) (pgtype.UUID, b
 	return u, true
 }
 
+// Empty/all means the complete workspace. Chat and Task are runs, not unique
+// conversation or task records: multiple calls to the same object count separately.
+func parseDashboardRunKind(w http.ResponseWriter, r *http.Request) (string, bool) {
+	kind := r.URL.Query().Get("run_kind")
+	switch kind {
+	case "", "all":
+		return "", true
+	case "chat", "task", "other":
+		return kind, true
+	default:
+		writeError(w, http.StatusBadRequest, "invalid run_kind")
+		return "", false
+	}
+}
+
 // DashboardUsageDailyResponse is one (date, provider, model) bucket. Cost-side
 // math happens on the client from a per-model pricing table; provider + model
 // stay on the wire so the client can disambiguate bare model ids that collide
@@ -165,7 +179,7 @@ type DashboardUsageDailyResponse struct {
 }
 
 // GetDashboardUsageDaily returns per-(date, model) token rows for the
-// workspace, optionally scoped to a project. Backed by agent_run_usage_hourly,
+// workspace, optionally scoped to a project. Read from the raw usage ledger,
 // sliced into calendar days under the viewer's tz.
 func (h *Handler) GetDashboardUsageDaily(w http.ResponseWriter, r *http.Request) {
 	workspaceID := h.resolveWorkspaceID(r)
@@ -176,10 +190,14 @@ func (h *Handler) GetDashboardUsageDaily(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	tz := h.resolveViewingTZ(r)
 	since := parseSinceParamInTZ(r, 30, tz)
 
-	resp, err := h.listDashboardUsageDaily(r.Context(), parseUUID(workspaceID), tz, since, projectID)
+	resp, err := h.listDashboardUsageDaily(r.Context(), parseUUID(workspaceID), tz, since, projectID, runKind)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list usage")
 		return
@@ -202,12 +220,14 @@ func (h *Handler) listDashboardUsageDaily(
 	tz string,
 	since pgtype.Timestamptz,
 	projectID pgtype.UUID,
+	runKind string,
 ) ([]DashboardUsageDailyResponse, error) {
 	rows, err := h.Queries.ListDashboardUsageDaily(ctx, db.ListDashboardUsageDailyParams{
 		WorkspaceID: workspaceID,
 		Tz:          tz,
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		return nil, err
@@ -259,8 +279,7 @@ type DashboardUsageByAgentResponse struct {
 }
 
 // GetDashboardUsageByAgent returns per-(agent, model) token aggregates
-// for the workspace, optionally scoped to a project. Backed by
-// agent_run_usage_hourly with the viewer's tz applied to the `?days=` cutoff.
+// for the workspace, optionally scoped to a project. Read from the raw usage ledger with the viewer's tz applied to the `?days=` cutoff.
 func (h *Handler) GetDashboardUsageByAgent(w http.ResponseWriter, r *http.Request) {
 	workspaceID := h.resolveWorkspaceID(r)
 	member, ok := h.workspaceMember(w, r, workspaceID)
@@ -271,6 +290,10 @@ func (h *Handler) GetDashboardUsageByAgent(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	restricted, ok := h.dashboardRestrictedAgents(w, r, workspaceID, member.Role)
 	if !ok {
 		return
@@ -278,9 +301,9 @@ func (h *Handler) GetDashboardUsageByAgent(w http.ResponseWriter, r *http.Reques
 	// "By agent" has no date grouping in the SQL — tz only determines
 	// the cutoff boundary, not the bucket axis.
 	tz := h.resolveViewingTZ(r)
-	since := parseSinceParamInTZ(r, 30, tz)
+	since := parseExactSinceParamInTZ(r, 30, tz)
 
-	resp, err := h.listDashboardUsageByAgent(r.Context(), parseUUID(workspaceID), since, projectID)
+	resp, err := h.listDashboardUsageByAgent(r.Context(), parseUUID(workspaceID), since, projectID, runKind)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list usage by agent")
 		return
@@ -338,11 +361,13 @@ func (h *Handler) listDashboardUsageByAgent(
 	workspaceID pgtype.UUID,
 	since pgtype.Timestamptz,
 	projectID pgtype.UUID,
+	runKind string,
 ) ([]DashboardUsageByAgentResponse, error) {
 	rows, err := h.Queries.ListDashboardUsageByAgent(ctx, db.ListDashboardUsageByAgentParams{
 		WorkspaceID: workspaceID,
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		return nil, err
@@ -372,10 +397,13 @@ func (h *Handler) listDashboardUsageByAgent(
 // over the window. Includes failed tasks so the dashboard can surface how
 // much execution time was spent on runs that didn't succeed.
 type DashboardAgentRunTimeResponse struct {
-	AgentID      string `json:"agent_id"`
-	TotalSeconds int64  `json:"total_seconds"`
-	RunCount     int32  `json:"run_count"`
-	FailedCount  int32  `json:"failed_count"`
+	AgentID       string `json:"agent_id"`
+	TotalSeconds  int64  `json:"total_seconds"`
+	RunCount      int32  `json:"run_count"`
+	FailedCount   int32  `json:"failed_count"`
+	ChatRunCount  int32  `json:"chat_run_count"`
+	TaskRunCount  int32  `json:"task_run_count"`
+	OtherRunCount int32  `json:"other_run_count"`
 }
 
 // GetDashboardAgentRunTime returns per-agent total task run time (seconds)
@@ -393,6 +421,10 @@ func (h *Handler) GetDashboardAgentRunTime(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	restricted, ok := h.dashboardRestrictedAgents(w, r, workspaceID, member.Role)
 	if !ok {
 		return
@@ -400,12 +432,13 @@ func (h *Handler) GetDashboardAgentRunTime(w http.ResponseWriter, r *http.Reques
 	// Cutoff in the viewer's tz so the "last N days" window matches the
 	// per-agent cost card (GetDashboardUsageByAgent).
 	tz := h.resolveViewingTZ(r)
-	since := parseSinceParamInTZ(r, 30, tz)
+	since := parseExactSinceParamInTZ(r, 30, tz)
 
 	rows, err := h.Queries.ListDashboardAgentRunTime(r.Context(), db.ListDashboardAgentRunTimeParams{
 		WorkspaceID: parseUUID(workspaceID),
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list agent runtime")
@@ -415,10 +448,13 @@ func (h *Handler) GetDashboardAgentRunTime(w http.ResponseWriter, r *http.Reques
 	resp := make([]DashboardAgentRunTimeResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = DashboardAgentRunTimeResponse{
-			AgentID:      uuidToString(row.AgentID),
-			TotalSeconds: row.TotalSeconds,
-			RunCount:     row.RunCount,
-			FailedCount:  row.FailedCount,
+			AgentID:       uuidToString(row.AgentID),
+			TotalSeconds:  row.TotalSeconds,
+			RunCount:      row.RunCount,
+			FailedCount:   row.FailedCount,
+			ChatRunCount:  row.ChatRunCount,
+			TaskRunCount:  row.TaskRunCount,
+			OtherRunCount: row.OtherRunCount,
 		}
 	}
 	writeJSON(w, http.StatusOK, foldRestrictedAgentRunTime(resp, restricted))
@@ -442,6 +478,9 @@ func foldRestrictedAgentRunTime(
 			dst.TotalSeconds += src.TotalSeconds
 			dst.RunCount += src.RunCount
 			dst.FailedCount += src.FailedCount
+			dst.ChatRunCount += src.ChatRunCount
+			dst.TaskRunCount += src.TaskRunCount
+			dst.OtherRunCount += src.OtherRunCount
 			return dst
 		},
 	)
@@ -451,10 +490,13 @@ func foldRestrictedAgentRunTime(
 // time and counts. Powers the workspace dashboard's daily Time and Tasks
 // charts — same toggle as Tokens / Cost, different metric.
 type DashboardRunTimeDailyResponse struct {
-	Date         string `json:"date"`
-	TotalSeconds int64  `json:"total_seconds"`
-	RunCount     int32  `json:"run_count"`
-	FailedCount  int32  `json:"failed_count"`
+	Date          string `json:"date"`
+	TotalSeconds  int64  `json:"total_seconds"`
+	RunCount      int32  `json:"run_count"`
+	FailedCount   int32  `json:"failed_count"`
+	ChatRunCount  int32  `json:"chat_run_count"`
+	TaskRunCount  int32  `json:"task_run_count"`
+	OtherRunCount int32  `json:"other_run_count"`
 }
 
 // GetDashboardRunTimeDaily returns per-date total task run time and task
@@ -471,6 +513,10 @@ func (h *Handler) GetDashboardRunTimeDaily(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	// Slice day buckets in the viewer's tz so the Time / Tasks charts cut
 	// their calendar day identically to the Cost / Tokens charts.
 	tz := h.resolveViewingTZ(r)
@@ -481,6 +527,7 @@ func (h *Handler) GetDashboardRunTimeDaily(w http.ResponseWriter, r *http.Reques
 		Tz:          tz,
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list daily runtime")
@@ -490,10 +537,13 @@ func (h *Handler) GetDashboardRunTimeDaily(w http.ResponseWriter, r *http.Reques
 	resp := make([]DashboardRunTimeDailyResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = DashboardRunTimeDailyResponse{
-			Date:         row.Date.Time.Format("2006-01-02"),
-			TotalSeconds: row.TotalSeconds,
-			RunCount:     row.RunCount,
-			FailedCount:  row.FailedCount,
+			Date:          row.Date.Time.Format("2006-01-02"),
+			TotalSeconds:  row.TotalSeconds,
+			RunCount:      row.RunCount,
+			FailedCount:   row.FailedCount,
+			ChatRunCount:  row.ChatRunCount,
+			TaskRunCount:  row.TaskRunCount,
+			OtherRunCount: row.OtherRunCount,
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -537,6 +587,10 @@ func (h *Handler) GetDashboardFailuresDaily(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	// Same viewer-tz day boundary as every other daily series so the Errors
 	// tab lines up with Cost / Tokens / Time / Tasks.
 	tz := h.resolveViewingTZ(r)
@@ -547,6 +601,7 @@ func (h *Handler) GetDashboardFailuresDaily(w http.ResponseWriter, r *http.Reque
 		Tz:          tz,
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list daily failures")
@@ -585,6 +640,10 @@ func (h *Handler) GetDashboardFailuresByAgent(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
+	runKind, ok := parseDashboardRunKind(w, r)
+	if !ok {
+		return
+	}
 	restricted, ok := h.dashboardRestrictedAgents(w, r, workspaceID, member.Role)
 	if !ok {
 		return
@@ -602,6 +661,7 @@ func (h *Handler) GetDashboardFailuresByAgent(w http.ResponseWriter, r *http.Req
 		WorkspaceID: parseUUID(workspaceID),
 		Since:       since,
 		ProjectID:   projectID,
+		RunKind:     runKind,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list failures by agent")

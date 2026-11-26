@@ -6,11 +6,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type workflowAcceptance struct {
@@ -114,25 +114,11 @@ func (s *WorkflowExecutionService) advanceAcceptedExecutionInTx(ctx context.Cont
 	if err != nil {
 		return empty, err
 	}
-	next, err := q.GetNextWorkflowInstanceStage(ctx, db.GetNextWorkflowInstanceStageParams{WorkflowInstanceID: run.ID, WorkspaceID: run.WorkspaceID, Position: current.Position})
-	status := "active"
-	stageID := next.ID
-	if errors.Is(err, pgx.ErrNoRows) {
-		status = "completed"
-		stageID = current.ID
-	} else if err != nil {
-		return empty, err
-	}
-	updated, err := q.UpdateWorkflowInstanceState(ctx, db.UpdateWorkflowInstanceStateParams{ID: run.ID, WorkspaceID: run.WorkspaceID, Status: pgtype.Text{String: status, Valid: true}, CurrentStageID: stageID})
+	plan, err := resolveWorkflowTransitionInTx(ctx, q, run, current, "approved", pgtype.UUID{})
 	if err != nil {
 		return empty, err
 	}
-	if status == "active" && next.ExecutionMode == "agent" {
-		if _, err := s.EnsureStageExecutionInTx(ctx, q, EnsureWorkflowExecutionParams{WorkspaceID: run.WorkspaceID, InstanceID: run.ID, StageID: next.ID, ExpectedRevision: run.Revision, ExecutorID: next.ExecutorID, InputSnapshot: run.Inputs}); err != nil {
-			return empty, err
-		}
-	}
-	return updated, nil
+	return s.applyWorkflowTransitionInTx(ctx, q, run, plan)
 }
 
 func (s *WorkflowExecutionService) resolveAcceptedInputResult(ctx context.Context, q *db.Queries, run db.WorkflowInstance, target db.WorkflowInstanceStage, stageKey string) (workflowcontract.AcceptedInputResult, error) {

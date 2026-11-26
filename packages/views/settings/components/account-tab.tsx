@@ -145,6 +145,7 @@ export function AccountTab() {
               name="profile-name"
               autoComplete="name"
               aria-label={t(($) => $.account.name_label)}
+              placeholder={t(($) => $.account.profile_name_placeholder)}
               value={profileName}
               onChange={(event) => setProfileName(event.target.value)}
               onBlur={autoSave.flush}

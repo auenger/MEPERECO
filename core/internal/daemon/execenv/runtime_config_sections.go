@@ -2,6 +2,7 @@ package execenv
 
 import (
 	"fmt"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"strings"
 
 	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
@@ -543,15 +544,13 @@ func writeSkills(b *strings.Builder, provider string, ctx RunContextForEnv) {
 	if len(skills) == 0 {
 		return
 	}
-	switch provider {
-	case "claude", "codebuddy", "codex", "copilot", "opencode", "deveco", "openclaw", "hermes", "pi", "cursor", "kimi", "kiro", "qoder", "antigravity", "qwen", "zcode":
-		// Hermes discovers these from its per-task HERMES_HOME/skills (seeded by
-		// the daemon), so it needs the same "discovered automatically" framing
-		// as the other native-discovery runtimes rather than a path pointer.
+	descriptor, _ := agent.RuntimeDescriptorFor(provider)
+	if descriptor.Capabilities.NativeSkillDiscovery {
 		b.WriteString("You have the following skills installed (discovered automatically):\n\n")
-	default:
+	} else {
 		b.WriteString("Detailed skill instructions are in `.agent_context/skills/`. Each subdirectory contains a `SKILL.md`.\n\n")
 	}
+
 	for _, skill := range skills {
 		if desc := strings.TrimSpace(skill.Description); desc != "" {
 			fmt.Fprintf(b, "- **%s** — %s\n", skill.Name, desc)

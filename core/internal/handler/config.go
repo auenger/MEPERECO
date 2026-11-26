@@ -1,17 +1,22 @@
 package handler
 
 import (
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	"github.com/auenger/MEPERECO/core/internal/featureflags"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 )
 
 type AppConfig struct {
-	CdnDomain string `json:"cdn_domain"`
+	UsageRunKindFilter bool                                    `json:"usage_run_kind_filter"`
+	CompletionPolicy   workflowcontract.CompletionCapabilities `json:"completion_policy"`
+	RuntimeCatalog     []agent.RuntimeCatalogEntry             `json:"runtime_catalog"`
+	CdnDomain          string                                  `json:"cdn_domain"`
 	// CdnSigned tells clients that the CDN domain above serves PRIVATE
 	// content through time-bounded signed URLs (CloudFront signing is
 	// enabled). When true, a raw storage URL on the CDN domain is NOT
@@ -72,8 +77,11 @@ type AppConfig struct {
 // user- or tenant-scoped data.
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	config := AppConfig{
-		AllowSignup:               os.Getenv("ALLOW_SIGNUP") != "false",
-		WorkspaceCreationDisabled: os.Getenv("DISABLE_WORKSPACE_CREATION") == "true",
+		UsageRunKindFilter:        true,
+		RuntimeCatalog:            agent.RuntimeCatalog(),
+		CompletionPolicy:          workflowcontract.SupportedCompletionCapabilities(),
+		AllowSignup:               branding.Getenv("ALLOW_SIGNUP") != "false",
+		WorkspaceCreationDisabled: branding.Getenv("DISABLE_WORKSPACE_CREATION") == "true",
 	}
 	if h.Storage != nil {
 		config.CdnDomain = h.Storage.CdnDomain()
@@ -91,9 +99,9 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Re-read from env on every request so operators can rotate keys via
 	// secret refresh without a server restart.
-	if v := os.Getenv("ANALYTICS_DISABLED"); v != "true" && v != "1" {
-		config.PosthogKey = os.Getenv("POSTHOG_API_KEY")
-		config.PosthogHost = os.Getenv("POSTHOG_HOST")
+	if v := branding.Getenv("ANALYTICS_DISABLED"); v != "true" && v != "1" {
+		config.PosthogKey = branding.Getenv("POSTHOG_API_KEY")
+		config.PosthogHost = branding.Getenv("POSTHOG_HOST")
 		config.AnalyticsEnvironment = analytics.EnvironmentFromEnv()
 		if config.PosthogHost == "" && config.PosthogKey != "" {
 			config.PosthogHost = "https://us.i.posthog.com"
@@ -104,7 +112,7 @@ func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func daemonSetupURLsFromEnv() (string, string) {
-	serverURL := normalizePublicURL(os.Getenv("SILIECO_PUBLIC_URL"))
+	serverURL := normalizePublicURL(branding.Getenv("SILIECO_PUBLIC_URL"))
 	appURL := resolveFrontendAppURL()
 	if appURL == "" {
 		return "", ""
@@ -124,9 +132,9 @@ func daemonSetupURLsFromEnv() (string, string) {
 // the daemon-setup URLs and the managed-cloud detection so both read the same
 // signal.
 func resolveFrontendAppURL() string {
-	appURL := normalizePublicURL(os.Getenv("SILIECO_APP_URL"))
+	appURL := normalizePublicURL(branding.Getenv("SILIECO_APP_URL"))
 	if appURL == "" {
-		appURL = normalizePublicURL(os.Getenv("FRONTEND_ORIGIN"))
+		appURL = normalizePublicURL(branding.Getenv("FRONTEND_ORIGIN"))
 	}
 	return appURL
 }
@@ -138,7 +146,7 @@ func normalizePublicURL(raw string) string {
 // Only explicitly configured managed-cloud deployments omit self-hosted
 // daemon setup URLs. The MEPERStudio hostname itself is not a cloud sentinel.
 func isOfficialCloudDaemonConfig(appURL string) bool {
-	host := strings.TrimSpace(os.Getenv("MEPERSTUDIO_CLOUD_WEB_HOST"))
+	host := strings.TrimSpace(branding.Getenv("MEPERSTUDIO_CLOUD_WEB_HOST"))
 	return host != "" && urlHostEquals(appURL, host)
 }
 

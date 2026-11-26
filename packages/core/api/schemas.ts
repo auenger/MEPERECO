@@ -323,6 +323,9 @@ export const EMPTY_TASK_PROPERTIES_RESPONSE: TaskPropertiesResponse = {
 };
 
 export interface AppConfigResponse {
+  usage_run_kind_filter?: boolean;
+  completion_policy?: import("../types/workflow").WorkflowCompletionCapabilities;
+  runtime_catalog?: import("../types/agent").RuntimeCatalogEntry[];
   cdn_domain: string;
   // True when the CDN domain serves private content via time-bounded signed
   // URLs (CloudFront signing) — raw storage URLs on that domain are NOT
@@ -527,6 +530,9 @@ const FeatureFlagsSchema = z.preprocess(
 );
 
 export const AppConfigSchema = z.object({
+  usage_run_kind_filter: z.boolean().optional(),
+  completion_policy: z.object({ schema_version: z.string(), manual_evaluations: z.array(z.string()), manual_output_validation: z.boolean(), agent_output_validation: z.boolean() }).optional(),
+  runtime_catalog: z.array(z.object({ id: z.string(), display_name: z.string(), capabilities: z.object({ model_selection: z.boolean(), inline_system_prompt: z.boolean().optional(), resume_rejection_undetectable: z.boolean().optional(), project_skills: z.boolean().optional(), local_skills: z.boolean().optional(), native_skill_discovery: z.boolean().optional(), disable_local_skills: z.boolean().optional() }) })).optional(),
   cdn_domain: z.string().default(""),
   cdn_signed: BooleanWithDefaultSchema(false),
   allow_signup: BooleanWithDefaultSchema(true),
@@ -884,7 +890,10 @@ export const WorkflowReworkSchema = z.object({
  actor_type:z.enum(["member","agent"]),actor_id:z.string().min(1),reason:z.string(),created_at:z.string(),
 });
 
+const WorkflowManualReadinessSchema = z.object({ ready: z.boolean(), incomplete_tasks: z.number(), blockers: z.array(z.string()), evaluation_mode: z.string(), evaluated_at: z.string(), schedule_error: z.string().optional() });
 export const WorkflowInstanceSchema = z.object({
+  manual_readiness: WorkflowManualReadinessSchema.optional(),
+  automatic_readiness: WorkflowManualReadinessSchema.optional(),
   accepts_new_tasks: z.boolean().optional().catch(undefined),
   reworks:z.array(WorkflowReworkSchema).default([]).catch([]),
   inputs: z.record(z.string(), z.unknown()).default({}).catch({}),
@@ -1314,6 +1323,9 @@ const DashboardAgentRunTimeSchema = z.object({
   total_seconds: z.number().default(0),
   run_count: z.number().default(0),
   failed_count: z.number().default(0),
+  chat_run_count: z.number().optional(),
+  task_run_count: z.number().optional(),
+  other_run_count: z.number().optional(),
 }).loose();
 
 export const DashboardAgentRunTimeListSchema = z.array(DashboardAgentRunTimeSchema);
@@ -1323,6 +1335,9 @@ const DashboardRunTimeDailySchema = z.object({
   total_seconds: z.number().default(0),
   run_count: z.number().default(0),
   failed_count: z.number().default(0),
+  chat_run_count: z.number().optional(),
+  task_run_count: z.number().optional(),
+  other_run_count: z.number().optional(),
 }).loose();
 
 export const DashboardRunTimeDailyListSchema = z.array(DashboardRunTimeDailySchema);

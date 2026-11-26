@@ -15,6 +15,7 @@ import (
 
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	"github.com/auenger/MEPERECO/core/internal/attribution"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
 	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
@@ -1030,6 +1031,16 @@ func decodeJSONBodyWithRawFields(body io.Reader, dst any) (map[string]json.RawMe
 	return raw, nil
 }
 
+func normalizeOnboardingAgentRequest(req *CreateAgentRequest) {
+	if req.Template != onboardingAgentTemplate {
+		return
+	}
+	if req.Name == "Sili Agent" {
+		req.Name = onboardingAssistantName
+	}
+	req.Instructions = branding.NormalizeDefaultHelperInstructions(req.Instructions)
+}
+
 func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	workspaceID := h.resolveWorkspaceID(r)
 
@@ -1045,11 +1056,10 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Older desktop clients still seed the retired helper title.
-	if req.Template == onboardingAgentTemplate && req.Name == "Sili Agent" {
-		req.Name = onboardingAssistantName
-		req.Instructions = strings.ReplaceAll(req.Instructions, "Sili Agent", onboardingAssistantName)
-	}
+	// Older clients can submit the retired helper title and command examples.
+	// Normalize the recognized built-in prompt before persisting it, never
+	// rewriting an ordinary agent's user-authored instructions.
+	normalizeOnboardingAgentRequest(&req)
 	if req.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return

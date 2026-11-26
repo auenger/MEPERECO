@@ -15,9 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	"github.com/auenger/MEPERECO/core/internal/middleware"
 	"github.com/auenger/MEPERECO/core/internal/service"
@@ -26,6 +23,9 @@ import (
 	agentpkg "github.com/auenger/MEPERECO/core/pkg/agent"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // TaskResponse is the JSON response for an task.
@@ -3432,7 +3432,7 @@ func (h *Handler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	// identifier-style payload ("SILI-123") would leave stale entries on
 	// other clients after an identifier-path delete.
 	resolvedID := uuidToString(task.ID)
-	h.publish(protocol.EventTaskDeleted, uuidToString(task.WorkspaceID), actorType, actorID, map[string]any{"task_id": resolvedID})
+	h.publish(protocol.EventTaskDeleted, uuidToString(task.WorkspaceID), actorType, actorID, map[string]any{"task_id": resolvedID, "workflow_instance_id": uuidToPtr(task.WorkflowInstanceID)})
 	slog.Info("task deleted", append(logger.RequestAttrs(r), "task_id", resolvedID, "workspace_id", uuidToString(task.WorkspaceID))...)
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -3800,7 +3800,7 @@ func (h *Handler) BatchDeleteTasks(w http.ResponseWriter, r *http.Request) {
 
 		// Always emit the resolved UUID — frontend caches key by UUID.
 		actorType, actorID := h.resolveActor(r, userID, workspaceID)
-		h.publish(protocol.EventTaskDeleted, workspaceID, actorType, actorID, map[string]any{"task_id": uuidToString(task.ID)})
+		h.publish(protocol.EventTaskDeleted, workspaceID, actorType, actorID, map[string]any{"task_id": uuidToString(task.ID), "workflow_instance_id": uuidToPtr(task.WorkflowInstanceID)})
 		deleted++
 	}
 

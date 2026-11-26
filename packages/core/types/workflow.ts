@@ -131,7 +131,12 @@ export interface WorkflowRework {
  created_at: string;
 }
 
+export interface WorkflowManualReadiness {
+  ready: boolean; incomplete_tasks: number; blockers: string[]; evaluation_mode: string; evaluated_at: string; schedule_error?: string;
+}
 export interface WorkflowInstance {
+  manual_readiness?: WorkflowManualReadiness;
+  automatic_readiness?: WorkflowManualReadiness;
   accepts_new_tasks?: boolean;
  reworks?: WorkflowRework[];
   state_token?: string | null;
@@ -378,4 +383,11 @@ export interface WorkflowAgentReviewRecovery {
   run_id: string;
   allowed_attempts: number;
   max_attempts: number;
+}
+
+export interface WorkflowCompletionCapabilities {
+  schema_version: string;
+  manual_evaluations: string[];
+  manual_output_validation: boolean;
+  agent_output_validation: boolean;
 }

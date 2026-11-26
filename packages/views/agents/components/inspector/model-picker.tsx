@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfigStore } from "@silieco/core/config";
+import { runtimeAllowsModelSelection } from "@silieco/core/runtimes";
+
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Cpu, Loader2, Plus } from "lucide-react";
@@ -48,10 +51,11 @@ export function ModelPicker({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
+  const modelSelection = runtimeAllowsModelSelection(runtimeProvider, useConfigStore(s => s.runtimeCatalog));
   const modelsQuery = useQuery(
-    runtimeModelsOptions(runtimeOnline && runtimeProvider !== "zcode" ? runtimeId : null),
+    runtimeModelsOptions(runtimeOnline && modelSelection ? runtimeId : null),
   );
-  const supported = runtimeProvider !== "zcode" && (modelsQuery.data?.supported ?? true);
+  const supported = modelSelection && (modelsQuery.data?.supported ?? true);
   // Memoise the model list so every downstream useMemo gets a stable
   // reference; `?? []` would mint a fresh array on every render and
   // invalidate filters needlessly.
@@ -92,7 +96,7 @@ export function ModelPicker({
           <span className="truncate italic">
             {t(($) => $.pickers.model_managed_by_runtime)}
           </span>
-          {runtimeProvider === "zcode" && value && canEdit && (
+          {!modelSelection && value && canEdit && (
             <button
               type="button"
               className="ml-auto shrink-0 text-caption text-primary hover:underline"

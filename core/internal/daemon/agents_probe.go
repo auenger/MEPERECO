@@ -1,10 +1,8 @@
 package daemon
 
 import (
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
+	"github.com/auenger/MEPERECO/core/internal/branding"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"strings"
 	"sync"
 	"time"
@@ -38,9 +36,9 @@ var (
 // independent of the TTL — the cached answer was for a different environment.
 func shellResolveEnvKey() string {
 	return strings.Join([]string{
-		os.Getenv("PATH"),
-		os.Getenv("SHELL"),
-		os.Getenv("HOME"),
+		branding.Getenv("PATH"),
+		branding.Getenv("SHELL"),
+		branding.Getenv("HOME"),
 	}, "\x00")
 }
 
@@ -110,13 +108,14 @@ var probeAgentCLIs = func() map[string]AgentEntry {
 	// still lets a CLI installed into a login-shell-only PATH dir (nvm, fnm,
 	// ~/.local/bin via ~/.zshrc) be discovered without a restart (SILI-5439).
 	getShellResolved := cachedShellResolvedAgents
-	probe := func(envVar, defaultCmd, modelEnv string) (AgentEntry, bool) {
+	probe := func(descriptor agent.RuntimeDescriptor) (AgentEntry, bool) {
+		envVar, defaultCmd, modelEnv := descriptor.PathEnv, descriptor.Command, descriptor.ModelEnv
 		cmd := envOrDefault(envVar, defaultCmd)
 		if path, err := resolveAgentExecutablePath(cmd); err == nil {
 			return AgentEntry{
 				Path:    path,
 				Command: cmd,
-				Model:   strings.TrimSpace(os.Getenv(modelEnv)),
+				Model:   strings.TrimSpace(branding.Getenv(modelEnv)),
 			}, true
 		}
 		// The shell fallback only rescues bare command names. An operator
@@ -130,113 +129,30 @@ var probeAgentCLIs = func() map[string]AgentEntry {
 			return AgentEntry{
 				Path:    path,
 				Command: cmd,
-				Model:   strings.TrimSpace(os.Getenv(modelEnv)),
+				Model:   strings.TrimSpace(branding.Getenv(modelEnv)),
 			}, true
 		}
-		if defaultCmd == "zcode" && cmd == defaultCmd && runtime.GOOS == "darwin" {
-			// Official desktop installation ships an executable Node bundle.
-			// Only offer it when node is also usable in the daemon environment;
-			// the normal version probe will still reject a broken install.
-			if _, err := exec.LookPath("node"); err == nil {
-				paths := []string{"/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"}
-				if home, err := os.UserHomeDir(); err == nil {
-					paths = append(paths, filepath.Join(home, "Applications", "ZCode.app", "Contents", "Resources", "glm", "zcode.cjs"))
-				}
-				for _, path := range paths {
-					if resolved, err := resolveAgentExecutablePath(path); err == nil {
-						return AgentEntry{Path: resolved, Command: path}, true
-					}
-				}
-			}
-		}
-		if defaultCmd == "codex" && cmd == defaultCmd {
-			// Codex Desktop bundles its CLI inside the macOS app instead of
-			// installing it onto PATH.
-			for _, p := range codexDesktopAppBundlePaths() {
-				if _, err := os.Stat(p); err == nil {
-					return AgentEntry{
-						Path:    p,
-						Command: cmd,
-						Model:   strings.TrimSpace(os.Getenv(modelEnv)),
-					}, true
-				}
+		if cmd == defaultCmd {
+			if fallback := desktopRuntimeProbes[descriptor.DesktopBundleProbe]; fallback != nil {
+				return fallback(cmd, modelEnv)
 			}
 		}
 		return AgentEntry{}, false
 	}
 
 	agents := map[string]AgentEntry{}
-	if e, ok := probe("SILIECO_CLAUDE_PATH", "claude", "SILIECO_CLAUDE_MODEL"); ok {
-		agents["claude"] = e
-	}
-	if e, ok := probe("SILIECO_CODEX_PATH", "codex", "SILIECO_CODEX_MODEL"); ok {
-		agents["codex"] = e
-	}
-	if e, ok := probe("SILIECO_OPENCODE_PATH", "opencode", "SILIECO_OPENCODE_MODEL"); ok {
-		agents["opencode"] = e
-	}
-	if e, ok := probe("SILIECO_DEVECO_PATH", "deveco", "SILIECO_DEVECO_MODEL"); ok {
-		agents["deveco"] = e
-	}
-	if e, ok := probe("SILIECO_OPENCLAW_PATH", "openclaw", "SILIECO_OPENCLAW_MODEL"); ok {
-		agents["openclaw"] = e
-	}
-	if e, ok := probe("SILIECO_HERMES_PATH", "hermes", "SILIECO_HERMES_MODEL"); ok {
-		agents["hermes"] = e
-	}
-	if e, ok := probe("SILIECO_ZCODE_PATH", "zcode", ""); ok {
-		agents["zcode"] = e
-	}
-	if e, ok := probe("SILIECO_PI_PATH", "pi", "SILIECO_PI_MODEL"); ok {
-		agents["pi"] = e
-	}
-	if e, ok := probe("SILIECO_CURSOR_PATH", "cursor-agent", "SILIECO_CURSOR_MODEL"); ok {
-		agents["cursor"] = e
-	}
-	if e, ok := probe("SILIECO_COPILOT_PATH", "copilot", "SILIECO_COPILOT_MODEL"); ok {
-		agents["copilot"] = e
-	}
-	if e, ok := probe("SILIECO_KIMI_PATH", "kimi", "SILIECO_KIMI_MODEL"); ok {
-		agents["kimi"] = e
-	}
-	if e, ok := probe("SILIECO_KIRO_PATH", "kiro-cli", "SILIECO_KIRO_MODEL"); ok {
-		agents["kiro"] = e
-	}
-	if e, ok := probe("SILIECO_CODEBUDDY_PATH", "codebuddy", "SILIECO_CODEBUDDY_MODEL"); ok {
-		agents["codebuddy"] = e
-	}
-	// agy 1.0.6 added a `--model` flag (SILI-3125), so Antigravity now takes a
-	// model env like every other backend. SILIECO_ANTIGRAVITY_MODEL seeds the
-	// daemon-wide default; its value is the exact `agy models` display string
-	// (e.g. "Claude Opus 4.6 (Thinking)"), not a provider/model slug.
-	if e, ok := probe("SILIECO_ANTIGRAVITY_PATH", "agy", "SILIECO_ANTIGRAVITY_MODEL"); ok {
-		agents["antigravity"] = e
-	}
-	qoderPath := envOrDefault("SILIECO_QODER_PATH", "qodercli")
-	if path, err := resolveAgentExecutablePath(qoderPath); err == nil {
-		agents["qoder"] = AgentEntry{
-			Path:    path,
-			Command: qoderPath,
-			Model:   strings.TrimSpace(os.Getenv("SILIECO_QODER_MODEL")),
+	for _, descriptor := range agent.RuntimeDescriptors() {
+		if descriptor.DirectProbeOnly {
+			cmd := envOrDefault(descriptor.PathEnv, descriptor.Command)
+			if path, err := resolveAgentExecutablePath(cmd); err == nil {
+				agents[descriptor.ID] = AgentEntry{Path: path, Command: cmd, Model: strings.TrimSpace(branding.Getenv(descriptor.ModelEnv))}
+			}
+			continue
+		}
+		if e, ok := probe(descriptor); ok {
+			agents[descriptor.ID] = e
 		}
 	}
-	// ByteDance official TRAE CLI (the `traecli` binary from https://docs.trae.cn/cli),
-	// driven over ACP via `traecli acp serve --yolo`. SILIECO_TRAECLI_MODEL seeds
-	// the daemon-wide default model (a model id from the user's logged-in traecli
-	// catalog).
-	if e, ok := probe("SILIECO_TRAECLI_PATH", "traecli", "SILIECO_TRAECLI_MODEL"); ok {
-		agents["traecli"] = e
-	}
-	// xAI Grok Build CLI (`grok`), driven over ACP via
-	// `grok agent --always-approve stdio`. SILIECO_GROK_MODEL seeds the
-	// daemon-wide default (e.g. grok-4.5).
-	if e, ok := probe("SILIECO_GROK_PATH", "grok", "SILIECO_GROK_MODEL"); ok {
-		agents["grok"] = e
-	}
-	// Qwen Code (`qwen`) runs headlessly with -p and stream-json. Its native
-	// QWEN.md and .qwen/skills task context is prepared by execenv.
-	if e, ok := probe("SILIECO_QWEN_PATH", "qwen", "SILIECO_QWEN_MODEL"); ok {
-		agents["qwen"] = e
-	}
+
 	return agents
 }

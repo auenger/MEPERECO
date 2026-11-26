@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/metrics"
 	"github.com/auenger/MEPERECO/core/internal/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ModelRate struct {
@@ -66,9 +66,6 @@ func (rules modelPricingRules) rate(provider, model string) (ModelRate, string) 
 			return ModelRate{}, "unpriced"
 		}
 	}
-	if p, ok := metrics.MatchReferenceRate(provider, model); ok {
-		return modelRate(p), "reference"
-	}
 	return ModelRate{}, "unpriced"
 }
 func (rules modelPricingRules) cost(provider, model string, actual int64, allIn, allOut, allRead, allWrite, in, out, read, write int64) ModelCost {
@@ -78,9 +75,10 @@ func (rules modelPricingRules) cost(provider, model string, actual int64, allIn,
 	c.PricedTokens = all - unpriced
 	rate, source := rules.rate(provider, model)
 	if source == "unpriced" {
-		c.UnknownTokens = unpriced
-		c.Breakdown.Input = c.ActualUSD
-		return c
+		// No workspace rule is not a free model, even if a reference rate
+		// exists. Keep the raw provider charge available in the ledger, but
+		// do not present a configured workspace total for an unpriced model.
+		return ModelCost{UnknownTokens: all}
 	}
 	c.PricedTokens = all
 	c.EstimatedTokens = unpriced

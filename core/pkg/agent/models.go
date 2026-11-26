@@ -103,96 +103,11 @@ const modelCacheTTL = 60 * time.Second
 // executablePath lets the caller point at a non-default binary; pass
 // "" to use the provider's default name on PATH.
 func ListModels(ctx context.Context, providerType, executablePath string) ([]Model, error) {
-	switch providerType {
-	case "claude":
-		models := claudeStaticModels()
-		annotateClaudeThinking(ctx, models, executablePath)
-		return models, nil
-	case "codex":
-		return cachedDiscovery(discoveryCacheKey(providerType, executablePath), func() ([]Model, error) {
-			return discoverCodexModels(ctx, executablePath), nil
-		})
-	case "antigravity":
-		// agy 1.0.6 added a `--model` flag plus an `agy models` catalog
-		// command (SILI-3125). Enumerate it on demand like the other
-		// dynamic-discovery backends.
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverAntigravityModels(ctx, executablePath)
-		})
-	case "traecli":
-		// Official TRAE CLI is ACP-native: it returns its model catalog from
-		// session/new. Enumerate it on demand like the other ACP backends
-		// (requires a logged-in traecli; falls back to manual entry on error).
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverTraecliModels(ctx, executablePath)
-		})
-	case "cursor":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverCursorModels(ctx, executablePath)
-		})
-	case "copilot":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverCopilotModels(ctx, executablePath)
-		})
-	case "hermes":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverHermesModels(ctx, executablePath)
-		})
-	case "kimi":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverKimiModels(ctx, executablePath)
-		})
-	case "kiro":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverKiroModels(ctx, executablePath)
-		})
-	case "qoder":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverQoderModels(ctx, executablePath)
-		})
-	case "opencode":
-		return cachedDiscovery(discoveryCacheKey(providerType, executablePath), func() ([]Model, error) {
-			return discoverOpenCodeModels(ctx, executablePath)
-		})
-	case "deveco":
-		return cachedDiscovery(discoveryCacheKey(providerType, executablePath), func() ([]Model, error) {
-			return discoverDevecoModels(ctx, executablePath)
-		})
-	case "pi":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverPiModels(ctx, executablePath)
-		})
-	case "openclaw":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverOpenclawAgents(ctx, executablePath)
-		})
-	case "codebuddy":
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			models, err := discoverCodebuddyModels(ctx, executablePath)
-			if err != nil {
-				return nil, err
-			}
-			annotateCodebuddyThinking(ctx, models, executablePath)
-			return models, nil
-		})
-	case "zcode":
-		// ZCode/Magpie own the model configuration; no per-agent catalog.
-		return []Model{}, nil
-	case "qwen":
-		// Qwen Code has no account-independent headless model catalog. An
-		// empty list keeps the runtime default and manual model entry available
-		// without advertising a Token-Plan-specific model to other accounts.
-		return []Model{}, nil
-	case "grok":
-		// xAI Grok Build is ACP-native (`grok agent stdio`); model catalog
-		// comes from session/new. Falls back to a small static list so the
-		// UI picker stays usable offline / unauthenticated.
-		return cachedDiscovery(providerType, func() ([]Model, error) {
-			return discoverGrokModels(ctx, executablePath)
-		})
-	default:
+	d, ok := RuntimeDescriptorFor(providerType)
+	if !ok {
 		return nil, fmt.Errorf("unknown agent type: %q", providerType)
 	}
+	return d.listModels(ctx, providerType, executablePath)
 }
 
 // ModelSelectionSupported reports whether setting `agent.model` has
@@ -208,7 +123,8 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 // render a disabled "Managed by runtime" picker instead of an empty
 // dropdown plus a silently-ignored manual-entry field.
 func ModelSelectionSupported(providerType string) bool {
-	return providerType != "zcode"
+	d, ok := RuntimeDescriptorFor(providerType)
+	return !ok || d.Capabilities.ModelSelection
 }
 
 // ModelKnownIncompatibleWithProvider reports whether a saved model is a known

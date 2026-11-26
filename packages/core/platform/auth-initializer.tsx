@@ -68,6 +68,9 @@ export function AuthInitializer({
           daemonServerUrl: cfg.daemon_server_url,
           daemonAppUrl: cfg.daemon_app_url,
         });
+        configStore.getState().setRuntimeCatalog(cfg.runtime_catalog);
+        configStore.getState().setUsageRunKindFilter(cfg.usage_run_kind_filter);
+        configStore.getState().setCompletionPolicy(cfg.completion_policy);
         configStore.getState().setFeatureFlags(cfg.feature_flags);
         configStore.getState().setServerVersion(cfg.server_version);
         if (cfg.posthog_key) {

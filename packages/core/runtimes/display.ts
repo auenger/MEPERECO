@@ -1,3 +1,4 @@
+import { configStore } from "../config";
 import type { AgentRuntime } from "../types";
 
 /**
@@ -52,7 +53,13 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
  * with its first letter capitalized.
  */
 export function providerDisplayName(provider: string): string {
-  const known = PROVIDER_DISPLAY_NAMES[provider];
+  const known = configStore.getState().runtimeCatalog?.find(entry => entry.id === provider)?.display_name ?? PROVIDER_DISPLAY_NAMES[provider];
   if (known) return known;
   return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+// Compatibility fallback for servers predating capability discovery. The
+// registry is authoritative when present, including for future adapters.
+export function runtimeAllowsModelSelection(provider: string | null | undefined, catalog?: readonly import("../types/agent").RuntimeCatalogEntry[]): boolean {
+  return catalog?.find((entry) => entry.id === provider)?.capabilities.model_selection ?? provider !== "zcode";
 }

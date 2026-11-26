@@ -200,7 +200,7 @@ export default function NewProject() {
             <TextInput
               value={title}
               onChangeText={setTitle}
-              placeholder="Project title"
+              placeholder="e.g. Product iteration 2.0"
               placeholderTextColor={MOBILE_PLACEHOLDER_COLOR}
               className="text-base text-foreground bg-secondary/50 rounded-md px-3 py-2"
               autoFocus

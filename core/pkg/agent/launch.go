@@ -45,36 +45,22 @@ func (c Config) commandAt(path string) Command {
 	return Command{Path: path, Prefix: c.LaunchPrefix, logger: c.Logger}
 }
 
-var launchPrefixBlockedArgs = map[string]map[string]blockedArgMode{
-	"antigravity": antigravityBlockedArgs,
-	"claude":      claudeBlockedArgs,
-	"codebuddy":   codebuddyBlockedArgs,
-	"codex":       codexBlockedArgs,
-	"copilot":     copilotBlockedArgs,
-	"cursor":      cursorBlockedArgs,
-	"deveco":      devecoBlockedArgs,
-	"grok":        grokBlockedArgs,
-	"hermes":      hermesBlockedArgs,
-	"kimi":        kimiBlockedArgs,
-	"kiro":        kiroBlockedArgs,
-	"opencode":    opencodeBlockedArgs,
-	"openclaw":    openclawBlockedArgs,
-	"pi":          piBlockedArgs,
-	"qoder":       qoderBlockedArgs,
-	"qwen":        qwenBlockedArgs,
-	"zcode":       zcodeBlockedArgs,
-	"traecli":     traecliBlockedArgs,
-}
-
 // FilterLaunchPrefix removes protocol-critical flags while retaining
 // positional wrapper/subcommand tokens that define the custom runtime.
 func FilterLaunchPrefix(agentType string, prefix []string, logger *slog.Logger) []string {
 	if len(prefix) == 0 {
 		return nil
 	}
-	blocked, ok := launchPrefixBlockedArgs[agentType]
+	descriptor, ok := RuntimeDescriptorFor(agentType)
 	if !ok {
 		return append([]string(nil), prefix...)
+	}
+	return filterLaunchPrefix(descriptor.blockedArgs, prefix, logger)
+}
+
+func filterLaunchPrefix(blocked map[string]blockedArgMode, prefix []string, logger *slog.Logger) []string {
+	if len(prefix) == 0 {
+		return nil
 	}
 	if logger == nil {
 		logger = slog.Default()

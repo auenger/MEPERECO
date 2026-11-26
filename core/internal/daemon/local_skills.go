@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"fmt"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -124,86 +125,17 @@ func localSkillRootsForProvider(provider string) ([]localSkillRoot, bool, error)
 		return nil, false, fmt.Errorf("resolve user home: %w", err)
 	}
 
-	var providerRoot string
-	switch provider {
-	case "claude":
-		providerRoot = filepath.Join(home, ".claude", "skills")
-	case "codebuddy":
-		// CodeBuddy Code is a Claude Code fork but ships its own native
-		// config directory; it does NOT read ~/.claude/skills unless the
-		// user manually symlinks it in (the vendor's documented Claude
-		// Code migration path). See
-		// https://www.codebuddy.ai/docs/cli/codebuddy-dir ("Global
-		// directory ~/.codebuddy/") and
-		// https://www.codebuddy.ai/docs/cli/skills ("User-level Skills:
-		// ~/.codebuddy/skills/").
-		providerRoot = filepath.Join(home, ".codebuddy", "skills")
-	case "codex":
-		codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
-		if codexHome == "" {
-			codexHome = filepath.Join(home, ".codex")
-		}
-		providerRoot = filepath.Join(codexHome, "skills")
-	case "copilot":
-		providerRoot = filepath.Join(home, ".copilot", "skills")
-	case "opencode":
-		providerRoot = filepath.Join(home, ".config", "opencode", "skills")
-	case "deveco":
-		providerRoot = filepath.Join(home, ".config", "deveco", "skills")
-	case "openclaw":
-		providerRoot = filepath.Join(home, ".openclaw", "skills")
-	case "zcode":
-		base := strings.TrimSpace(os.Getenv("ZCODE_DATA_BASE_DIR"))
-		if base == "" {
-			base = home
-		}
-		providerRoot = filepath.Join(base, ".zcode", "skills")
-	case "pi":
-		providerRoot = filepath.Join(home, ".pi", "agent", "skills")
-	case "cursor":
-		providerRoot = filepath.Join(home, ".cursor", "skills")
-	case "hermes":
-		providerRoot = filepath.Join(home, ".hermes", "skills")
-	case "kimi":
-		providerRoot = filepath.Join(home, ".kimi", "skills")
-	case "kiro":
-		providerRoot = filepath.Join(home, ".kiro", "skills")
-	case "qoder":
-		providerRoot = filepath.Join(home, ".qoder", "skills")
-	case "traecli":
-		// Official TRAE CLI global skills live in ~/.traecli/skills.
-		// See https://docs.trae.cn/cli_skills
-		providerRoot = filepath.Join(home, ".traecli", "skills")
-	case "antigravity":
-		// agy inherits Gemini CLI's global skill root; see
-		// https://antigravity.google/docs/gcli-migration ("Global skills").
-		providerRoot = filepath.Join(home, ".gemini", "antigravity-cli", "skills")
-	case "grok":
-		// GROK_HOME replaces the default ~/.grok home for settings, sessions,
-		// and user-level skills.
-		grokHome := strings.TrimSpace(os.Getenv("GROK_HOME"))
-		if grokHome == "" {
-			grokHome = filepath.Join(home, ".grok")
-		}
-		providerRoot = filepath.Join(grokHome, "skills")
-	case "qwen":
-		// QWEN_HOME replaces Qwen Code's global ~/.qwen directory. It owns
-		// settings, sessions, credentials and personal skills; project
-		// .qwen/skills remains rooted in the task workdir.
-		qwenHome := strings.TrimSpace(os.Getenv("QWEN_HOME"))
-		if qwenHome == "" {
-			qwenHome = filepath.Join(home, ".qwen")
-		}
-		providerRoot = filepath.Join(qwenHome, "skills")
-	default:
+	descriptor, ok := agent.RuntimeDescriptorFor(provider)
+	if !ok || !descriptor.Capabilities.LocalSkills {
 		return nil, false, nil
 	}
+	providerRoot := descriptor.LocalSkillsDirectory(home, os.Getenv)
 
 	roots := []localSkillRoot{
 		{path: providerRoot, kind: localSkillRootProvider},
 		{path: filepath.Join(home, ".agents", "skills"), kind: localSkillRootUniversal},
 	}
-	if provider == "claude" {
+	if descriptor.PluginSkills {
 		for _, plugin := range listEnabledClaudePlugins(home) {
 			manifest, _ := readClaudePluginManifest(plugin.InstallPath)
 			for _, path := range claudePluginComponentPaths(
@@ -500,7 +432,7 @@ func enumerateLocalSkills(
 				Provider:    provider,
 				Root:        root.kind,
 				Plugin:      root.plugin,
-				CanDisable:  provider == "codex" || provider == "claude",
+				CanDisable:  runtimeCanDisableLocalSkills(provider),
 				// `files` is the supporting bundle (collectLocalSkillFiles
 				// intentionally excludes SKILL.md so the bundle's `Content`
 				// field can carry it without duplication on import). For the
@@ -607,4 +539,9 @@ func loadRuntimeLocalSkillBundle(provider, skillKey string) (*runtimeLocalSkillB
 	}
 
 	return nil, true, fmt.Errorf("local skill not found")
+}
+
+func runtimeCanDisableLocalSkills(provider string) bool {
+	d, _ := agent.RuntimeDescriptorFor(provider)
+	return d.Capabilities.DisableLocalSkills
 }

@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"github.com/auenger/MEPERECO/core/pkg/runfailure"
 )
 
@@ -115,27 +116,7 @@ var (
 		"cloud":   "cloud",
 		"unknown": "unknown",
 	}
-	knownRuntimeProviders = map[string]string{
-		"antigravity":   "antigravity",
-		"claude":        "claude",
-		"codebuddy":     "codebuddy",
-		"codex":         "codex",
-		"copilot":       "copilot",
-		"cursor":        "cursor",
-		"gemini":        "gemini",
-		"grok":          "grok",
-		"hermes":        "hermes",
-		"kiro":          "kiro",
-		"kimi":          "kimi",
-		"silieco_agent": "silieco_agent",
-		"openclaw":      "openclaw",
-		"opencode":      "opencode",
-		"deveco":        "deveco",
-		"pi":            "pi",
-		"qwen":          "qwen",
-		"zcode":         "zcode",
-		"other":         "other",
-	}
+	knownRuntimeProviders = map[string]string{"gemini": "gemini", "silieco_agent": "silieco_agent", "other": "other"}
 	knownTerminalStatuses = map[string]string{
 		"completed": "completed",
 		"failed":    "failed",
@@ -195,6 +176,9 @@ func NormalizeRuntimeMode(value string) string {
 
 func NormalizeRuntimeProvider(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
+	if agent.IsSupportedType(value) {
+		return value
+	}
 	if normalized, ok := knownRuntimeProviders[value]; ok {
 		return normalized
 	}

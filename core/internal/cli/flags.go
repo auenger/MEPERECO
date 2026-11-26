@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"os"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,7 +14,7 @@ func FlagOrEnv(cmd *cobra.Command, flagName, envKey, fallback string) string {
 		val, _ := cmd.Flags().GetString(flagName)
 		return val
 	}
-	if v := strings.TrimSpace(os.Getenv(envKey)); v != "" {
+	if v := strings.TrimSpace(branding.Getenv(envKey)); v != "" {
 		return v
 	}
 	return fallback

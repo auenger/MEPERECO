@@ -5,12 +5,13 @@ import { cliCommands } from "@silieco/views/common/cli-commands";
 import { useConfigStore } from "@silieco/core/config";
 import { copyText } from "@silieco/ui/lib/clipboard";
 import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
+import type { CliReleaseArtifact } from "@silieco/core/release/cli-manifest";
 import type { ReactNode } from "react";
 import type { LatestRelease } from "@/features/landing/utils/github-release";
 import { detectOS, type DetectResult } from "@/features/landing/utils/os-detect";
 import { AppleIcon, WindowsIcon } from "@/features/landing/components/download/os-icons";
 
-export function DownloadClient({ release, cliAvailable }: { release: LatestRelease; cliAvailable: boolean }) {
+export function DownloadClient({ release, cliAvailable, cliArtifacts }: { release: LatestRelease; cliAvailable: boolean; cliArtifacts?: CliReleaseArtifact[] }) {
   const [detected, setDetected] = useState<DetectResult | null>(null);
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export function DownloadClient({ release, cliAvailable }: { release: LatestRelea
 
         <p className="mt-8 font-mono text-micro leading-6 text-[#667080]">安装包以当前服务实际发布的版本为准。其他平台准备完成后提供。</p>
       </section>
-      <CliDownloads available={cliAvailable} />
+      <CliDownloads available={cliAvailable} artifacts={cliArtifacts} />
     </main>
   );
 }
@@ -73,7 +74,7 @@ function DownloadLink({ label, href, prominent = false }: { label: string; href?
   return <a href={href} download className={prominent ? "rounded-full bg-[#f2f4f7] px-4 py-2 text-caption font-semibold text-[#080a0f] transition-transform hover:-translate-y-0.5" : "rounded-full border border-white/20 px-4 py-2 text-caption font-semibold text-[#f2f4f7] transition-colors hover:border-white/60"}>{label}</a>;
 }
 
-function CliDownloads({ available }: { available: boolean }) {
+function CliDownloads({ available, artifacts }: { available: boolean; artifacts?: CliReleaseArtifact[] }) {
   const serverUrl = useConfigStore((s) => s.daemonServerUrl);
   const appUrl = useConfigStore((s) => s.daemonAppUrl);
   const { installCmd, windowsInstallCmd, setupCmd } = cliCommands(serverUrl, appUrl);
@@ -90,7 +91,8 @@ function CliDownloads({ available }: { available: boolean }) {
         </div>)}
       </div>
       <div className="mt-8 flex flex-wrap gap-3">
-        {([['darwin','macOS','tar.gz'], ['linux','Linux','tar.gz'], ['windows','Windows','zip']] as const).flatMap(([os, label, ext]) => ['amd64','arm64'].map(arch => <DownloadLink key={`${os}-${arch}`} label={`${label} ${arch === 'amd64' ? 'x64' : 'ARM64'}`} href={`/cli/meperstudio-${os}-${arch}.${ext}`} />))}
+        {artifacts ? artifacts.map(a => <DownloadLink key={`${a.os}-${a.arch}`} label={`${a.os === "darwin" ? "macOS" : a.os === "windows" ? "Windows" : a.os === "linux" ? "Linux" : a.os} ${a.arch === "amd64" ? "x64" : a.arch.toUpperCase()}`} href={`/cli/${a.path}`} />) : ([['darwin','macOS','tar.gz'], ['linux','Linux','tar.gz'], ['windows','Windows','zip']] as const).flatMap(([os,label,ext]) => ['amd64','arm64'].map(arch => <DownloadLink key={`${os}-${arch}`} label={`${label} ${arch === 'amd64' ? 'x64' : 'ARM64'}`} href={`/cli/meperstudio-${os}-${arch}.${ext}`} />))}
+        {artifacts && <DownloadLink label="发布清单" href="/cli/manifest.json" />}
         <DownloadLink label="SHA-256 校验文件" href="/cli/checksums.txt" />
       </div>
     </> : <p className="mt-6 text-caption text-[#a6adba]">当前部署还未发布 CLI 安装包，请使用桌面端或联系管理员。</p>}

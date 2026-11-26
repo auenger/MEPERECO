@@ -9,7 +9,7 @@
     "create_title": "创建群聊",
     "create_description": "把当前 Space 中的人和 Agent 拉进同一个共享对话。",
     "name_label": "群聊名称",
-    "name_placeholder": "例如：产品发布协作群",
+    "name_placeholder": "例如：产品迭代协作群",
     "search_placeholder": "搜索成员或 Agent…",
     "people": "成员",
     "agents": "Agent",

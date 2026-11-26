@@ -83,8 +83,8 @@ type GetRuntimeUsageByHourParams struct {
 }
 
 type GetRuntimeUsageByHourRow struct {
-	Provider                 string `json:"provider"`
 	Hour                     int32  `json:"hour"`
+	Provider                 string `json:"provider"`
 	Model                    string `json:"model"`
 	InputTokens              int64  `json:"input_tokens"`
 	OutputTokens             int64  `json:"output_tokens"`
@@ -142,23 +142,24 @@ func (q *Queries) GetRuntimeUsageByHour(ctx context.Context, arg GetRuntimeUsage
 
 const listRuntimeUsage = `-- name: ListRuntimeUsage :many
 SELECT
-    DATE(bucket_hour AT TIME ZONE $2::text) AS date,
-    LOWER(provider) AS provider,
-    model,
-    SUM(input_tokens)::bigint        AS input_tokens,
-    SUM(output_tokens)::bigint       AS output_tokens,
-    SUM(cache_read_tokens)::bigint   AS cache_read_tokens,
-    SUM(cache_write_tokens)::bigint  AS cache_write_tokens,
-    SUM(cost_usd_ticks)::bigint                                          AS cost_usd_ticks,
-    SUM(COALESCE(uncosted_input_tokens, input_tokens))::bigint           AS uncosted_input_tokens,
-    SUM(COALESCE(uncosted_output_tokens, output_tokens))::bigint         AS uncosted_output_tokens,
-    SUM(COALESCE(uncosted_cache_read_tokens, cache_read_tokens))::bigint AS uncosted_cache_read_tokens,
-    SUM(COALESCE(uncosted_cache_write_tokens, cache_write_tokens))::bigint AS uncosted_cache_write_tokens
-FROM agent_run_usage_hourly
-WHERE runtime_id = $1
-  AND bucket_hour >= $3::timestamptz
-GROUP BY DATE(bucket_hour AT TIME ZONE $2::text), LOWER(provider), model
-ORDER BY DATE(bucket_hour AT TIME ZONE $2::text) DESC, LOWER(provider), model
+    DATE(tu.created_at AT TIME ZONE $2::text) AS date,
+    LOWER(tu.provider) AS provider,
+    tu.model,
+    SUM(tu.input_tokens)::bigint AS input_tokens,
+    SUM(tu.output_tokens)::bigint AS output_tokens,
+    SUM(tu.cache_read_tokens)::bigint AS cache_read_tokens,
+    SUM(tu.cache_write_tokens)::bigint AS cache_write_tokens,
+    COALESCE(SUM(tu.cost_usd_ticks), 0)::bigint AS cost_usd_ticks,
+    COALESCE(SUM(tu.input_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_input_tokens,
+    COALESCE(SUM(tu.output_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_output_tokens,
+    COALESCE(SUM(tu.cache_read_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_read_tokens,
+    COALESCE(SUM(tu.cache_write_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_write_tokens
+FROM agent_run_usage tu
+JOIN agent_run atq ON atq.id = tu.run_id
+WHERE atq.runtime_id = $1
+  AND tu.created_at >= $3::timestamptz
+GROUP BY DATE(tu.created_at AT TIME ZONE $2::text), LOWER(tu.provider), tu.model
+ORDER BY date DESC, provider, tu.model
 `
 
 type ListRuntimeUsageParams struct {
@@ -182,17 +183,8 @@ type ListRuntimeUsageRow struct {
 	UncostedCacheWriteTokens int64       `json:"uncosted_cache_write_tokens"`
 }
 
-// Reads from the UTC-bucketed `agent_run_usage_hourly` rollup table,
-// aggregated to per-(date, provider, model) under the
-// caller-supplied @tz. Powers the trend chart on the runtime detail
-// page and the per-row cost cell on the runtimes list.
-//
-// @tz is required, even if the caller intends "UTC", so the bucket
-// cast is unambiguous — `bucket_hour` is UTC and the caller picks the
-// calendar boundary per request.
-//
-// provider is LOWER()-normalized so mixed-case historical rows merge
-// (same reason as ListRuntimeUsageByAgent below).
+// Daily runtime usage reads the same raw ledger as the by-agent and by-hour
+// reports. This prevents a stalled background rollup from hiding consumption.
 func (q *Queries) ListRuntimeUsage(ctx context.Context, arg ListRuntimeUsageParams) ([]ListRuntimeUsageRow, error) {
 	rows, err := q.db.Query(ctx, listRuntimeUsage, arg.RuntimeID, arg.Tz, arg.Since)
 	if err != nil {

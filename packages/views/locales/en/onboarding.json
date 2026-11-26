@@ -64,7 +64,7 @@
     "headline": "Describe this workspace in one sentence.",
     "lede": "This sentence gives people and Agents the same shared context when they receive a Task.",
     "label": "What is this workspace here to accomplish?",
-    "placeholder": "For example: Ship and operate our developer platform with a small human and Agent team.",
+    "placeholder": "e.g. Collaborate with Agents on product iterations, bug fixes, and release acceptance.",
     "hint": "Keep it concrete. You can change it later in workspace settings.",
     "finish": "Enter workspace",
     "aside_title": "Shared context starts with a clear purpose.",
@@ -110,7 +110,7 @@
       "ops": "Operations / project mgmt",
       "student": "Student / personal use",
       "other": "Other",
-      "other_placeholder": "e.g. teacher, support lead"
+      "other_placeholder": "e.g. product manager, software engineer"
     },
     "use_case": {
       "question": "What do you want to use MEPERStudio for?",
@@ -122,7 +122,7 @@
       "automate_ops": "Automate ops & workflows",
       "evaluate": "Just exploring",
       "other": "Other",
-      "other_placeholder": "e.g. study group coordination"
+      "other_placeholder": "e.g. plan product iterations and track bug fixes"
     }
   },
   "option_card": {
@@ -228,9 +228,9 @@
     "lede_first": "A workspace is where your tasks, agents, and projects live. You can invite teammates or spin up more workspaces later.",
     "lede_resume": "Resume setup with the workspace you already have, or create a new one alongside it — you can belong to any number of workspaces.",
     "name_label": "Workspace name",
-    "name_placeholder": "Acme Inc, My Lab, Side Projects…",
+    "name_placeholder": "e.g. Ryan’s Workspace, Product Team",
     "url_label": "URL",
-    "slug_placeholder": "acme",
+    "slug_placeholder": "product-team",
     "task_prefix_label": "Task prefix",
     "task_prefix_prefix": "Tasks will look like ",
     "task_prefix_suffix": ". You can change this later in settings.",

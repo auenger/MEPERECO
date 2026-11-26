@@ -66,7 +66,7 @@
     "resource_tab": "Work Resources",
     "not_found": "Project not found",
     "breadcrumb_fallback": "Projects",
-    "title_placeholder": "Project title",
+    "title_placeholder": "e.g. Product iteration 2.0",
     "icon_tooltip": "Change icon",
     "pin_tooltip": "Pin to sidebar",
     "unpin_tooltip": "Unpin from sidebar",

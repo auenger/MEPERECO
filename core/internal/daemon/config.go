@@ -15,6 +15,7 @@ import (
 	"github.com/mattn/go-shellwords"
 
 	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 )
 
 const (
@@ -329,7 +330,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// mDNS state, profile switch) no longer mints a new runtime identity.
 	// Callers may still pin a specific id via SILIECO_DAEMON_ID or the
 	// override field (e.g. for tests or embedded environments).
-	daemonID := strings.TrimSpace(os.Getenv("SILIECO_DAEMON_ID"))
+	daemonID := strings.TrimSpace(branding.Getenv("SILIECO_DAEMON_ID"))
 	if overrides.DaemonID != "" {
 		daemonID = overrides.DaemonID
 	}
@@ -381,11 +382,11 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	}
 
 	// Keep env after run: env > default (false)
-	keepEnv := os.Getenv("SILIECO_KEEP_ENV_AFTER_TASK") == "true" || os.Getenv("SILIECO_KEEP_ENV_AFTER_TASK") == "1"
+	keepEnv := branding.Getenv("SILIECO_KEEP_ENV_AFTER_TASK") == "true" || branding.Getenv("SILIECO_KEEP_ENV_AFTER_TASK") == "1"
 
 	// GC config: env > defaults
 	gcEnabled := true
-	if v := os.Getenv("SILIECO_GC_ENABLED"); v == "false" || v == "0" {
+	if v := branding.Getenv("SILIECO_GC_ENABLED"); v == "false" || v == "0" {
 		gcEnabled = false
 	}
 	gcInterval, err := durationFromEnv("SILIECO_GC_INTERVAL", DefaultGCInterval)
@@ -420,7 +421,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// auto-update off by default for self-host avoids both footguns (SILI-2381).
 	// Operators on either side can flip the default with SILIECO_DAEMON_AUTO_UPDATE.
 	autoUpdateEnabled := isOfficialCloudServer(serverBaseURL)
-	if v := strings.TrimSpace(os.Getenv("SILIECO_DAEMON_AUTO_UPDATE")); v != "" {
+	if v := strings.TrimSpace(branding.Getenv("SILIECO_DAEMON_AUTO_UPDATE")); v != "" {
 		switch strings.ToLower(v) {
 		case "false", "0", "no", "off":
 			autoUpdateEnabled = false
@@ -492,7 +493,7 @@ func isOfficialCloudServer(baseURL string) bool {
 	if err != nil {
 		return false
 	}
-	host := strings.TrimSpace(os.Getenv("MEPERSTUDIO_CLOUD_API_HOST"))
+	host := strings.TrimSpace(branding.Getenv("MEPERSTUDIO_CLOUD_API_HOST"))
 	return host != "" && strings.EqualFold(u.Hostname(), host)
 }
 
@@ -527,7 +528,7 @@ func NormalizeServerBaseURL(raw string) (string, error) {
 // (e.g. `silieco daemon disk-usage`) use this directly so they pick the same
 // directory the running daemon would have picked.
 func ResolveWorkspacesRoot(profile, override string) (string, error) {
-	root := strings.TrimSpace(os.Getenv("SILIECO_WORKSPACES_ROOT"))
+	root := strings.TrimSpace(branding.Getenv("SILIECO_WORKSPACES_ROOT"))
 	if override != "" {
 		root = override
 	}
@@ -562,7 +563,7 @@ func ArtifactPatternsFromEnv() []string {
 // directory basenames, never paths, so a pattern like "foo/bar" is meaningless
 // and accepting it would just be a footgun.
 func patternsFromEnv(name string, defaults []string) []string {
-	raw := strings.TrimSpace(os.Getenv(name))
+	raw := strings.TrimSpace(branding.Getenv(name))
 	if raw == "" {
 		out := make([]string, len(defaults))
 		copy(out, defaults)
@@ -581,7 +582,7 @@ func patternsFromEnv(name string, defaults []string) []string {
 }
 
 func shellArgsFromEnv(name string) ([]string, error) {
-	raw := strings.TrimSpace(os.Getenv(name))
+	raw := strings.TrimSpace(branding.Getenv(name))
 	if raw == "" {
 		return nil, nil
 	}
@@ -656,7 +657,7 @@ func reresolveAgentCommand(cmd string) (string, bool) {
 }
 
 func lookPathExcludingSiliecoHooks(cmd string) (string, error) {
-	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+	for _, dir := range filepath.SplitList(branding.Getenv("PATH")) {
 		if dir == "" {
 			dir = "."
 		}
@@ -730,10 +731,7 @@ func isExecutableFile(path string) bool {
 // `probe(...)` calls in LoadConfig — the shell-fallback resolver uses this
 // list to pre-fetch canonical paths for every known agent in a single shell
 // invocation, instead of paying the cost-per-miss.
-var defaultAgentCommandNames = []string{
-	"claude", "codex", "opencode", "deveco", "openclaw", "hermes",
-	"pi", "cursor-agent", "copilot", "kimi", "kiro-cli", "codebuddy", "agy", "traecli", "grok", "qwen", "zcode",
-}
+var defaultAgentCommandNames = agent.RuntimeCommands()
 
 // codexDesktopAppBundlePaths returns candidate macOS app-bundle locations for
 // the bundled Codex CLI. OpenAI relocated the Desktop app from Codex.app to
@@ -825,7 +823,7 @@ var resolveAgentsViaLoginShell = func(names []string) map[string]string {
 	if len(names) == 0 {
 		return out
 	}
-	shell := strings.TrimSpace(os.Getenv("SHELL"))
+	shell := strings.TrimSpace(branding.Getenv("SHELL"))
 	if shell == "" {
 		return out
 	}
@@ -991,12 +989,12 @@ func applyOpenclawOverride(oc *cli.OpenClawOverride) {
 		return
 	}
 	if oc.BinaryPath != "" {
-		if _, set := os.LookupEnv("SILIECO_OPENCLAW_PATH"); !set {
+		if _, set := branding.LookupEnv("SILIECO_OPENCLAW_PATH"); !set {
 			_ = os.Setenv("SILIECO_OPENCLAW_PATH", oc.BinaryPath)
 		}
 	}
 	if oc.StateDir != "" {
-		if _, set := os.LookupEnv("OPENCLAW_STATE_DIR"); !set {
+		if _, set := branding.LookupEnv("OPENCLAW_STATE_DIR"); !set {
 			_ = os.Setenv("OPENCLAW_STATE_DIR", oc.StateDir)
 		}
 	}

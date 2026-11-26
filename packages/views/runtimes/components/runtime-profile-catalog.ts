@@ -36,8 +36,9 @@ export const PROTOCOL_FAMILIES: readonly RuntimeProtocolFamily[] =
 // surface and built-ins as a collapsed reference section.
 export function buildRuntimeCatalog(
   profiles: RuntimeProfile[],
+  families: readonly RuntimeProtocolFamily[] = PROTOCOL_FAMILIES,
 ): RuntimeCatalogSections {
-  const builtins: RuntimeCatalogEntry[] = PROTOCOL_FAMILIES.map((family) => ({
+  const builtins: RuntimeCatalogEntry[] = families.map((family) => ({
     kind: "builtin" as const,
     id: `builtin:${family}`,
     protocolFamily: family,

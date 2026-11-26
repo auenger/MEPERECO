@@ -1,4 +1,5 @@
 "use client";
+import { useConfigStore } from "@silieco/core/config";
 
 import { useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
@@ -94,7 +95,9 @@ export function RuntimeProfilesDialog({
   const [draftFamily, setDraftFamily] =
     useState<RuntimeProtocolFamily>(PROTOCOL_FAMILIES[0] ?? "claude");
 
-  const catalog = useMemo(() => buildRuntimeCatalog(profiles), [profiles]);
+  const runtimeCatalog = useConfigStore(s => s.runtimeCatalog);
+  const families = useMemo(() => runtimeCatalog?.map(entry => entry.id) ?? PROTOCOL_FAMILIES, [runtimeCatalog]);
+  const catalog = useMemo(() => buildRuntimeCatalog(profiles, families), [profiles, families]);
   const entries = useMemo(
     () => [...catalog.customs, ...catalog.builtins],
     [catalog],
@@ -646,6 +649,8 @@ function ProfileFormView({
   onSaved: (profile: RuntimeProfile) => void;
 }) {
   const { t } = useT("runtimes");
+  const runtimeCatalog = useConfigStore(s => s.runtimeCatalog);
+  const families = runtimeCatalog?.map(entry => entry.id) ?? PROTOCOL_FAMILIES;
 
   if (mode === "create" && step === "family") {
     return (
@@ -664,7 +669,7 @@ function ProfileFormView({
             className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
             aria-label={t(($) => $.profiles.form.family_label)}
           >
-            {PROTOCOL_FAMILIES.map((option) => (
+            {families.map((option) => (
               <button
                 key={option}
                 type="button"

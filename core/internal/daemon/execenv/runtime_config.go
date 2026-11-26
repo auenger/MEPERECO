@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -208,23 +209,10 @@ func InjectRuntimeConfig(workDir, provider string, ctx RunContextForEnv) (string
 // Cleanup in lockstep — both paths consult the same table so a new provider
 // added to one side cannot drift past the other.
 func runtimeConfigPath(workDir, provider string) string {
-	switch provider {
-	case "claude":
-		return filepath.Join(workDir, "CLAUDE.md")
-	case "codebuddy":
-		// CodeBuddy Code's native memory file is CODEBUDDY.md, not
-		// CLAUDE.md — see https://www.codebuddy.ai/docs/cli/codebuddy-dir
-		// ("CODEBUDDY.md / .codebuddy/CODEBUDDY.md — Project-level memory
-		// file"). CodeBuddy only reads CLAUDE.md if the user manually
-		// migrates/symlinks it in.
-		return filepath.Join(workDir, "CODEBUDDY.md")
-	case "qwen":
-		return filepath.Join(workDir, "QWEN.md")
-	case "codex", "copilot", "opencode", "deveco", "openclaw", "hermes", "pi", "cursor", "kimi", "kiro", "antigravity", "qoder", "traecli", "grok", "zcode":
-		return filepath.Join(workDir, "AGENTS.md")
-	default:
-		return ""
+	if descriptor, ok := agent.RuntimeDescriptorFor(provider); ok {
+		return filepath.Join(workDir, descriptor.ContextFile)
 	}
+	return ""
 }
 
 // writeRuntimeConfigFile writes the Silieco runtime brief to path without

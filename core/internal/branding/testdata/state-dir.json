@@ -1,0 +1,6 @@
+[
+  {"directories": [], "expected": ".meperstudio"},
+  {"directories": [".silieco"], "expected": ".silieco"},
+  {"directories": [".meperstudio"], "expected": ".meperstudio"},
+  {"directories": [".silieco", ".meperstudio"], "expected": ".meperstudio"}
+]

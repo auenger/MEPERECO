@@ -56,6 +56,7 @@
     "./chat/queries": "./chat/queries.ts",
     "./chat/mutations": "./chat/mutations.ts",
     "./chat/unread": "./chat/unread.ts",
+    "./release/cli-manifest": "./release/cli-manifest.ts",
     "./runtimes": "./runtimes/index.ts",
     "./runtimes/queries": "./runtimes/queries.ts",
     "./runtimes/mutations": "./runtimes/mutations.ts",

@@ -1,5 +1,8 @@
 "use client";
 
+import { useConfigStore } from "@silieco/core/config";
+import { runtimeAllowsModelSelection } from "@silieco/core/runtimes";
+
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Cpu, Loader2, Plus, Check, Info } from "lucide-react";
@@ -40,11 +43,12 @@ export function ModelDropdown({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
+  const modelSelection = runtimeAllowsModelSelection(runtimeProvider, useConfigStore(s => s.runtimeCatalog));
   const modelsQuery = useQuery(
-    runtimeModelsOptions(runtimeOnline && runtimeProvider !== "zcode" ? runtimeId : null),
+    runtimeModelsOptions(runtimeOnline && modelSelection ? runtimeId : null),
   );
 
-  const supported = runtimeProvider !== "zcode" && (modelsQuery.data?.supported ?? true);
+  const supported = modelSelection && (modelsQuery.data?.supported ?? true);
   // Stable reference for the model list — `?? []` would mint a fresh
   // array each render and force every downstream useMemo to invalidate.
   const models = useMemo(

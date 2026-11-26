@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { api } from "../api";
+import type { DashboardRunKind } from "../types/agent";
 
 export const dashboardKeys = {
   all: (wsId: string) => ["dashboard", wsId] as const,
@@ -8,41 +9,47 @@ export const dashboardKeys = {
     days: number,
     projectId: string | null,
     tz: string,
-  ) => [...dashboardKeys.all(wsId), "daily", days, projectId, tz] as const,
+    runKind: DashboardRunKind = "all",
+  ) => [...dashboardKeys.all(wsId), "daily", days, projectId, tz, runKind] as const,
   byAgent: (
     wsId: string,
     days: number,
     projectId: string | null,
     tz: string,
-  ) => [...dashboardKeys.all(wsId), "by-agent", days, projectId, tz] as const,
+    runKind: DashboardRunKind = "all",
+  ) => [...dashboardKeys.all(wsId), "by-agent", days, projectId, tz, runKind] as const,
   agentRuntime: (
     wsId: string,
     days: number,
     projectId: string | null,
     tz: string,
-  ) => [...dashboardKeys.all(wsId), "agent-runtime", days, projectId, tz] as const,
+    runKind: DashboardRunKind = "all",
+  ) => [...dashboardKeys.all(wsId), "agent-runtime", days, projectId, tz, runKind] as const,
   runTimeDaily: (
     wsId: string,
     days: number,
     projectId: string | null,
     tz: string,
-  ) => [...dashboardKeys.all(wsId), "runtime-daily", days, projectId, tz] as const,
+    runKind: DashboardRunKind = "all",
+  ) => [...dashboardKeys.all(wsId), "runtime-daily", days, projectId, tz, runKind] as const,
   failuresDaily: (
     wsId: string,
     days: number,
     projectId: string | null,
     tz: string,
-  ) => [...dashboardKeys.all(wsId), "failures-daily", days, projectId, tz] as const,
+    runKind: DashboardRunKind = "all",
+  ) => [...dashboardKeys.all(wsId), "failures-daily", days, projectId, tz, runKind] as const,
   failuresByAgent: (
     wsId: string,
     days: number,
     projectId: string | null,
     tz: string,
+    runKind: DashboardRunKind = "all",
   ) =>
-    [...dashboardKeys.all(wsId), "failures-by-agent", days, projectId, tz] as const,
+    [...dashboardKeys.all(wsId), "failures-by-agent", days, projectId, tz, runKind] as const,
 };
 
-// 5-min rollup cadence on the server, 60s background refetch on the client.
+// Read the raw ledger; refresh active dashboards without requiring navigation.
 const STALE_TIME = 60 * 1000;
 
 // Range changes should keep the previous result mounted so KPI cards and
@@ -68,8 +75,9 @@ export function dashboardUsageDailyOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.daily(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.daily(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -77,9 +85,11 @@ export function dashboardUsageDailyOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)
@@ -92,8 +102,9 @@ export function dashboardUsageByAgentOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.byAgent(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.byAgent(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -101,9 +112,11 @@ export function dashboardUsageByAgentOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)
@@ -116,8 +129,9 @@ export function dashboardAgentRunTimeOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.agentRuntime(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.agentRuntime(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -125,9 +139,11 @@ export function dashboardAgentRunTimeOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)
@@ -140,8 +156,9 @@ export function dashboardRunTimeDailyOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.runTimeDaily(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.runTimeDaily(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -149,9 +166,11 @@ export function dashboardRunTimeDailyOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)
@@ -164,8 +183,9 @@ export function dashboardFailuresDailyOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.failuresDaily(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.failuresDaily(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -173,9 +193,11 @@ export function dashboardFailuresDailyOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)
@@ -188,8 +210,9 @@ export function dashboardFailuresByAgentOptions(
   days: number,
   projectId: string | null,
   tz: string,
+  runKind: DashboardRunKind = "all",
 ) {
-  const queryKey = dashboardKeys.failuresByAgent(wsId, days, projectId, tz);
+  const queryKey = dashboardKeys.failuresByAgent(wsId, days, projectId, tz, runKind);
   return queryOptions({
     queryKey,
     queryFn: () =>
@@ -197,9 +220,11 @@ export function dashboardFailuresByAgentOptions(
         days,
         project_id: projectId ?? undefined,
         tz,
+        run_kind: runKind === "all" ? undefined : runKind,
       }),
     enabled: !!wsId,
     staleTime: STALE_TIME,
+    refetchInterval: STALE_TIME,
     placeholderData: (previousData, previousQuery) =>
       isSameDashboardScope(previousQuery?.queryKey, queryKey)
         ? keepPreviousData(previousData)

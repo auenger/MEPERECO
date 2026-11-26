@@ -51,3 +51,21 @@ func AddBrandedRunEnv(values map[string]string) {
 		}
 	}
 }
+
+// LookupEnv reads canonical configuration first, accepting historical keys.
+// Non-brand keys are passed through; explicitly empty canonical values retain
+// precedence (callers define whether empty means default or disabled).
+func LookupEnv(key string) (string, bool) {
+	suffix, legacy := strings.CutPrefix(key, "SILIECO_")
+	if !legacy {
+		suffix, legacy = strings.CutPrefix(key, "MEPERSTUDIO_")
+	}
+	if legacy {
+		if value, ok := os.LookupEnv("MEPERSTUDIO_" + suffix); ok {
+			return value, true
+		}
+		return os.LookupEnv("SILIECO_" + suffix)
+	}
+	return os.LookupEnv(key)
+}
+func Getenv(key string) string { value, _ := LookupEnv(key); return value }

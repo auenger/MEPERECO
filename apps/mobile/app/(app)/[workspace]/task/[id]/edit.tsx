@@ -159,7 +159,7 @@ export default function EditTask() {
                 <TextInput
                   value={title}
                   onChangeText={setTitle}
-                  placeholder="Task title"
+                  placeholder="e.g. Fix login page loading issue"
                   placeholderTextColor={MOBILE_PLACEHOLDER_COLOR}
                   className="text-base text-foreground bg-secondary/50 rounded-md px-3 py-2"
                   returnKeyType="next"

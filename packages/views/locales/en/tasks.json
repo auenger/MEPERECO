@@ -235,7 +235,7 @@
     "not_found": "This task does not exist or has been deleted in this workspace.",
     "breadcrumb_project_unknown": "Unknown project",
     "back": "Back",
-    "title_placeholder": "Task title",
+    "title_placeholder": "e.g. Fix login page loading issue",
     "desc_placeholder": "Add description...",
     "sub_tasks_label": "Sub-tasks",
     "sub_task_of": "Sub-task of",

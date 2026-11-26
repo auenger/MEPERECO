@@ -121,8 +121,10 @@ func parseReleaseVersion(v string) ([3]int, bool) {
 }
 
 type GitHubReleaseAsset struct {
-	Name               string `json:"name"`
-	BrowserDownloadURL string `json:"browser_download_url"`
+	OS, Arch, SHA256, Binary string `json:"-"`
+	SizeBytes                int64  `json:"-"`
+	Name                     string `json:"name"`
+	BrowserDownloadURL       string `json:"browser_download_url"`
 }
 
 func releaseArchiveExtension(goos string) string {
@@ -156,6 +158,12 @@ func releaseAssetCandidates(targetVersion, goos, goarch string) []string {
 }
 
 func findReleaseAsset(assets []GitHubReleaseAsset, targetVersion, goos, goarch string) (*GitHubReleaseAsset, error) {
+	for i := range assets {
+		if assets[i].OS == goos && assets[i].Arch == goarch && assets[i].SHA256 != "" {
+			return &assets[i], nil
+		}
+	}
+
 	for _, candidate := range releaseAssetCandidates(targetVersion, goos, goarch) {
 		for i := range assets {
 			if assets[i].Name == candidate {
@@ -248,6 +256,18 @@ func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
 // FetchLatestRelease reads the manifest from the same distribution as the installer.
 func FetchLatestRelease() (*GitHubRelease, error) {
 	base := cliReleaseBaseURL()
+	manifest, err := fetchCLIReleaseManifest(base)
+	if err != nil {
+		return nil, err
+	}
+	if manifest != nil {
+		release := &GitHubRelease{TagName: normalizeReleaseTag(manifest.Version), HTMLURL: base}
+		for _, a := range manifest.Artifacts {
+			release.Assets = append(release.Assets, GitHubReleaseAsset{Name: a.ArchiveName, BrowserDownloadURL: base + "/" + a.Path, OS: a.OS, Arch: a.Arch, SHA256: a.SHA256, Binary: a.Binary, SizeBytes: a.SizeBytes})
+		}
+		return release, nil
+	}
+
 	raw, err := fetchURLBytes(base+"/version.txt", 10*time.Second)
 	if err != nil {
 		return nil, err
@@ -369,24 +389,23 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 	if err != nil {
 		return "", err
 	}
-	manifestAsset, err := findChecksumManifestAsset(release.Assets)
-	if err != nil {
-		return "", err
-	}
 	downloadURL := asset.BrowserDownloadURL
 	assetName := asset.Name
-
-	// Pull the checksum manifest first so a release that is half-published
-	// (archives uploaded but checksums.txt not yet) fails before we eat the
-	// archive's bandwidth.
 	timeout := updateDownloadTimeoutOrDefault(downloadTimeout)
-	manifestData, err := fetchURLBytes(manifestAsset.BrowserDownloadURL, timeout)
-	if err != nil {
-		return "", fmt.Errorf("download checksum manifest: %w", err)
-	}
-	expectedSum, err := parseChecksumManifest(manifestData, assetName)
-	if err != nil {
-		return "", fmt.Errorf("parse checksum manifest: %w", err)
+	expectedSum := asset.SHA256
+	if expectedSum == "" {
+		manifestAsset, err := findChecksumManifestAsset(release.Assets)
+		if err != nil {
+			return "", err
+		}
+		manifestData, err := fetchURLBytes(manifestAsset.BrowserDownloadURL, timeout)
+		if err != nil {
+			return "", fmt.Errorf("download checksum manifest: %w", err)
+		}
+		expectedSum, err = parseChecksumManifest(manifestData, assetName)
+		if err != nil {
+			return "", fmt.Errorf("parse checksum manifest: %w", err)
+		}
 	}
 
 	// Buffer the archive into memory so we can verify the full SHA-256
@@ -400,6 +419,9 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 		return "", fmt.Errorf("download failed: %w", err)
 	}
 
+	if asset.SizeBytes > 0 && int64(len(archiveData)) != asset.SizeBytes {
+		return "", fmt.Errorf("archive size mismatch for %s", assetName)
+	}
 	if err := verifyAssetSHA256(archiveData, expectedSum, assetName); err != nil {
 		// Do NOT extract or replace; the next poll tick will retry. A
 		// corrupted asset is rare enough that retrying through the same
@@ -415,6 +437,9 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 	}
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
+	}
+	if asset.Binary != "" {
+		binaryName = asset.Binary
 	}
 	var binaryData []byte
 	if runtime.GOOS == "windows" {

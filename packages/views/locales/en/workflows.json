@@ -10,7 +10,7 @@
   "create": {
     "title": "Create Workflow",
     "name": "SOP name",
-    "name_placeholder": "For example: Product delivery",
+    "name_placeholder": "e.g. Product iteration and release",
     "description": "Description",
     "description_placeholder": "What does this SOP help the team accomplish?",
     "stages": "Stages",
@@ -27,7 +27,7 @@
     "stages": "Workflow stages",
     "start": "Start a Workflow run",
     "run_title": "Run name",
-    "run_placeholder": "For example: Mobile 2.0 launch",
+    "run_placeholder": "e.g. Product iteration 2.0",
     "start_confirm": "Start run",
     "no_runs": "No runs yet",
     "select_run": "Select a run"
@@ -78,6 +78,13 @@
     "open_sop": "Open SOP to start"
   },
   "stage_review": {
+    "invalid_completion_policy": "This stage has an invalid completion policy. Correct the plan before approving.",
+    "scheduled_evaluation": "Scheduled evaluation: {{date}} · {{result}}",
+    "task_change_evaluation": "Task-change evaluation: {{date}} · {{result}}",
+    "task_change_pending": "Waiting for task-change evaluation.",
+    "scheduled_ready": "Ready",
+    "scheduled_incomplete": "Incomplete",
+    "scheduled_pending": "Waiting for the next scheduled evaluation (approval still checks live evidence).",
     "panel_title": "Stage validation",
     "panel_summary": "{{complete}} of {{total}} Tasks complete in the current Stage.",
     "unavailable": "Unavailable",
@@ -135,7 +142,7 @@
     "run_dialog_title": "Start an SOP run",
     "run_dialog_description": "Give this run of “{{name}}” a distinct name so the team can identify it later.",
     "run_name": "Run name",
-    "run_name_placeholder": "For example: Mobile 2.0 release",
+    "run_name_placeholder": "e.g. Product iteration 2.0",
     "run_default_name": "{{name}} · Run {{sequence}}",
     "cancel_run": "Cancel",
     "confirm_start": "Start run",
@@ -216,10 +223,11 @@
       "scheduled": "Aggregate Stage work at a planned time for reports and continuous operations."
     },
     "schedule_label": "Evaluation schedule",
-    "schedule_placeholder": "For example: daily at 18:00 or 0 18 * * *",
+    "schedule_placeholder": "Five-field cron, e.g. 0 18 * * *",
+    "schedule_timezone": "Time zone (IANA)",
     "completion_rule": "Stage completion rule",
-    "completion_all_tasks": "Current rule: all required Tasks are terminal and required outputs are submitted.",
-    "statuses": "Task status set",
+    "completion_all_tasks": "Current rule: all required Tasks must be done. Output descriptions are guidance; agent results use contract validation.",
+    "statuses": "Task status labels (display metadata only)",
     "status": {
       "backlog": "Backlog",
       "todo": "To do",

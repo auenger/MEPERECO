@@ -1,7 +1,16 @@
 import { createStore } from "zustand/vanilla";
 import { useStore } from "zustand";
 
+import type { WorkflowCompletionCapabilities } from "../types/workflow";
+import type { RuntimeCatalogEntry } from "../types/agent";
+
 interface ConfigState {
+  usageRunKindFilter: boolean;
+  setUsageRunKindFilter: (supported?: boolean) => void;
+  completionPolicy?: WorkflowCompletionCapabilities;
+  setCompletionPolicy: (policy?: WorkflowCompletionCapabilities) => void;
+  runtimeCatalog?: RuntimeCatalogEntry[];
+  setRuntimeCatalog: (catalog?: RuntimeCatalogEntry[]) => void;
   cdnDomain: string;
   // True when cdnDomain serves private content via time-bounded signed URLs
   // (CloudFront signing enabled server-side). Renderers must not treat a raw
@@ -39,6 +48,12 @@ interface ConfigState {
 }
 
 export const configStore = createStore<ConfigState>((set) => ({
+  usageRunKindFilter: false,
+  setUsageRunKindFilter: (usageRunKindFilter = false) => set({ usageRunKindFilter }),
+  completionPolicy: undefined,
+  setCompletionPolicy: (completionPolicy) => set({ completionPolicy }),
+  runtimeCatalog: undefined,
+  setRuntimeCatalog: (runtimeCatalog) => set({ runtimeCatalog }),
   cdnDomain: "",
   cdnSigned: false,
   allowSignup: true,

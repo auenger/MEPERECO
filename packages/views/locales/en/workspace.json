@@ -1,9 +1,9 @@
 {
   "create_form": {
     "name_label": "Workspace Name",
-    "name_placeholder": "My Workspace",
+    "name_placeholder": "e.g. Product Team",
     "url_label": "Workspace URL",
-    "url_placeholder": "my-workspace",
+    "url_placeholder": "product-team",
     "submit": "Create workspace",
     "submitting": "Creating...",
     "errors": {

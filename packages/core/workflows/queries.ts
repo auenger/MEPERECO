@@ -86,6 +86,7 @@ export function workflowInstanceOptions(
   return queryOptions({
     queryKey: workflowKeys.instance(workspaceId, instanceId),
     queryFn: () => api.getWorkflowInstance(instanceId),
+    refetchInterval: (query) => ["scheduled", "on_task_change"].includes(query.state.data?.manual_readiness?.evaluation_mode ?? "") ? 30_000 : false,
     enabled: Boolean(instanceId),
   });
 }

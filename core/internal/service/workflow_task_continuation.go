@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // TaskWorkflowIsReusable identifies task-driven plans. Agent-stage executions
@@ -55,9 +55,6 @@ func prepareWorkflowForNewTask(ctx context.Context, q *db.Queries, run db.Workfl
 	if run.Status != "completed" && (current == nil || target.Position >= current.Position) {
 		nextStageID, nextStatus = run.CurrentStageID, run.Status
 	}
-	_, err = q.UpdateWorkflowInstanceState(ctx, db.UpdateWorkflowInstanceStateParams{
-		ID: run.ID, WorkspaceID: run.WorkspaceID,
-		Status: pgtype.Text{String: nextStatus, Valid: true}, CurrentStageID: nextStageID,
-	})
+	_, err = writeWorkflowStateInTx(ctx, q, run, nextStatus, nextStageID)
 	return err
 }

@@ -49,79 +49,62 @@ JOIN agent_run atq ON atq.id = tu.run_id
 WHERE atq.task_id = $1;
 
 -- name: ListDashboardUsageDaily :many
--- Daily per-(date, provider, model) token aggregates for the workspace, served
--- from the UTC-bucketed `agent_run_usage_hourly` table and
--- sliced to calendar days under the caller-supplied @tz. Optionally
--- scoped to a single project via sqlc.narg('project_id'). Powers the
--- workspace dashboard's daily cost chart.
--- The viewer's tz is applied here at query time, so a viewer in
--- Asia/Shanghai gets their "today" cut at +08 and one in
--- America/Los_Angeles gets theirs at -08 against the same UTC rows.
---
--- @since is already the viewer's local start-of-day-(N) as a UTC
--- instant (computed by parseSinceParamInTZ). It must NOT be re-truncated
--- with DATE_TRUNC here — DATE_TRUNC operates in the session tz and would
--- snap the cutoff back to UTC midnight, dragging in an extra partial
--- local day for any non-UTC viewer.
--- provider is LOWER()-normalized so mixed-case historical rows (written
--- before the handler lowercased provider on write) merge with new rows
--- instead of forming a separate case-variant bucket.
+-- Authoritative, indexed raw usage over the requested workspace and date range.
+-- Chat runs have a NULL task_id and must be included. Read-time aggregation
+-- avoids stale hourly-rollup results and supports exact run-kind filtering.
 SELECT
-    DATE(bucket_hour AT TIME ZONE sqlc.arg('tz')::text) AS date,
-    LOWER(provider) AS provider,
-    model,
-    SUM(input_tokens)::bigint        AS input_tokens,
-    SUM(output_tokens)::bigint       AS output_tokens,
-    SUM(cache_read_tokens)::bigint   AS cache_read_tokens,
-    SUM(cache_write_tokens)::bigint  AS cache_write_tokens,
-    SUM(cost_usd_ticks)::bigint                                          AS cost_usd_ticks,
-    SUM(COALESCE(uncosted_input_tokens, input_tokens))::bigint           AS uncosted_input_tokens,
-    SUM(COALESCE(uncosted_output_tokens, output_tokens))::bigint         AS uncosted_output_tokens,
-    SUM(COALESCE(uncosted_cache_read_tokens, cache_read_tokens))::bigint AS uncosted_cache_read_tokens,
-    SUM(COALESCE(uncosted_cache_write_tokens, cache_write_tokens))::bigint AS uncosted_cache_write_tokens,
-    SUM(run_count)::int             AS run_count
-FROM agent_run_usage_hourly
-WHERE workspace_id = $1
-  AND bucket_hour >= sqlc.arg('since')::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR project_id = sqlc.narg('project_id'))
-GROUP BY DATE(bucket_hour AT TIME ZONE sqlc.arg('tz')::text), LOWER(provider), model
-ORDER BY DATE(bucket_hour AT TIME ZONE sqlc.arg('tz')::text) DESC, LOWER(provider), model;
+    DATE(tu.created_at AT TIME ZONE sqlc.arg('tz')::text) AS date,
+    LOWER(tu.provider) AS provider,
+    tu.model,
+    SUM(tu.input_tokens)::bigint AS input_tokens,
+    SUM(tu.output_tokens)::bigint AS output_tokens,
+    SUM(tu.cache_read_tokens)::bigint AS cache_read_tokens,
+    SUM(tu.cache_write_tokens)::bigint AS cache_write_tokens,
+    COALESCE(SUM(tu.cost_usd_ticks), 0)::bigint AS cost_usd_ticks,
+    COALESCE(SUM(tu.input_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_input_tokens,
+    COALESCE(SUM(tu.output_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_output_tokens,
+    COALESCE(SUM(tu.cache_read_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_read_tokens,
+    COALESCE(SUM(tu.cache_write_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_write_tokens,
+    COUNT(DISTINCT tu.run_id)::int AS run_count
+FROM agent_run_usage tu
+JOIN agent_run atq ON atq.id = tu.run_id
+JOIN agent a ON a.id = atq.agent_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
+WHERE a.workspace_id = $1
+  AND tu.created_at >= sqlc.arg('since')::timestamptz
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
+GROUP BY DATE(tu.created_at AT TIME ZONE sqlc.arg('tz')::text), LOWER(tu.provider), tu.model
+ORDER BY date DESC, provider, tu.model;
 
 -- name: ListDashboardUsageByAgent :many
--- Per-(agent, provider, model) token aggregates from `agent_run_usage_hourly`. No
--- date grouping in the result, so this query takes no `@tz` — the
--- @since cutoff is a raw timestamptz the Go layer has already computed
--- in the viewer's tz. Model dimension is preserved so the client can
--- compute cost from its per-model pricing table; the client folds rows
--- by agent for the "by agent" list on the dashboard.
---
--- run_count is summed across hourly buckets — one run that spans
--- multiple hours lands in multiple buckets, so this over-counts by
--- hour the same way the daily version over-counted by day. The
--- frontend prefers `ListDashboardAgentRunTime` for the user-facing
--- "runs" column, so this stays informational only.
--- provider is LOWER()-normalized so mixed-case historical rows merge with
--- new rows (see ListDashboardUsageDaily).
+-- Same source and scope as daily usage, retaining the model for workspace pricing.
 SELECT
-    agent_id,
-    LOWER(provider) AS provider,
-    model,
-    SUM(input_tokens)::bigint        AS input_tokens,
-    SUM(output_tokens)::bigint       AS output_tokens,
-    SUM(cache_read_tokens)::bigint   AS cache_read_tokens,
-    SUM(cache_write_tokens)::bigint  AS cache_write_tokens,
-    SUM(cost_usd_ticks)::bigint                                          AS cost_usd_ticks,
-    SUM(COALESCE(uncosted_input_tokens, input_tokens))::bigint           AS uncosted_input_tokens,
-    SUM(COALESCE(uncosted_output_tokens, output_tokens))::bigint         AS uncosted_output_tokens,
-    SUM(COALESCE(uncosted_cache_read_tokens, cache_read_tokens))::bigint AS uncosted_cache_read_tokens,
-    SUM(COALESCE(uncosted_cache_write_tokens, cache_write_tokens))::bigint AS uncosted_cache_write_tokens,
-    SUM(run_count)::int             AS run_count
-FROM agent_run_usage_hourly
-WHERE workspace_id = $1
-  AND bucket_hour >= @since::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR project_id = sqlc.narg('project_id'))
-GROUP BY agent_id, LOWER(provider), model
-ORDER BY agent_id, LOWER(provider), model;
+    atq.agent_id,
+    LOWER(tu.provider) AS provider,
+    tu.model,
+    SUM(tu.input_tokens)::bigint AS input_tokens,
+    SUM(tu.output_tokens)::bigint AS output_tokens,
+    SUM(tu.cache_read_tokens)::bigint AS cache_read_tokens,
+    SUM(tu.cache_write_tokens)::bigint AS cache_write_tokens,
+    COALESCE(SUM(tu.cost_usd_ticks), 0)::bigint AS cost_usd_ticks,
+    COALESCE(SUM(tu.input_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_input_tokens,
+    COALESCE(SUM(tu.output_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_output_tokens,
+    COALESCE(SUM(tu.cache_read_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_read_tokens,
+    COALESCE(SUM(tu.cache_write_tokens) FILTER (WHERE tu.cost_usd_ticks IS NULL), 0)::bigint AS uncosted_cache_write_tokens,
+    COUNT(DISTINCT tu.run_id)::int AS run_count
+FROM agent_run_usage tu
+JOIN agent_run atq ON atq.id = tu.run_id
+JOIN agent a ON a.id = atq.agent_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
+WHERE a.workspace_id = $1
+  AND tu.created_at >= sqlc.arg('since')::timestamptz
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
+GROUP BY atq.agent_id, LOWER(tu.provider), tu.model
+ORDER BY atq.agent_id, provider, tu.model;
 
 -- name: ListDashboardRunTimeDaily :many
 -- Daily per-date run time + run counts for the workspace, optionally
@@ -143,16 +126,21 @@ SELECT
         0
     )::bigint AS total_seconds,
     COUNT(*)::int AS run_count,
-    COUNT(*) FILTER (WHERE atq.status = 'failed')::int AS failed_count
+    COUNT(*) FILTER (WHERE atq.status = 'failed')::int AS failed_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'chat')::int AS chat_run_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'task')::int AS task_run_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'other')::int AS other_run_count
 FROM agent_run atq
 JOIN agent a ON a.id = atq.agent_id
-LEFT JOIN task i ON i.id = atq.task_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND atq.status IN ('completed', 'failed')
   AND atq.started_at IS NOT NULL
   AND atq.completed_at IS NOT NULL
   AND atq.completed_at >= sqlc.arg('since')::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR i.project_id = sqlc.narg('project_id'))
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
 GROUP BY DATE(atq.completed_at AT TIME ZONE sqlc.arg('tz')::text)
 ORDER BY DATE(atq.completed_at AT TIME ZONE sqlc.arg('tz')::text) DESC;
 
@@ -173,16 +161,21 @@ SELECT
         0
     )::bigint AS total_seconds,
     COUNT(*)::int AS run_count,
-    COUNT(*) FILTER (WHERE atq.status = 'failed')::int AS failed_count
+    COUNT(*) FILTER (WHERE atq.status = 'failed')::int AS failed_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'chat')::int AS chat_run_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'task')::int AS task_run_count,
+    COUNT(*) FILTER (WHERE agent_run_usage_kind(atq.chat_session_id, atq.task_id) = 'other')::int AS other_run_count
 FROM agent_run atq
 JOIN agent a ON a.id = atq.agent_id
-LEFT JOIN task i ON i.id = atq.task_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND atq.status IN ('completed', 'failed')
   AND atq.started_at IS NOT NULL
   AND atq.completed_at IS NOT NULL
   AND atq.completed_at >= @since::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR i.project_id = sqlc.narg('project_id'))
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
 GROUP BY atq.agent_id
 ORDER BY total_seconds DESC;
 
@@ -218,12 +211,14 @@ SELECT
     COUNT(*)::int AS run_count
 FROM agent_run atq
 JOIN agent a ON a.id = atq.agent_id
-LEFT JOIN task i ON i.id = atq.task_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND atq.status IN ('completed', 'failed')
   AND atq.completed_at IS NOT NULL
   AND atq.completed_at >= sqlc.arg('since')::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR i.project_id = sqlc.narg('project_id'))
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
 GROUP BY 1, 2
 ORDER BY 1 DESC, 2;
 
@@ -245,11 +240,13 @@ SELECT
     COUNT(*)::int AS run_count
 FROM agent_run atq
 JOIN agent a ON a.id = atq.agent_id
-LEFT JOIN task i ON i.id = atq.task_id
+LEFT JOIN task i ON i.id = atq.task_id AND i.workspace_id = a.workspace_id
+LEFT JOIN chat_session cs ON cs.id = atq.chat_session_id AND cs.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND atq.status IN ('completed', 'failed')
   AND atq.completed_at IS NOT NULL
   AND atq.completed_at >= @since::timestamptz
-  AND (sqlc.narg('project_id')::uuid IS NULL OR i.project_id = sqlc.narg('project_id'))
+  AND (sqlc.narg('project_id')::uuid IS NULL OR (CASE WHEN atq.chat_session_id IS NOT NULL THEN cs.project_id ELSE i.project_id END) = sqlc.narg('project_id'))
+  AND (sqlc.arg('run_kind')::text = '' OR agent_run_usage_kind(atq.chat_session_id, atq.task_id) = sqlc.arg('run_kind'))
 GROUP BY atq.agent_id, 2
 ORDER BY atq.agent_id, 2;

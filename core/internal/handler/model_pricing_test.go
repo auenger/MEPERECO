@@ -7,6 +7,14 @@ import (
 
 func TestWorkspaceModelPricing(t *testing.T) {
 	rules := modelPricingRules{}
+	// A known reference-model price or provider-reported charge does not
+	// constitute an explicit workspace configuration.
+	if _, source := rules.rate("codex", "gpt-5.4"); source != "unpriced" {
+		t.Fatalf("unconfigured reference model: %s", source)
+	}
+	if v := rules.cost("codex", "gpt-5.4", 10000000000, 1000000, 0, 0, 0, 0, 0, 0, 0); v.UnknownTokens != 1000000 || v.PricedTokens != 0 || v.ActualUSD != 0 || v.EstimatedUSD != 0 {
+		t.Fatalf("unconfigured actual charge must remain unpriced for the workspace: %+v", v)
+	}
 	unknown := rules.cost("codex", "deepseek-flash", 0, 1000000, 2000000, 3000000, 4000000, 1000000, 2000000, 3000000, 4000000)
 	if unknown.UnknownTokens != 10000000 || unknown.PricedTokens != 0 || unknown.EstimatedUSD != 0 {
 		t.Fatalf("unknown model: %+v", unknown)

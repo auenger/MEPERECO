@@ -9,15 +9,22 @@ import tarfile
 import tempfile
 import zipfile
 import datetime
+import json
+import re
+import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
 
 def build(output: Path, version: str, commit: str):
+    version = version.removeprefix("v")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+        raise ValueError("release version must contain three numeric components")
     output.mkdir(parents=True, exist_ok=True)
     date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     with tempfile.TemporaryDirectory(dir=output.parent, prefix='meperstudio-cli-') as temp:
         work = Path(temp)
         archives = []
+        artifacts = []
         for os_name in ('darwin', 'linux', 'windows'):
             for arch in ('amd64', 'arm64'):
                 binary = work / ('meperstudio.exe' if os_name == 'windows' else 'meperstudio')
@@ -37,13 +44,37 @@ def build(output: Path, version: str, commit: str):
                         with tarfile.open(archive, 'w:gz', compresslevel=6) as t:
                             t.add(binary, arcname=name)
                     archives.append(archive)
+                    if prefix == 'meperstudio':
+                        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+                        relative = f'releases/{version}/{digest}/{archive.name}'
+                        artifacts.append(dict(os=os_name, arch=arch, path=relative, archive_name=archive.name, binary=name, sha256=digest, size_bytes=archive.stat().st_size))
                 binary.unlink()
         manifest = work/'checksums.txt'
         manifest.write_text(''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in sorted(archives)))
         release = work/'version.txt'
         release.write_text(version+'\n')
+        # Publish immutable content-addressed paths before changing the pointer.
+        for entry in artifacts:
+            target = output/entry['path']
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                staged = work/(entry['sha256']+'.archive')
+                shutil.copyfile(work/entry['archive_name'], staged)
+                staged.replace(target)
+            elif hashlib.sha256(target.read_bytes()).hexdigest() != entry['sha256']:
+                raise ValueError(f'Existing immutable artifact differs: {target}')
+        # Compatibility assets for releases that predate the manifest.
         for path in archives + [release, manifest]:
             path.replace(output/path.name)
+        release_manifest = dict(schema_version='meperstudio.cli/v1', version=version, artifacts=artifacts)
+        pointer = work/'manifest.json'
+        pointer.write_text(json.dumps(release_manifest, indent=2)+'\n')
+        # TSV projection of the exact same manifest allows a POSIX installer to
+        # read it without depending on Python, Node or jq on a remote host.
+        tsv = work/'manifest.tsv'
+        tsv.write_text('meperstudio.cli/v1\t'+version+'\n'+''.join('\t'.join(str(e[k]) for k in ('os','arch','path','archive_name','binary','sha256','size_bytes'))+'\n' for e in artifacts))
+        tsv.replace(output/tsv.name)
+        pointer.replace(output/pointer.name)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)

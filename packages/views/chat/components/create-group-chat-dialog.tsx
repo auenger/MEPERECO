@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@silieco/ui/components/ui/dialog";
 import { Input } from "@silieco/ui/components/ui/input";
-import { ScrollArea } from "@silieco/ui/components/ui/scroll-area";
 import {
   useCreateGroupChatSession,
   useUpdateGroupChatParticipants,
@@ -131,15 +130,15 @@ export function CreateGroupChatDialog({
         if (!next && !createGroup.isPending && !updateParticipants.isPending) reset();
       }}
     >
-      <DialogContent className="overflow-hidden sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 px-5 pb-4 pt-5 pr-12">
           <DialogTitle>{t(($) => isManaging ? $.group.manage_title : $.group.create_title)}</DialogTitle>
           <DialogDescription>{t(($) => isManaging ? $.group.manage_description : $.group.create_description)}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex min-h-0 min-w-0 flex-col gap-4 overflow-y-auto px-5 pb-5">
           {!isManaging && (
-            <label className="space-y-1.5 pb-2">
+            <label className="flex min-w-0 shrink-0 flex-col gap-1.5">
               <span className="text-caption font-medium text-foreground">
                 {t(($) => $.group.name_label)}
               </span>
@@ -156,20 +155,21 @@ export function CreateGroupChatDialog({
             </label>
           )}
 
-          <div className="overflow-hidden rounded-lg border border-surface-border bg-card">
-            <div className="border-b border-surface-border p-2.5">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-surface-border bg-card">
+            <div className="min-w-0 shrink-0 border-b border-surface-border p-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t(($) => $.group.search_placeholder)}
-                  className="bg-surface pl-8"
+                  aria-label={t(($) => $.group.search_placeholder)}
+                  className="min-w-0 bg-surface pl-8"
                 />
               </div>
             </div>
 
-            <ScrollArea className="h-72">
+            <div className="max-h-72 min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
               <ParticipantSection
                 icon={<UsersRound className="size-4" />}
                 title={t(($) => $.group.people)}
@@ -215,11 +215,11 @@ export function CreateGroupChatDialog({
                   />
                 ))}
               </ParticipantSection>
-            </ScrollArea>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="m-0 shrink-0 px-5 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={createGroup.isPending || updateParticipants.isPending}>
             {t(($) => $.group.cancel)}
           </Button>
@@ -247,7 +247,7 @@ function ParticipantSection({
 }) {
   const items = Array.isArray(children) ? children : [children];
   return (
-    <section className="p-2">
+    <section className="min-w-0 p-2">
       <div className="flex items-center gap-2 px-2 py-1.5 text-caption font-medium text-muted-foreground">
         {icon}
         <span>{title}</span>
@@ -273,12 +273,12 @@ function ParticipantRow({
   detail: string;
 }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-hover has-[:disabled]:cursor-default">
+    <label className="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-hover has-[:disabled]:cursor-default">
       <Checkbox checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
-      {avatar}
+      <span className="flex shrink-0 items-center">{avatar}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-body font-medium">{name}</span>
-        <span className="block truncate text-caption text-muted-foreground">{detail}</span>
+        <span className="block truncate text-body font-medium" title={name}>{name}</span>
+        <span className="block truncate text-caption text-muted-foreground" title={detail}>{detail}</span>
       </span>
     </label>
   );

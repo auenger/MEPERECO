@@ -65,7 +65,7 @@
     "resource_tab": "工作资源",
     "not_found": "未找到该项目",
     "breadcrumb_fallback": "项目",
-    "title_placeholder": "项目标题",
+    "title_placeholder": "例如：产品迭代 2.0",
     "icon_tooltip": "更换图标",
     "pin_tooltip": "固定到侧边栏",
     "unpin_tooltip": "从侧边栏取消固定",

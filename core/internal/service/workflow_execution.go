@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/storage"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var ErrWorkflowExecutionConflict = errors.New("workflow execution state changed")
@@ -80,6 +80,9 @@ func (s *WorkflowExecutionService) EnsureStageExecutionInTx(ctx context.Context,
 	}
 	if stage.ExecutionMode != "agent" || stage.ExecutorID != params.ExecutorID {
 		return empty, ErrWorkflowExecutionConflict
+	}
+	if _, err := workflowcontract.ParseCompletionPolicy(stage.CompletionRule, "agent"); err != nil {
+		return empty, err
 	}
 	if _, err := workflowcontract.FromSpec(stage.OutputSpec, true); err != nil {
 		return empty, err

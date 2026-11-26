@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var ErrWorkflowReviewAccess = errors.New("workflow review is not authorized")
@@ -239,9 +239,13 @@ func (s *WorkflowExecutionService) captureWorkflowReviewBasis(ctx context.Contex
 		return empty, ErrWorkflowExecutionConflict
 	}
 	var config struct {
-		OutputSpec json.RawMessage `json:"output_spec"`
+		OutputSpec     json.RawMessage `json:"output_spec"`
+		CompletionRule json.RawMessage `json:"completion_rule"`
 	}
 	if err := json.Unmarshal(execution.ConfigSnapshot, &config); err != nil {
+		return empty, err
+	}
+	if _, err := workflowcontract.ParseCompletionPolicy(config.CompletionRule, "agent"); err != nil {
 		return empty, err
 	}
 	tasks, err := q.LockWorkflowReviewTasks(ctx, db.LockWorkflowReviewTasksParams{WorkspaceID: workspaceID, WorkflowInstanceID: instanceID, WorkflowStageID: execution.WorkflowStageID, WorkflowStageExecutionID: execution.ID})

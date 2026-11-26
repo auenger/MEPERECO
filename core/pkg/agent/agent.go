@@ -8,7 +8,6 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os/exec"
 	"strings"
@@ -297,113 +296,13 @@ type Config struct {
 // so the family picker rejected it (#4945). grok is the xAI Grok Build CLI
 // ACP backend (`grok agent --always-approve stdio`). qwen is Qwen Code's
 // native `qwen -p <prompt> --output-format stream-json` backend.
-var SupportedTypes = []string{
-	"claude",
-	"codebuddy",
-	"codex",
-	"copilot",
-	"opencode",
-	"deveco",
-	"openclaw",
-	"hermes",
-	"pi",
-	"cursor",
-	"kimi",
-	"kiro",
-	"antigravity",
-	"qoder",
-	"traecli",
-	"grok",
-	"qwen",
-	"zcode",
+var SupportedTypes = RuntimeIDs()    // compatibility for CLI consumers
+func IsSupportedType(id string) bool { _, ok := RuntimeDescriptorFor(id); return ok }
+func ResumeRejectionUndetectable(id string) bool {
+	d, _ := RuntimeDescriptorFor(id)
+	return d.Capabilities.ResumeRejectionUndetectable
 }
-
-// IsSupportedType reports whether agentType is in the SupportedTypes whitelist.
-// Used to validate a custom runtime profile's protocol_family before it is
-// persisted or registered.
-func IsSupportedType(agentType string) bool {
-	for _, t := range SupportedTypes {
-		if t == agentType {
-			return true
-		}
-	}
-	return false
-}
-
-// resumeRejectionUndetectable lists the backends that cannot produce
-// Result.ResumeRejected at all. They scrape SessionID out of stream output and
-// have no rejection detection: no phrase match, no structured error code, no
-// internal restart. copilot's own comment documents the hole (a session.error
-// arriving before session.start leaves SessionID empty), and antigravity's
-// conversation-id reader returns "" whenever the CLI exits before dispatching.
-//
-// Membership is deliberately opt-in. A backend absent from this map is treated
-// as capable, so a new backend fails closed — it reports no rejection and gets
-// no fallback — rather than silently inheriting a guess-based retry. Remove an
-// entry as soon as its backend learns to report rejections.
-var resumeRejectionUndetectable = map[string]bool{
-	"antigravity": true,
-	"copilot":     true,
-	"cursor":      true,
-	"deveco":      true,
-	"opencode":    true,
-}
-
-// ResumeRejectionUndetectable reports whether agentType is a backend that
-// cannot tell a refused resume from any other startup failure. Callers use it
-// to read a false Result.ResumeRejected correctly: "could not tell" for these,
-// "checked, not a rejection" for everything else.
-func ResumeRejectionUndetectable(agentType string) bool {
-	return resumeRejectionUndetectable[agentType]
-}
-
-func New(agentType string, cfg Config) (Backend, error) {
-	if cfg.Logger == nil {
-		cfg.Logger = slog.Default()
-	}
-	cfg.LaunchPrefix = FilterLaunchPrefix(agentType, cfg.LaunchPrefix, cfg.Logger)
-
-	switch agentType {
-	case "claude":
-		return &claudeBackend{cfg: cfg}, nil
-	case "codebuddy":
-		return &codebuddyBackend{cfg: cfg}, nil
-	case "codex":
-		return &codexBackend{cfg: cfg}, nil
-	case "copilot":
-		return &copilotBackend{cfg: cfg}, nil
-	case "opencode":
-		return &opencodeBackend{cfg: cfg}, nil
-	case "deveco":
-		return &devecoBackend{cfg: cfg}, nil
-	case "openclaw":
-		return &openclawBackend{cfg: cfg}, nil
-	case "hermes":
-		return &hermesBackend{cfg: cfg}, nil
-	case "pi":
-		return &piBackend{cfg: cfg}, nil
-	case "cursor":
-		return &cursorBackend{cfg: cfg}, nil
-	case "kimi":
-		return &kimiBackend{cfg: cfg}, nil
-	case "kiro":
-		return &kiroBackend{cfg: cfg}, nil
-	case "antigravity":
-		return &antigravityBackend{cfg: cfg}, nil
-	case "qoder":
-		return &qoderBackend{cfg: cfg}, nil
-	case "traecli":
-		return &traecliBackend{cfg: cfg}, nil
-	case "grok":
-		return &grokBackend{cfg: cfg}, nil
-	case "qwen":
-		return &qwenBackend{cfg: cfg}, nil
-	case "zcode":
-		return &zcodeBackend{cfg: cfg}, nil
-	default:
-		return nil, fmt.Errorf("unknown agent type: %q (supported: claude, codebuddy, codex, copilot, opencode, deveco, openclaw, hermes, pi, cursor, kimi, kiro, antigravity, qoder, traecli, grok, qwen)", agentType)
-	}
-}
+func New(id string, cfg Config) (Backend, error) { return RuntimeFactory(id, cfg) }
 
 // DetectVersion runs the agent CLI with --version and returns the output.
 func DetectVersion(ctx context.Context, executablePath string) (string, error) {
@@ -416,30 +315,7 @@ func DetectVersion(ctx context.Context, executablePath string) (string, error) {
 // label when there is no subcommand). Internal flags, transport values, and
 // environment variables are deliberately omitted so the string is a hint
 // about *what* users are extending, not a dump of the full command line.
-var launchHeaders = map[string]string{
-	"antigravity": "agy -p (non-interactive)",
-	"claude":      "claude (stream-json)",
-	"codebuddy":   "codebuddy (stream-json)",
-	"codex":       "codex app-server",
-	"copilot":     "copilot (json)",
-	"cursor":      "cursor-agent (stream-json)",
-	"deveco":      "deveco run (json)",
-	"hermes":      "hermes acp",
-	"kimi":        "kimi acp",
-	"kiro":        "kiro-cli acp",
-	"openclaw":    "openclaw agent (json)",
-	"opencode":    "opencode run (json)",
-	"pi":          "pi (json mode)",
-	"qoder":       "qodercli --acp",
-	"traecli":     "traecli acp serve",
-	"grok":        "grok agent stdio",
-	"qwen":        "qwen -p (stream-json)",
-	"zcode":       "zcode --prompt (stream-json)",
-}
-
-// LaunchHeader returns the user-visible launch skeleton for agentType, or an
-// empty string if the type is unknown. Callers render this as a preview so
-// users understand which command their custom_args get appended to.
 func LaunchHeader(agentType string) string {
-	return launchHeaders[agentType]
+	d, _ := RuntimeDescriptorFor(agentType)
+	return d.LaunchHeader
 }

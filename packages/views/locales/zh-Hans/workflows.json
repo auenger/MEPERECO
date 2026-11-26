@@ -10,7 +10,7 @@
   "create": {
     "title": "创建 Workflow",
     "name": "SOP 名称",
-    "name_placeholder": "例如：产品需求交付",
+    "name_placeholder": "例如：产品迭代与发布",
     "description": "说明",
     "description_placeholder": "这个 SOP 解决什么问题？",
     "stages": "Stages",
@@ -27,7 +27,7 @@
     "stages": "流程阶段",
     "start": "启动一次 Workflow",
     "run_title": "运行名称",
-    "run_placeholder": "例如：移动端 2.0 发布",
+    "run_placeholder": "例如：产品迭代 2.0",
     "start_confirm": "开始运行",
     "no_runs": "还没有运行实例",
     "select_run": "选择运行实例"
@@ -78,6 +78,13 @@
     "open_sop": "前往 SOP 启动"
   },
   "stage_review": {
+    "invalid_completion_policy": "当前阶段的完成规则无效，请修正规划后再批准。",
+    "scheduled_evaluation": "定时评估：{{date}} · {{result}}",
+    "task_change_evaluation": "任务变更评估：{{date}} · {{result}}",
+    "task_change_pending": "等待任务变更评估。",
+    "scheduled_ready": "已就绪",
+    "scheduled_incomplete": "未就绪",
+    "scheduled_pending": "等待下一次定时评估（审批仍校验实时证据）。",
     "panel_title": "Stage 验证",
     "panel_summary": "当前 Stage 已完成 {{complete}} / {{total}} 个 task。",
     "unavailable": "暂不可验证",
@@ -135,7 +142,7 @@
     "run_dialog_title": "启动一次 SOP 运行",
     "run_dialog_description": "为“{{name}}”的本次运行单独命名，方便团队后续识别和切换。",
     "run_name": "运行名称",
-    "run_name_placeholder": "例如：移动端 2.0 发布",
+    "run_name_placeholder": "例如：产品迭代 2.0",
     "run_default_name": "{{name}} · 第 {{sequence}} 次运行",
     "cancel_run": "取消",
     "confirm_start": "开始运行",
@@ -216,10 +223,11 @@
       "scheduled": "在计划时间汇总本阶段工作，适合日报和持续运营。"
     },
     "schedule_label": "检查计划",
-    "schedule_placeholder": "例如：每天 18:00 或 0 18 * * *",
+    "schedule_placeholder": "五段 Cron 表达式，例如 0 18 * * *",
+    "schedule_timezone": "时区（IANA）",
     "completion_rule": "Stage 完成条件",
-    "completion_all_tasks": "当前采用：所有必需 Task 进入终态，并提交要求的输出产物。",
-    "statuses": "Task 状态集合",
+    "completion_all_tasks": "当前采用：所有必需 Task 必须完成（done）。输出说明用于交付指引，Agent 结果使用契约校验。",
+    "statuses": "Task 状态标签（展示信息，不影响完成判断）",
     "status": {
       "backlog": "待规划",
       "todo": "待处理",

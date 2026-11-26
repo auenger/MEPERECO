@@ -10,21 +10,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	"github.com/auenger/MEPERECO/core/pkg/agent"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/db/relational"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AgentRuntimeResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	DaemonID    *string `json:"daemon_id"`
-	Name        string  `json:"name"`
+	Capabilities *agent.RuntimeCapabilities `json:"capabilities,omitempty"`
+	ID           string                     `json:"id"`
+	WorkspaceID  string                     `json:"workspace_id"`
+	DaemonID     *string                    `json:"daemon_id"`
+	Name         string                     `json:"name"`
 	// CustomName is the user-set display override (SILI-4217); null when the
 	// runtime still uses its daemon-proposed Name. Clients show
 	// CustomName ?? Name and seed the rename field from this raw value.
@@ -58,6 +59,7 @@ func runtimeToResponse(rt db.AgentRuntime) AgentRuntimeResponse {
 	}
 
 	return AgentRuntimeResponse{
+		Capabilities: agent.RuntimeCapabilitiesFor(rt.Provider),
 		ID:           uuidToString(rt.ID),
 		WorkspaceID:  uuidToString(rt.WorkspaceID),
 		DaemonID:     textToPtr(rt.DaemonID),

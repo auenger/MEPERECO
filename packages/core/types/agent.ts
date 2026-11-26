@@ -54,7 +54,19 @@ export interface AgentInvocationTargetInput {
 // "private" so the strictest behavior is the fallback.
 export type RuntimeVisibility = "private" | "public";
 
+export interface RuntimeCapabilities {
+  model_selection: boolean;
+  inline_system_prompt?: boolean;
+  resume_rejection_undetectable?: boolean;
+  project_skills?: boolean;
+  local_skills?: boolean;
+  native_skill_discovery?: boolean;
+  disable_local_skills?: boolean;
+}
+export interface RuntimeCatalogEntry { id: string; display_name: string; capabilities: RuntimeCapabilities }
+
 export interface RuntimeDevice {
+  capabilities?: RuntimeCapabilities;
   id: string;
   workspace_id: string;
   daemon_id: string | null;
@@ -125,8 +137,7 @@ export const RUNTIME_PROFILE_PROTOCOL_FAMILIES = [
   "zcode",
 ] as const;
 
-export type RuntimeProtocolFamily =
-  (typeof RUNTIME_PROFILE_PROTOCOL_FAMILIES)[number];
+export type RuntimeProtocolFamily = string; // registry IDs are validated by the server
 
 // Profile visibility mirrors RuntimeVisibility's vocabulary but uses the
 // workspace/private axis the server documents for profiles.
@@ -954,11 +965,16 @@ export interface DashboardUsageByAgent {
 // dashboard's "time by agent" list. failed_count is a subset of
 // run_count (failed tasks still contribute to total_seconds because
 // they consumed runtime to fail).
+export type DashboardRunKind = "all" | "chat" | "task" | "other";
+
 export interface DashboardAgentRunTime {
   agent_id: string;
   total_seconds: number;
   run_count: number;
   failed_count: number;
+  chat_run_count?: number;
+  task_run_count?: number;
+  other_run_count?: number;
 }
 
 // One (date) bucket of terminal-task run-time + counts for the workspace
@@ -970,6 +986,9 @@ export interface DashboardRunTimeDaily {
   total_seconds: number;
   run_count: number;
   failed_count: number;
+  chat_run_count?: number;
+  task_run_count?: number;
+  other_run_count?: number;
 }
 
 // One (date, failure_reason) bucket of terminal-task counts for the workspace

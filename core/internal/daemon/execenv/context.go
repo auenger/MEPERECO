@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -173,13 +174,14 @@ func writeContextFiles(workDir, provider string, ctx RunContextForEnv, manifest 
 		// Prepare (Hermes has no workspace-relative discovery), so it needs no
 		// workdir-local skills dir at all — skip the resolve too, to avoid
 		// leaving an empty .agent_context/skills/ behind.
-		if provider != "hermes" {
+		descriptor, _ := agent.RuntimeDescriptorFor(provider)
+		if !descriptor.SkipProjectSkillDirectory {
 			skillsDir, err := resolveSkillsDir(workDir, provider, manifest)
 			if err != nil {
 				return fmt.Errorf("resolve skills dir: %w", err)
 			}
 			// Codex skills are written to codex-home in Prepare; skip here.
-			if provider != "codex" {
+			if !descriptor.HomeSkillMaterialization {
 				if err := writeSkillFiles(skillsDir, ctx.AgentSkills, manifest); err != nil {
 					return fmt.Errorf("write skill files: %w", err)
 				}
@@ -333,89 +335,10 @@ func resolveSkillsDir(workDir, provider string, manifest *sidecarManifest) (stri
 // (removeReusedManagedSkillDirs) needs the bare path with no side effects so
 // it can match the managed skill roots the prior manifest recorded.
 func skillsDirPath(workDir, provider string) string {
-	switch provider {
-	case "claude":
-		// Claude Code natively discovers skills from .claude/skills/ in the workdir.
-		return filepath.Join(workDir, ".claude", "skills")
-	case "codebuddy":
-		// CodeBuddy Code is a Claude Code fork but uses its own native
-		// project-level skill directory .codebuddy/skills/, not
-		// .claude/skills/. See https://www.codebuddy.ai/docs/cli/skills.
-		return filepath.Join(workDir, ".codebuddy", "skills")
-	case "copilot":
-		// GitHub Copilot CLI natively discovers project-level skills from
-		// .github/skills/<name>/SKILL.md (takes precedence over user-level
-		// skills in ~/.copilot/skills/).
-		// See: https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference
-		return filepath.Join(workDir, ".github", "skills")
-	case "opencode":
-		// OpenCode natively discovers project skills from .opencode/skills/ in
-		// the workdir. ConfigPaths.directories() walks up from the discovery
-		// root looking for a bare `.opencode` directory (no opencode.json
-		// signal required), then skill/index.ts scans `{skill,skills}/**/SKILL.md`
-		// under each match. Discovery is anchored at the task workdir via
-		// `opencode run --dir <workDir>` + PWD override in opencodeBackend —
-		// without those, OpenCode walks from the daemon's inherited PWD and
-		// misses .opencode/skills + AGENTS.md entirely (SILI-2416).
-		return filepath.Join(workDir, ".opencode", "skills")
-	case "deveco":
-		// DevEco Code (Huawei's OpenCode fork) natively discovers project
-		// skills from .deveco/skills/ in the workdir, mirroring OpenCode's
-		// .opencode/skills layout under its DEVECO_-prefixed brand. Discovery
-		// is anchored at the task workdir via `deveco run --dir <workDir>` +
-		// the PWD override in devecoBackend, same anchor OpenCode uses.
-		return filepath.Join(workDir, ".deveco", "skills")
-	case "openclaw":
-		// OpenClaw's native skill scanner reads <workspaceDir>/skills/. The
-		// daemon pairs this with a per-task synthesized openclaw-config.json
-		// (see openclaw_config.go) that pins agents.defaults.workspace to
-		// workDir, so writing here is what the CLI actually scans. Before
-		// SILI-2219 this used to fall back to .agent_context/skills/, which
-		// no openclaw scan path ever inspected.
-		return filepath.Join(workDir, "skills")
-	case "zcode":
-		return filepath.Join(workDir, ".zcode", "skills")
-	case "pi":
-		// Pi natively discovers skills from .pi/skills/ in the workdir.
-		return filepath.Join(workDir, ".pi", "skills")
-	case "cursor":
-		// Cursor natively discovers skills from .cursor/skills/ in the workdir.
-		return filepath.Join(workDir, ".cursor", "skills")
-	case "kimi":
-		// Kimi Code CLI auto-discovers project-level skills from .kimi/skills/
-		// in the workdir. See https://moonshotai.github.io/kimi-cli/en/customization/skills.html
-		return filepath.Join(workDir, ".kimi", "skills")
-	case "kiro":
-		// Kiro CLI auto-discovers project-level skills from .kiro/skills/
-		// in the workdir.
-		return filepath.Join(workDir, ".kiro", "skills")
-	case "qoder":
-		// Qoder CLI discovers project-level skills under .qoder/skills/.
-		// See https://docs.qoder.com/cli/Skills.md
-		return filepath.Join(workDir, ".qoder", "skills")
-	case "qwen":
-		// Qwen Code discovers project-level skills from .qwen/skills/ in the workdir.
-		return filepath.Join(workDir, ".qwen", "skills")
-	case "traecli":
-		// Official TRAE CLI discovers project-level skills from .traecli/skills/
-		// in the workdir (global skills live in ~/.traecli/skills). See
-		// https://docs.trae.cn/cli_skills
-		return filepath.Join(workDir, ".traecli", "skills")
-	case "antigravity":
-		// Antigravity (`agy`) auto-discovers workspace-level skills from
-		// .agents/skills/ in the workdir. The CLI inherits Gemini CLI's
-		// workspace skill layout; see https://antigravity.google/docs/gcli-migration
-		// under "Workspace skills".
-		return filepath.Join(workDir, ".agents", "skills")
-	case "grok":
-		// Grok Build CLI discovers project-level skills from .grok/skills/
-		// (and also scans .agents/skills/). Prefer the native .grok tree.
-		// See Grok user-guide skills.md.
-		return filepath.Join(workDir, ".grok", "skills")
-	default:
-		// Fallback: write to .agent_context/skills/ (referenced by meta config).
-		return filepath.Join(workDir, ".agent_context", "skills")
+	if descriptor, ok := agent.RuntimeDescriptorFor(provider); ok {
+		return filepath.Join(workDir, filepath.FromSlash(descriptor.ProjectSkillPath))
 	}
+	return filepath.Join(workDir, ".agent_context", "skills")
 }
 
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)

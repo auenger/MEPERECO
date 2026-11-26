@@ -1,3 +1,4 @@
+import { modelCostForRow } from "./usage-cost-model";
 import type {
   AgentRuntime,
   RuntimeUsage,
@@ -386,28 +387,11 @@ export function pricingKey(model: string, provider?: string): string {
   return p ? qualify(p, model) : model;
 }
 
-// Display/grouping key for a usage row's model. Self-resolving ids
-// (vendor-prefixed SKUs like `claude-opus-4-7`, and the legacy `cursor`
-// fallback whose key equals the provider name) stay bare; a generic id that
-// only prices under a provider (`auto`, `composer-*`) is provider-qualified
-// so two providers reporting the same bare id don't merge into one mislabelled
-// row, and the label matches what `collectUnmappedModels` / the pricing dialog
-// surface.
+// Workspace rates are keyed by the exact provider and model. Do not merge
+// rows across different runtimes even when their model names look identical.
 export function modelGroupingKey(model: string, provider?: string): string {
   if (!model) return normalizeProvider(provider) || "unknown";
-  return isSelfResolvingId(model) ? model : pricingKey(model, provider);
-}
-
-// Whether a model id prices on its own without a provider qualifier (a
-// vendor-prefixed SKU, or the legacy `cursor` fallback). Such ids keep a bare
-// grouping key; generic ids (`auto`, `composer-*`) stay provider-qualified.
-//
-// Probes the BARE model on purpose: forwarding a provider would let a
-// qualified row report as self-resolving and collapse back to a bare key,
-// re-merging the cross-provider collision this scheme prevents. Keep the
-// argument list provider-free so that stays true.
-function isSelfResolvingId(model: string): boolean {
-  return isModelPriced(model);
+  return pricingKey(model, provider);
 }
 
 // Generate the lookup candidates for a model string, in priority order:
@@ -469,30 +453,9 @@ export function isModelPriced(model: string, provider?: string): boolean {
   return resolvePricing(model, provider) !== undefined;
 }
 
-// Returns the unique, sorted list of pricing keys present in `rows` that
-// don't resolve to a price. Keys are provider-qualified (`cursor/auto`) when
-// the row carries a provider, so the same bare model id reported by two
-// providers surfaces as two distinct entries the user can price separately.
-// Empty when everything's priced or there are no rows.
-// A row the provider priced in full needs no rate-table entry, so it must not
-// raise the "we can't price this model" warning — its cost is already exact,
-// and asking the user to supply a rate for it would be asking them to override
-// a real bill with a guess.
+// Model identities with token usage but no configured workspace rate.
 export function collectUnmappedModels(rows: readonly Priceable[]): string[] {
-  const set = new Set<string>();
-  for (const r of rows) {
-    if (r.pricing) { if (r.pricing.unknown_tokens > 0) set.add(pricingKey(r.model,r.provider)); continue; }
-    if (!r.model || isModelPriced(r.model, r.provider)) continue;
-    const uncosted = uncostedTokens(r);
-    const needsEstimate =
-      uncosted.input > 0 ||
-      uncosted.output > 0 ||
-      uncosted.cacheRead > 0 ||
-      uncosted.cacheWrite > 0;
-    if (!needsEstimate && (r.cost_usd_ticks ?? 0) > 0) continue;
-    set.add(pricingKey(r.model, r.provider));
-  }
-  return Array.from(set).toSorted();
+  return Array.from(new Set(rows.filter(r => modelCostForRow(r).unknown_tokens > 0).map(r => pricingKey(r.model, r.provider)))).toSorted();
 }
 
 // Anything carrying per-model token totals can be priced — RuntimeUsage,
@@ -520,73 +483,11 @@ type Priceable = Pick<
   uncosted_cache_write_tokens?: number;
 };
 
-// Providers report cost in ticks of 1e-10 USD (xAI's unit), which keeps
-// sub-cent turn costs exact as integers all the way from the agent to here.
-const COST_USD_TICKS_PER_USD = 10_000_000_000;
-
-// The tokens in a row that still need pricing from the table above, i.e. the
-// ones no provider priced for us.
-//
-// A backend older than the cost split sends no `uncosted_*` at all. Treating
-// that as "0 tokens left to estimate" would report $0 for every row, so
-// `undefined` falls back to the full token counts — exactly the pre-split
-// behaviour. The one exception is a row that DOES carry an authoritative cost
-// without the split: adding a full-token estimate on top would double-charge
-// it, so the authoritative figure stands alone. A current backend always sends
-// both, so this only guards against version drift.
-function uncostedTokens(usage: Priceable): {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-} {
-  if (usage.uncosted_input_tokens === undefined) {
-    if ((usage.cost_usd_ticks ?? 0) > 0) {
-      return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-    }
-    return {
-      input: usage.input_tokens,
-      output: usage.output_tokens,
-      cacheRead: usage.cache_read_tokens,
-      cacheWrite: usage.cache_write_tokens,
-    };
-  }
-  return {
-    input: usage.uncosted_input_tokens,
-    output: usage.uncosted_output_tokens ?? 0,
-    cacheRead: usage.uncosted_cache_read_tokens ?? 0,
-    cacheWrite: usage.uncosted_cache_write_tokens ?? 0,
-  };
-}
-
-// Cost of a usage row: what the provider actually charged, plus a rate-table
-// estimate for whatever it didn't charge for.
-//
-// The rate table cannot express request-level pricing rules — xAI bills a Grok
-// request at 2x once its prompt reaches 200K tokens, and these rows aggregate
-// every model call in a turn, so the token counts genuinely cannot say which
-// tier a given request hit. Where the provider tells us its own price, that
-// number is the bill and no estimate can improve on it.
-//
-// Both halves are summed rather than one winning outright because a single row
-// can aggregate both kinds of source row (two providers in a bucket, or Grok
-// either side of a CLI upgrade). Custom pricing overrides still apply — but
-// only to the estimated half, since they are a user's guess at a rate and the
-// authoritative half is not a guess.
+// Workspace-scoped pricing is supplied by the backend; never auto-price
+// unconfigured models using the client reference catalogue.
 export function estimateCost(usage: Priceable): number {
-  if (usage.pricing) return usage.pricing.actual_usd + usage.pricing.estimated_usd;
-  const authoritative = (usage.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD;
-  const pricing = resolvePricing(usage.model, usage.provider);
-  if (!pricing) return authoritative;
-  const uncosted = uncostedTokens(usage);
-  return (
-    authoritative +
-    (uncosted.input * pricing.input +
-      uncosted.output * pricing.output +
-      uncosted.cacheRead * pricing.cacheRead +
-      uncosted.cacheWrite * pricing.cacheWrite) /
-      1_000_000
-  );
+  const p = modelCostForRow(usage);
+  return p.actual_usd + p.estimated_usd;
 }
 
 export interface CostBreakdown {
@@ -603,66 +504,12 @@ export interface CostBreakdown {
 // this way keeps the stacked chart summing to the headline figure instead of
 // silently under-drawing every Grok row.
 export function estimateCostBreakdown(usage: Priceable): CostBreakdown {
-  if (usage.pricing) { const b=usage.pricing.breakdown; return { input:b.input, output:b.output, cacheRead:b.cache_read, cacheWrite:b.cache_write }; }
-  const pricing = resolvePricing(usage.model, usage.provider);
-  if (!pricing) {
-    // No rates to split by, but the provider may still have priced the turn
-    // itself. Returning zeros here would make the stacked chart disagree with
-    // the headline `estimateCost` on exactly the rows whose cost is EXACT, so
-    // the charge lands whole in one bucket instead.
-    return {
-      input: (usage.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
-    };
-  }
-  const uncosted = uncostedTokens(usage);
-  const breakdown: CostBreakdown = {
-    input: (uncosted.input * pricing.input) / 1_000_000,
-    output: (uncosted.output * pricing.output) / 1_000_000,
-    cacheRead: (uncosted.cacheRead * pricing.cacheRead) / 1_000_000,
-    cacheWrite: (uncosted.cacheWrite * pricing.cacheWrite) / 1_000_000,
-  };
-
-  const authoritative = (usage.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD;
-  if (authoritative <= 0) return breakdown;
-
-  // Shape the authoritative charge like the rate table would have priced the
-  // tokens it covers — the row's full tokens minus the estimated ones.
-  const shape = {
-    input: ((usage.input_tokens - uncosted.input) * pricing.input) / 1_000_000,
-    output: ((usage.output_tokens - uncosted.output) * pricing.output) / 1_000_000,
-    cacheRead:
-      ((usage.cache_read_tokens - uncosted.cacheRead) * pricing.cacheRead) / 1_000_000,
-    cacheWrite:
-      ((usage.cache_write_tokens - uncosted.cacheWrite) * pricing.cacheWrite) / 1_000_000,
-  };
-  const shapeTotal = shape.input + shape.output + shape.cacheRead + shape.cacheWrite;
-  if (shapeTotal <= 0) {
-    // Nothing to shape it with (unpriced tokens, or a row carrying cost but no
-    // tokens). Keep the money in the total rather than dropping it.
-    return { ...breakdown, input: breakdown.input + authoritative };
-  }
-  const scale = authoritative / shapeTotal;
-  return {
-    input: breakdown.input + shape.input * scale,
-    output: breakdown.output + shape.output * scale,
-    cacheRead: breakdown.cacheRead + shape.cacheRead * scale,
-    cacheWrite: breakdown.cacheWrite + shape.cacheWrite * scale,
-  };
+  const b = modelCostForRow(usage).breakdown;
+  return { input: b.input, output: b.output, cacheRead: b.cache_read, cacheWrite: b.cache_write };
 }
 
-// Cache savings: what cache *reads* would have cost at full input pricing
-// minus what they actually cost at the discounted cache-hit rate. This is a
-// reconstruction of "money the cache saved you", not real-world spend.
 export function estimateCacheSavings(usage: Priceable): number {
-  if(usage.pricing) return usage.pricing.cache_savings_usd;
-  const pricing = resolvePricing(usage.model, usage.provider);
-  if (!pricing) return 0;
-  const wouldHaveCost = (usage.cache_read_tokens * pricing.input) / 1_000_000;
-  const actualCost = (usage.cache_read_tokens * pricing.cacheRead) / 1_000_000;
-  return wouldHaveCost - actualCost;
+  return modelCostForRow(usage).cache_savings_usd;
 }
 
 // ---------------------------------------------------------------------------
@@ -1067,7 +914,7 @@ export function aggregateCostByAgent(rows: RuntimeUsageByAgent[]): CostByKey[] {
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
-    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
+    entry.unknownTokens=(entry.unknownTokens??0)+modelCostForRow(r).unknown_tokens;
     entry.taskCount += r.run_count;
     map.set(r.agent_id, entry);
   }
@@ -1084,7 +931,7 @@ export function aggregateCostByModel(rows: RuntimeUsage[]): CostByKey[] {
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
-    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
+    entry.unknownTokens=(entry.unknownTokens??0)+modelCostForRow(r).unknown_tokens;
     map.set(key, entry);
   }
   return Array.from(map.values()).toSorted((a, b) => b.cost - a.cost);

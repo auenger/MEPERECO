@@ -6,10 +6,7 @@ import { AppLink } from "../../navigation";
 import { formatModelMoney, usePricingCurrency } from "../pricing-currency";
 import { formatTokens } from "../utils";
 
-export function sumModelCosts(rows: readonly {pricing?: ModelCost}[]): ModelCost | undefined {
- if (!rows.length || rows.some(r=>!r.pricing)) return;
- return rows.reduce<ModelCost>((a,r)=>{const p=r.pricing!;return {actual_usd:a.actual_usd+p.actual_usd,estimated_usd:a.estimated_usd+p.estimated_usd,unknown_tokens:a.unknown_tokens+p.unknown_tokens,priced_tokens:a.priced_tokens+p.priced_tokens,estimated_tokens:a.estimated_tokens+p.estimated_tokens,cache_savings_usd:a.cache_savings_usd+p.cache_savings_usd,breakdown:{input:a.breakdown.input+p.breakdown.input,output:a.breakdown.output+p.breakdown.output,cache_read:a.breakdown.cache_read+p.breakdown.cache_read,cache_write:a.breakdown.cache_write+p.breakdown.cache_write}}},{actual_usd:0,estimated_usd:0,unknown_tokens:0,priced_tokens:0,estimated_tokens:0,cache_savings_usd:0,breakdown:{input:0,output:0,cache_read:0,cache_write:0}});
-}
+export { sumModelCosts } from "../usage-cost-model";
 
 export function ModelCostValue({cost}: {cost:ModelCost}){
  const {t}=useT("usage");const currency=usePricingCurrency();const known=cost.actual_usd+cost.estimated_usd;

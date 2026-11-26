@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,15 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	"github.com/auenger/MEPERECO/core/internal/service"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
 	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const maxWorkflowStages = 50
@@ -149,37 +147,39 @@ type WorkflowReworkResponse struct {
 }
 
 type WorkflowInstanceResponse struct {
-	Reworks           []WorkflowReworkResponse         `json:"reworks,omitempty"`
-	StateToken        string                           `json:"state_token"`
-	ID                string                           `json:"id"`
-	WorkspaceID       string                           `json:"workspace_id"`
-	WorkflowID        string                           `json:"workflow_id"`
-	WorkflowVersionID string                           `json:"workflow_version_id"`
-	Title             string                           `json:"title"`
-	Description       *string                          `json:"description"`
-	Inputs            json.RawMessage                  `json:"inputs"`
-	Revision          int32                            `json:"revision"`
-	AcceptsNewTasks   bool                             `json:"accepts_new_tasks"`
-	CanEdit           bool                             `json:"can_edit"`
-	SourceVersion     int32                            `json:"source_version"`
-	Status            string                           `json:"status"`
-	CurrentStageID    *string                          `json:"current_stage_id"`
-	CurrentStageName  *string                          `json:"current_stage_name"`
-	CurrentStageIndex *int32                           `json:"current_stage_index"`
-	StageCount        int32                            `json:"stage_count"`
-	ProjectID         *string                          `json:"project_id"`
-	CreatedBy         string                           `json:"created_by"`
-	StartedAt         *string                          `json:"started_at"`
-	CompletedAt       *string                          `json:"completed_at"`
-	TaskCount         int64                            `json:"task_count"`
-	ArchivedAt        *string                          `json:"archived_at"`
-	ArchivedBy        *string                          `json:"archived_by"`
-	CreatedAt         string                           `json:"created_at"`
-	UpdatedAt         string                           `json:"updated_at"`
-	Stages            []WorkflowInstanceStageResponse  `json:"stages,omitempty"`
-	Tasks             []TaskResponse                   `json:"tasks,omitempty"`
-	Decisions         []WorkflowGateDecisionResponse   `json:"decisions,omitempty"`
-	Changes           []WorkflowInstanceChangeResponse `json:"changes,omitempty"`
+	ManualReadiness    *service.ManualReadiness         `json:"manual_readiness,omitempty"`
+	AutomaticReadiness *service.ManualReadiness         `json:"automatic_readiness,omitempty"`
+	Reworks            []WorkflowReworkResponse         `json:"reworks,omitempty"`
+	StateToken         string                           `json:"state_token"`
+	ID                 string                           `json:"id"`
+	WorkspaceID        string                           `json:"workspace_id"`
+	WorkflowID         string                           `json:"workflow_id"`
+	WorkflowVersionID  string                           `json:"workflow_version_id"`
+	Title              string                           `json:"title"`
+	Description        *string                          `json:"description"`
+	Inputs             json.RawMessage                  `json:"inputs"`
+	Revision           int32                            `json:"revision"`
+	AcceptsNewTasks    bool                             `json:"accepts_new_tasks"`
+	CanEdit            bool                             `json:"can_edit"`
+	SourceVersion      int32                            `json:"source_version"`
+	Status             string                           `json:"status"`
+	CurrentStageID     *string                          `json:"current_stage_id"`
+	CurrentStageName   *string                          `json:"current_stage_name"`
+	CurrentStageIndex  *int32                           `json:"current_stage_index"`
+	StageCount         int32                            `json:"stage_count"`
+	ProjectID          *string                          `json:"project_id"`
+	CreatedBy          string                           `json:"created_by"`
+	StartedAt          *string                          `json:"started_at"`
+	CompletedAt        *string                          `json:"completed_at"`
+	TaskCount          int64                            `json:"task_count"`
+	ArchivedAt         *string                          `json:"archived_at"`
+	ArchivedBy         *string                          `json:"archived_by"`
+	CreatedAt          string                           `json:"created_at"`
+	UpdatedAt          string                           `json:"updated_at"`
+	Stages             []WorkflowInstanceStageResponse  `json:"stages,omitempty"`
+	Tasks              []TaskResponse                   `json:"tasks,omitempty"`
+	Decisions          []WorkflowGateDecisionResponse   `json:"decisions,omitempty"`
+	Changes            []WorkflowInstanceChangeResponse `json:"changes,omitempty"`
 }
 
 type WorkflowInstanceStageResponse struct {
@@ -296,8 +296,7 @@ func workflowStageToResponse(row db.WorkflowStage) WorkflowStageResponse {
 // workflowInstanceStateToken binds manual decisions to the observed Run state.
 // Use full database timestamp precision; display timestamps may omit fractions.
 func workflowInstanceStateToken(row db.WorkflowInstance) string {
-	basis := fmt.Sprintf("%x|%x|%d|%s|%s", row.ID.Bytes, row.CurrentStageID.Bytes, row.Revision, row.Status, row.UpdatedAt.Time.UTC().Format(time.RFC3339Nano))
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(basis)))
+	return service.WorkflowStateToken(row)
 }
 
 func workflowInstanceToResponse(row db.WorkflowInstance) WorkflowInstanceResponse {
@@ -478,19 +477,19 @@ func normalizeWorkflowStages(stages []WorkflowStageInput) ([]WorkflowStageInput,
 			if inputContract != nil && len(inputContract.Artifacts) > 0 {
 				return nil, fmt.Errorf("stages[%d].input_spec artifact bindings are not supported yet", i)
 			}
-			if len(stages[i].CompletionRule) == 0 {
-				stages[i].CompletionRule = json.RawMessage(`{"type":"validated_result"}`)
-			}
-			var rule map[string]json.RawMessage
-			if err := json.Unmarshal(stages[i].CompletionRule, &rule); err != nil || len(rule) != 1 || string(rule["type"]) != `"validated_result"` {
-				return nil, fmt.Errorf("stages[%d].completion_rule must be {\"type\":\"validated_result\"} for agent execution", i)
-			}
+
 		default:
 			return nil, fmt.Errorf("stages[%d].execution_mode must be manual or agent", i)
 		}
-		if _, err := normalizeObject(stages[i].CompletionRule, `{"type":"all_tasks_terminal"}`); err != nil {
-			return nil, fmt.Errorf("stages[%d].completion_rule %w", i, err)
+		completion, err := workflowcontract.ParseCompletionPolicy(stages[i].CompletionRule, stages[i].ExecutionMode)
+		if err != nil {
+			return nil, fmt.Errorf("stages[%d]: %w", i, err)
 		}
+		if err := completion.ValidateWrite(); err != nil {
+			return nil, fmt.Errorf("stages[%d]: %w", i, err)
+		}
+		stages[i].CompletionRule, _ = json.Marshal(completion)
+
 		if _, err := normalizeObject(stages[i].InputSpec, `{}`); err != nil {
 			return nil, fmt.Errorf("stages[%d].input_spec %w", i, err)
 		}
@@ -1335,20 +1334,9 @@ func (h *Handler) CreateWorkflowInstance(w http.ResponseWriter, r *http.Request)
 		instanceStages = append(instanceStages, instanceStage)
 	}
 	if start {
-		row, err = qtx.UpdateWorkflowInstanceState(r.Context(), db.UpdateWorkflowInstanceStateParams{
-			ID: row.ID, WorkspaceID: wsUUID, CurrentStageID: instanceStages[0].ID,
-		})
+		executionSvc := &service.WorkflowExecutionService{Queries: h.Queries, TxStarter: h.TxStarter, AgentRunService: h.AgentRunService, Storage: h.Storage}
+		row, err = executionSvc.StartWorkflowInstanceInTx(r.Context(), qtx, row, instanceStages[0])
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to start workflow instance")
-			return
-		}
-	}
-	if start && instanceStages[0].ExecutionMode == "agent" {
-		executionSvc := &service.WorkflowExecutionService{Queries: h.Queries, TxStarter: h.TxStarter, AgentRunService: h.AgentRunService}
-		if _, err := executionSvc.EnsureStageExecutionInTx(r.Context(), qtx, service.EnsureWorkflowExecutionParams{
-			WorkspaceID: wsUUID, InstanceID: row.ID, StageID: instanceStages[0].ID, ExpectedRevision: row.Revision,
-			ExecutorID: instanceStages[0].ExecutorID, InputSnapshot: row.Inputs,
-		}); err != nil {
 			writeError(w, http.StatusConflict, "cannot start stage execution: "+err.Error())
 			return
 		}
@@ -1423,6 +1411,28 @@ func (h *Handler) GetWorkflowInstance(w http.ResponseWriter, r *http.Request) {
 	for i, task := range tasks {
 		resp.Tasks[i] = taskToResponse(task, workspace.TaskPrefix)
 	}
+	// Readiness is diagnostic; the transition transaction still checks locked rows.
+	for _, stage := range stages {
+		if stage.ID == row.CurrentStageID && stage.ExecutionMode == "manual" {
+			statuses := make([]string, 0, len(tasks))
+			for _, task := range tasks {
+				if task.WorkflowStageID == stage.ID && !task.WorkflowInvalidatedByReworkID.Valid {
+					statuses = append(statuses, task.Status)
+				}
+			}
+			evaluated := service.EvaluateManualStage(stage, statuses, time.Now().UTC())
+			resp.ManualReadiness = &evaluated
+			if evaluated.EvaluationMode == workflowcontract.EvaluationScheduled || evaluated.EvaluationMode == workflowcontract.EvaluationOnTaskChange {
+				svc := &service.WorkflowExecutionService{Queries: h.Queries, TxStarter: h.TxStarter}
+				if scheduled, err := svc.ReadAutomaticReadiness(r.Context(), row); err == nil {
+					resp.AutomaticReadiness = scheduled
+				} else {
+					h.logWorkflowError(r, "scheduled readiness", err)
+				}
+			}
+			break
+		}
+	}
 	reworks, err := h.Queries.ListWorkflowReworks(r.Context(), db.ListWorkflowReworksParams{WorkspaceID: wsUUID, WorkflowInstanceID: instanceID})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load workflow rework history")
@@ -1457,46 +1467,6 @@ func (h *Handler) GetWorkflowInstance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-type workflowGateConfig struct {
-	Type         string `json:"type"`
-	DeciderType  string `json:"decider_type"`
-	Decider      string `json:"decider"`
-	RequireHuman bool   `json:"require_human"`
-	HumanDecider string `json:"human_decider"`
-}
-
-func parseWorkflowGate(raw []byte) workflowGateConfig {
-	var gate workflowGateConfig
-	if json.Unmarshal(raw, &gate) != nil || gate.Type == "" {
-		gate.Type = "none"
-	}
-	return gate
-}
-
-func validateWorkflowGateActor(gate workflowGateConfig, actorType, actorID string) error {
-	switch gate.Type {
-	case "human", "hybrid":
-		if actorType != "member" {
-			return errors.New("this stage requires a human decision")
-		}
-		expected := gate.HumanDecider
-		if expected == "" && gate.Type == "human" {
-			expected = gate.Decider
-		}
-		if expected != "" && expected != actorID {
-			return errors.New("only the configured human decider can review this stage")
-		}
-	case "agent":
-		if actorType != "agent" {
-			return errors.New("this stage requires an agent decision")
-		}
-		if gate.Decider != "" && gate.Decider != "@self" && gate.Decider != actorID {
-			return errors.New("only the configured agent can review this stage")
-		}
-	}
-	return nil
-}
-
 func (h *Handler) TransitionWorkflowInstance(w http.ResponseWriter, r *http.Request) {
 	workspaceID, userID, wsUUID, ok := h.requireWorkflowMember(w, r)
 	if !ok {
@@ -1511,199 +1481,46 @@ func (h *Handler) TransitionWorkflowInstance(w http.ResponseWriter, r *http.Requ
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.Outcome == "" {
-		req.Outcome = "approved"
-	}
-	if req.Outcome != "approved" && req.Outcome != "rejected" {
-		writeError(w, http.StatusBadRequest, "outcome must be approved or rejected")
-		return
-	}
-	instance, err := h.Queries.GetWorkflowInstanceInWorkspace(r.Context(), db.GetWorkflowInstanceInWorkspaceParams{
-		ID: instanceID, WorkspaceID: wsUUID,
-	})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "workflow instance not found")
-		return
-	}
-	if instance.Status != "active" && instance.Status != "waiting" {
-		writeError(w, http.StatusConflict, "workflow instance is not active")
-		return
-	}
-	if instance.ArchivedAt.Valid {
-		writeError(w, http.StatusConflict, "archived workflow instances cannot be transitioned")
-		return
-	}
-	if !instance.CurrentStageID.Valid {
-		writeError(w, http.StatusConflict, "workflow instance has no current stage")
-		return
-	}
-	current, err := h.Queries.GetWorkflowInstanceStage(r.Context(), db.GetWorkflowInstanceStageParams{
-		ID: instance.CurrentStageID, WorkflowInstanceID: instance.ID, WorkspaceID: wsUUID,
-	})
-	if err != nil {
-		writeError(w, http.StatusConflict, "current workflow stage is invalid")
-		return
-	}
-	if current.ExecutionMode == "agent" {
-		writeError(w, http.StatusConflict, "agent stages require accepted execution results before transition")
-		return
-	}
-	if len(req.ExpectedStateToken) != 64 || req.ExpectedStateToken != workflowInstanceStateToken(instance) {
-		writeError(w, http.StatusConflict, "workflow state changed or review state is missing; reopen the stage review")
-		return
+	var target pgtype.UUID
+	if req.TargetStageID != nil {
+		target, ok = parseUUIDOrBadRequest(w, *req.TargetStageID, "target_stage_id")
+		if !ok {
+			return
+		}
 	}
 	actorType, actorID := h.resolveActor(r, userID, workspaceID)
-	gate := parseWorkflowGate(current.Gate)
-	if err := validateWorkflowGateActor(gate, actorType, actorID); err != nil {
-		writeError(w, http.StatusForbidden, err.Error())
-		return
-	}
 	actorUUID, err := util.ParseUUID(actorID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid actor id")
 		return
 	}
-
-	var target db.WorkflowInstanceStage
-	var targetID pgtype.UUID
-	completing := false
-	if req.Outcome == "rejected" {
-		if req.TargetStageID != nil {
-			targetID, ok = parseUUIDOrBadRequest(w, *req.TargetStageID, "target_stage_id")
-			if !ok {
-				return
+	svc := &service.WorkflowExecutionService{Queries: h.Queries, TxStarter: h.TxStarter, AgentRunService: h.AgentRunService, Storage: h.Storage}
+	result, err := svc.TransitionManual(r.Context(), service.ManualWorkflowTransitionParams{WorkspaceID: wsUUID, InstanceID: instanceID, ActorID: actorUUID, ActorType: actorType, TargetStageID: target, Outcome: req.Outcome, ExpectedStateToken: req.ExpectedStateToken, Note: req.Note})
+	if err != nil {
+		var domain *service.WorkflowTransitionError
+		if errors.As(err, &domain) {
+			status := http.StatusConflict
+			switch domain.Kind {
+			case "invalid":
+				status = http.StatusBadRequest
+			case "forbidden":
+				status = http.StatusForbidden
+			case "not_found":
+				status = http.StatusNotFound
 			}
-			target, err = h.Queries.GetWorkflowInstanceStage(r.Context(), db.GetWorkflowInstanceStageParams{
-				ID: targetID, WorkflowInstanceID: instance.ID, WorkspaceID: wsUUID,
-			})
-			if err != nil || target.Position >= current.Position || current.RollbackStageKey.String != target.StableKey {
-				writeError(w, http.StatusBadRequest, "target stage is not the configured rollback stage")
-				return
-			}
-		}
-	} else if req.TargetStageID != nil {
-		targetID, ok = parseUUIDOrBadRequest(w, *req.TargetStageID, "target_stage_id")
-		if !ok {
-			return
-		}
-		target, err = h.Queries.GetWorkflowInstanceStage(r.Context(), db.GetWorkflowInstanceStageParams{
-			ID: targetID, WorkflowInstanceID: instance.ID, WorkspaceID: wsUUID,
-		})
-		if err != nil || target.Position != current.Position+1 {
-			writeError(w, http.StatusBadRequest, "target stage must be the next stage")
-			return
-		}
-	} else {
-		target, err = h.Queries.GetNextWorkflowInstanceStage(r.Context(), db.GetNextWorkflowInstanceStageParams{
-			WorkflowInstanceID: instance.ID, WorkspaceID: wsUUID, Position: current.Position,
-		})
-		if errors.Is(err, pgx.ErrNoRows) {
-			completing = true
-		} else if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to resolve next workflow stage")
-			return
+			writeError(w, status, domain.Message)
+		} else if errors.Is(err, service.ErrWorkflowExecutionConflict) {
+			writeError(w, http.StatusConflict, err.Error())
 		} else {
-			targetID = target.ID
+			h.logWorkflowError(r, "transition", err)
+			writeError(w, http.StatusInternalServerError, "failed to transition workflow instance")
 		}
-	}
-
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to start transaction")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	qtx := h.Queries.WithTx(tx)
-	if _, err := qtx.LockWorkspaceForWorkflowExecution(r.Context(), wsUUID); err != nil {
-		writeError(w, http.StatusConflict, "workspace is unavailable")
-		return
-	}
-	if instance.ProjectID.Valid {
-		if _, err := qtx.LockProjectForWorkflowExecution(r.Context(), db.LockProjectForWorkflowExecutionParams{ID: instance.ProjectID, WorkspaceID: wsUUID}); err != nil {
-			writeError(w, http.StatusConflict, "project is unavailable")
-			return
-		}
-	}
-	locked, err := qtx.LockWorkflowInstanceInWorkspace(r.Context(), db.LockWorkflowInstanceInWorkspaceParams{ID: instance.ID, WorkspaceID: wsUUID})
-	if err != nil || req.ExpectedStateToken != workflowInstanceStateToken(locked) || locked.CurrentStageID != current.ID || locked.Revision != instance.Revision || locked.ProjectID != instance.ProjectID || locked.ArchivedAt.Valid || (locked.Status != "active" && locked.Status != "waiting") {
-		writeError(w, http.StatusConflict, "workflow changed before transition; reload and retry")
-		return
-	}
-	if req.Outcome == "approved" {
-		tasks, err := qtx.LockWorkflowStageTasks(r.Context(), db.LockWorkflowStageTasksParams{WorkspaceID: wsUUID, WorkflowInstanceID: instanceID, WorkflowStageID: current.ID})
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to validate stage delivery")
-			return
-		}
-		incomplete := 0
-		for _, task := range tasks {
-			if task.Status != "done" {
-				incomplete++
-			}
-		}
-		if incomplete > 0 {
-			writeError(w, http.StatusConflict, fmt.Sprintf("%d required task(s) have not been completed; cancellation is not successful delivery", incomplete))
-			return
-		}
-	}
-	var reworkEffects service.WorkflowReworkEffects
-	if req.Outcome == "rejected" && targetID.Valid {
-		if req.Note == nil || strings.TrimSpace(*req.Note) == "" || len(*req.Note) > 4000 {
-			writeError(w, http.StatusBadRequest, "a rollback reason of 1 to 4000 bytes is required")
-			return
-		}
-		reworkEffects, err = service.InvalidateWorkflowForReworkInTx(r.Context(), qtx, service.WorkflowReworkInvalidationParams{Run: locked, Source: current, Target: target, SourceStateToken: pgtype.Text{String: req.ExpectedStateToken, Valid: true}, ActorType: actorType, ActorID: actorUUID, Reason: *req.Note})
-		if err != nil {
-			writeError(w, http.StatusConflict, "cannot invalidate rollback work: "+err.Error())
-			return
-		}
-	}
-	if gate.Type != "none" || req.Outcome == "rejected" || req.Note != nil {
-		if _, err := qtx.CreateWorkflowGateDecision(r.Context(), db.CreateWorkflowGateDecisionParams{
-			WorkspaceID: wsUUID, WorkflowInstanceID: instanceID, FromStageID: current.ID,
-			ToStageID: targetID, Outcome: req.Outcome, ActorType: actorType,
-			ActorID: actorUUID, Note: ptrToText(req.Note),
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to record workflow decision")
-			return
-		}
-	}
-	nextStatus := "active"
-	nextStageID := targetID
-	if req.Outcome == "rejected" && !targetID.Valid {
-		nextStatus = "waiting"
-		nextStageID = current.ID
-	} else if completing {
-		nextStatus = "completed"
-		nextStageID = current.ID
-	}
-	updated, err := qtx.UpdateWorkflowInstanceState(r.Context(), db.UpdateWorkflowInstanceStateParams{
-		ID: instanceID, WorkspaceID: wsUUID,
-		Status:         pgtype.Text{String: nextStatus, Valid: true},
-		CurrentStageID: nextStageID,
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to transition workflow instance")
-		return
-	}
-	if !completing && target.ExecutionMode == "agent" {
-		executionSvc := &service.WorkflowExecutionService{Queries: h.Queries, TxStarter: h.TxStarter, AgentRunService: h.AgentRunService}
-		if _, err := executionSvc.EnsureStageExecutionInTx(r.Context(), qtx, service.EnsureWorkflowExecutionParams{
-			WorkspaceID: wsUUID, InstanceID: updated.ID, StageID: target.ID, ExpectedRevision: updated.Revision,
-			ExecutorID: target.ExecutorID, InputSnapshot: updated.Inputs,
-		}); err != nil {
-			writeError(w, http.StatusConflict, "cannot enter stage execution: "+err.Error())
-			return
-		}
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to commit workflow transition")
 		return
 	}
 	if h.AgentRunService != nil {
-		h.AgentRunService.BroadcastCancelledRuns(r.Context(), reworkEffects.CancelledRuns)
+		h.AgentRunService.BroadcastCancelledRuns(r.Context(), result.Rework.CancelledRuns)
 	}
-	resp := workflowInstanceToResponse(updated)
+	resp := workflowInstanceToResponse(result.Instance)
 	h.publish(protocol.EventWorkflowInstanceUpdated, workspaceID, actorType, actorID, map[string]any{"instance": resp})
 	writeJSON(w, http.StatusOK, resp)
 }

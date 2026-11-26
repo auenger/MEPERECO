@@ -88,9 +88,9 @@ function ManualStageReviewControl({
   const currentStageTasks = (instance.tasks ?? []).filter(
     (task) => task.workflow_stage_id === currentStage.id && task.workflow_invalidated_by_rework_id == null,
   );
-  const openTaskCount = currentStageTasks.filter(
-    (task) => task.status !== "done",
-  ).length;
+  // Compatibility fallback for servers predating the authoritative readiness API.
+  const openTaskCount = instance.manual_readiness?.incomplete_tasks ?? currentStageTasks.filter(task => task.status !== "done").length;
+  const deliveryReady = instance.manual_readiness?.ready ?? openTaskCount === 0;
   const gate = currentStage.gate ?? {};
   const currentGateType = objectString(gate, "type") || "none";
   const expectedHuman =
@@ -109,7 +109,7 @@ function ManualStageReviewControl({
     instance.stages?.[instance.stages.length - 1]?.id === currentStage.id;
 
   const submitStageDecision = (outcome: "approved" | "rejected") => {
-    if (decisionLocked || submitted.current || !canReview || !reviewStateToken) return;
+    if (decisionLocked || submitted.current || !canReview || !reviewStateToken || (outcome === "approved" && !deliveryReady)) return;
     if (outcome === "rejected" && (!rollbackStage || reworkLimitReached || !rollbackConfirmed || !reviewNote.trim())) return;
     submitted.current = true;
     transitionInstance.mutate(
@@ -165,6 +165,10 @@ function ManualStageReviewControl({
               total: currentStageTasks.length,
             })}
           </p>
+          {instance.manual_readiness?.blockers.includes("invalid_completion_policy") && <p className="mt-1 text-micro text-destructive">{t(($) => $.stage_review.invalid_completion_policy)}</p>}
+          {instance.manual_readiness?.schedule_error && <p className="mt-1 text-micro text-destructive">{instance.manual_readiness.schedule_error}</p>}
+          {instance.manual_readiness?.evaluation_mode === "scheduled" && !instance.manual_readiness.schedule_error && <p className="mt-1 text-micro text-muted-foreground">{instance.automatic_readiness ? t(($) => $.stage_review.scheduled_evaluation, { date: new Date(instance.automatic_readiness.evaluated_at).toLocaleString(), result: instance.automatic_readiness.ready ? t(($) => $.stage_review.scheduled_ready) : t(($) => $.stage_review.scheduled_incomplete) }) : t(($) => $.stage_review.scheduled_pending)}</p>}
+          {instance.manual_readiness?.evaluation_mode === "on_task_change" && <p className="mt-1 text-micro text-muted-foreground">{instance.automatic_readiness ? t(($) => $.stage_review.task_change_evaluation, {date: new Date(instance.automatic_readiness.evaluated_at).toLocaleString(), result: instance.automatic_readiness.ready ? t(($) => $.stage_review.scheduled_ready) : t(($) => $.stage_review.scheduled_incomplete)}) : t(($) => $.stage_review.task_change_pending)}</p>}
         </div>
         {agentGate ? (
           <Badge variant="outline" className="gap-1.5">
@@ -174,7 +178,7 @@ function ManualStageReviewControl({
         ) : (
           <Button
             size="sm"
-            variant={openTaskCount > 0 ? "outline" : "secondary"}
+            variant={!deliveryReady ? "outline" : "secondary"}
             disabled={!canReview}
             title={canReview ? undefined : t(($) => $.stage_review.waiting_human)}
             onClick={() => {
@@ -218,19 +222,19 @@ function ManualStageReviewControl({
             <div
               className={cn(
                 "flex items-start gap-3 rounded-lg border px-3 py-3",
-                openTaskCount > 0
+                !deliveryReady
                   ? "border-amber-500/30 bg-amber-500/8"
                   : "border-emerald-500/25 bg-emerald-500/8",
               )}
             >
-              {openTaskCount > 0 ? (
+              {!deliveryReady ? (
                 <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
               ) : (
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
               )}
               <div className="min-w-0">
                 <p className="text-caption font-semibold">
-                  {openTaskCount > 0
+                  {!deliveryReady
                     ? t(($) => $.stage_review.tasks_incomplete, {
                         count: openTaskCount,
                       })
@@ -287,7 +291,7 @@ function ManualStageReviewControl({
                 : t(($) => $.stage_review.no_rollback)}
             </Button>
             <Button
-              disabled={openTaskCount > 0 || !canReview || decisionLocked}
+              disabled={!deliveryReady || !canReview || decisionLocked}
               onClick={() => submitStageDecision("approved")}
             >
               {transitionInstance.isPending ? (

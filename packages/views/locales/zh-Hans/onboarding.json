@@ -64,7 +64,7 @@
     "headline": "用一句话描述这个工作区。",
     "lede": "这句话会成为人与 Agent 接收 Task 时共同使用的背景信息。",
     "label": "这个工作区要一起完成什么？",
-    "placeholder": "例如：由一个精干的人类与 Agent 团队，共同交付和运营我们的开发者平台。",
+    "placeholder": "例如：与 Agent 协作推进产品迭代、修复 Bug 和完成版本验收。",
     "hint": "尽量具体，之后可以在工作区设置中修改。",
     "finish": "进入工作区",
     "aside_title": "清晰的目标，是共享协作上下文的起点。",
@@ -110,7 +110,7 @@
       "ops": "运营 / 项目管理",
       "student": "学生 / 个人使用",
       "other": "其他",
-      "other_placeholder": "例如：教师、支持负责人"
+      "other_placeholder": "例如：产品经理、研发工程师"
     },
     "use_case": {
       "question": "你打算用 MEPERStudio 做什么？",
@@ -122,7 +122,7 @@
       "automate_ops": "自动化日常运营",
       "evaluate": "先逛逛看看",
       "other": "其他",
-      "other_placeholder": "例如：协调学习小组"
+      "other_placeholder": "例如：规划产品迭代、跟踪 Bug 修复"
     }
   },
   "option_card": {
@@ -228,9 +228,9 @@
     "lede_first": "工作区是 task、智能体和项目所在的地方。之后可以邀请同事，或再开一个工作区。",
     "lede_resume": "用已有的工作区继续，或在它旁边再建一个新的 —— 你可以加入任意多个工作区。",
     "name_label": "工作区名称",
-    "name_placeholder": "Acme Inc、我的实验室、副业...",
+    "name_placeholder": "例如：Ryan 的工作空间、产品研发团队",
     "url_label": "URL",
-    "slug_placeholder": "acme",
+    "slug_placeholder": "product-team",
     "task_prefix_label": "task 前缀",
     "task_prefix_prefix": "task 编号会形如 ",
     "task_prefix_suffix": "。之后可以在设置里修改。",

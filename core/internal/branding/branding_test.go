@@ -1,29 +1,34 @@
 package branding
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestStateDirFreshAndLegacy(t *testing.T) {
-	home := t.TempDir()
-	current := filepath.Join(home, ".meperstudio")
-	legacy := filepath.Join(home, ".silieco")
-	if got := StateDir(home); got != current {
-		t.Fatalf("fresh: %s", got)
-	}
-	if err := os.Mkdir(legacy, 0700); err != nil {
+	raw, err := os.ReadFile("testdata/state-dir.json")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got := StateDir(home); got != legacy {
-		t.Fatalf("legacy: %s", got)
+	var cases []struct {
+		Directories []string
+		Expected    string
 	}
-	if err := os.Mkdir(current, 0700); err != nil {
+	if err := json.Unmarshal(raw, &cases); err != nil {
 		t.Fatal(err)
 	}
-	if got := StateDir(home); got != current {
-		t.Fatalf("canonical: %s", got)
+	for _, tc := range cases {
+		home := t.TempDir()
+		for _, dir := range tc.Directories {
+			if err := os.Mkdir(filepath.Join(home, dir), 0700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := StateDir(home); got != filepath.Join(home, tc.Expected) {
+			t.Fatalf("%v: %s", tc, got)
+		}
 	}
 }
 
@@ -46,5 +51,17 @@ func TestEnvAliasesAndTaskContext(t *testing.T) {
 	}
 	if IsManagedEnvKey("PATH") {
 		t.Fatal("ordinary env should not be reserved")
+	}
+}
+
+func TestCanonicalLookup(t *testing.T) {
+	t.Setenv("SILIECO_BRANDING_LOOKUP", "old")
+	t.Setenv("MEPERSTUDIO_BRANDING_LOOKUP", "new")
+	if Getenv("SILIECO_BRANDING_LOOKUP") != "new" || Getenv("MEPERSTUDIO_BRANDING_LOOKUP") != "new" {
+		t.Fatal("canonical precedence lost")
+	}
+	t.Setenv("MEPERSTUDIO_BRANDING_LOOKUP", "")
+	if value, ok := LookupEnv("SILIECO_BRANDING_LOOKUP"); !ok || value != "" {
+		t.Fatal("explicit empty value must win")
 	}
 }

@@ -1,3 +1,4 @@
+import { modelCostForRow } from "../runtimes/usage-cost-model";
 import type {
   DashboardUsageDaily,
   DashboardUsageByAgent,
@@ -183,7 +184,7 @@ export function aggregateAgentTokens(rows: DashboardUsageByAgent[]): AgentCostRo
     entry.tokens +=
       r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
     entry.cost += estimateCost(r);
-    entry.unknownTokens=(entry.unknownTokens??0)+(r.pricing?.unknown_tokens??0);
+    entry.unknownTokens=(entry.unknownTokens??0)+modelCostForRow(r).unknown_tokens;
     entry.taskCount += r.run_count;
     map.set(r.agent_id, entry);
   }
@@ -197,6 +198,7 @@ export interface AgentDashboardRow {
   unknownTokens?: number;
   seconds: number;
   taskCount: number;
+  hasUsage: boolean;
 }
 
 // Merge per-agent token totals with per-agent run-time totals into one
@@ -223,19 +225,20 @@ export function mergeAgentDashboardRows(
       tokens: r.tokens,
       cost: r.cost,
       unknownTokens:r.unknownTokens,
+      hasUsage: true,
       seconds: rt?.total_seconds ?? 0,
       taskCount: rt ? rt.run_count : r.taskCount,
     });
   }
-  // Agents with run-time rows but zero tokens still belong on the list
-  // (a task that errored before producing usage). Their token columns
-  // stay at 0.
+  // Agents with terminal runs but no raw usage still belong in the list.
+  // Distinguish missing evidence from a real zero-token or free result.
   for (const r of runTimeRows) {
     if (merged.has(r.agent_id)) continue;
     merged.set(r.agent_id, {
       agentId: r.agent_id,
       tokens: 0,
       cost: 0,
+      hasUsage: false,
       seconds: r.total_seconds,
       taskCount: r.run_count,
     });
@@ -296,6 +299,7 @@ export function bucketUnknownAgentRows(
     agentId: DELETED_AGENTS_ROW_ID,
     tokens: 0,
     cost: 0,
+    hasUsage: false,
     seconds: 0,
     taskCount: 0,
   };
@@ -307,6 +311,7 @@ export function bucketUnknownAgentRows(
     }
     hasDeleted = true;
     bucket.tokens += r.tokens;
+    bucket.hasUsage ||= r.hasUsage;
     bucket.cost += r.cost;
     bucket.unknownTokens=(bucket.unknownTokens??0)+(r.unknownTokens??0);
   }

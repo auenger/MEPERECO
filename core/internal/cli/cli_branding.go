@@ -1,14 +1,7 @@
 package cli
 
-import (
-	"regexp"
-	"strings"
-)
+import "github.com/auenger/MEPERECO/core/internal/branding"
 
-// BrandCLIText changes command examples without renaming existing skill IDs,
-// filesystem paths or API identifiers. Public environment names are mirrored.
-var legacyCLIInPrompt = regexp.MustCompile("(^|[^a-zA-Z0-9_./-])silieco([ \\t\\r\\n`]|\\.exe\\b)")
-
-func BrandCLIText(text string) string {
-	return strings.ReplaceAll(legacyCLIInPrompt.ReplaceAllString(text, "${1}meperstudio${2}"), "SILIECO_", "MEPERSTUDIO_")
-}
+// BrandCLIText retains the CLI-facing entry point; the common implementation
+// also serves onboarding and the daemon's runtime brief.
+func BrandCLIText(text string) string { return branding.BrandCLIText(text) }
