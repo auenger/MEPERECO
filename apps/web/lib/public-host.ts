@@ -1,4 +1,4 @@
-const OFFICIAL_MARKETING_HOSTS = new Set(["silieco.ai", "www.silieco.ai"]);
+const OFFICIAL_MARKETING_HOSTS = new Set(["studio.meper.cn"]);
 
 export function isOfficialMarketingHost(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase().replace(/\.$/, "");

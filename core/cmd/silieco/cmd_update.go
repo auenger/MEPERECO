@@ -8,14 +8,14 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var updateDownloadTimeout time.Duration = cli.DefaultUpdateDownloadTimeout
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update silieco to the latest version",
+	Short: "Update MEPERStudio to the latest version",
 	RunE:  runUpdate,
 }
 
@@ -50,18 +50,18 @@ func runUpdate(_ *cobra.Command, _ []string) error {
 		output, err := cli.UpdateViaBrew()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", output)
-			return fmt.Errorf("brew upgrade failed: %w\nYou can try manually: brew upgrade silieco-ai/tap/silieco", err)
+			return fmt.Errorf("brew upgrade failed: %w\nUse the MEPERStudio CLI installer at https://studio.meper.cn/cli instead", err)
 		}
 		fmt.Fprintln(os.Stderr, "Update complete.")
 		return nil
 	}
 
-	// Not installed via brew — download binary directly from GitHub Releases.
+	// Not installed via brew — download binary directly from the MEPERStudio CLI distribution.
 	if latest == nil {
-		return fmt.Errorf("could not determine latest version; check https://github.com/silieco-ai/silieco/releases/latest")
+		return fmt.Errorf("could not determine latest version; check https://studio.meper.cn/cli/version.txt")
 	}
 	targetVersion := latest.TagName
-	fmt.Fprintf(os.Stderr, "Downloading %s from GitHub Releases...\n", targetVersion)
+	fmt.Fprintf(os.Stderr, "Downloading %s from the MEPERStudio CLI distribution...\n", targetVersion)
 	output, err := cli.UpdateViaDownloadWithTimeout(targetVersion, updateDownloadTimeout)
 	if err != nil {
 		return fmt.Errorf("update failed: %w", err)

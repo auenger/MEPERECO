@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Cloud, Loader2, Lock, Search } from "lucide-react";
 import { ProviderLogo } from "../../runtimes/components/provider-logo";
+import { ZCodeCliNotice } from "../../runtimes/components/zcode-cli-notice";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { runtimeDisplayName } from "@silieco/core/runtimes";
 import type { MemberWithUser, RuntimeDevice } from "@silieco/core/types";
@@ -316,6 +317,7 @@ export function RuntimePicker({
           </div>
         </PopoverContent>
       </Popover>
+      <ZCodeCliNotice provider={selectedRuntime?.provider} className="mt-2" />
     </div>
   );
 }

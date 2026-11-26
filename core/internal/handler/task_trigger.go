@@ -7,10 +7,10 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	agentver "github.com/silieco-ai/silieco/core/pkg/agent"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	agentver "github.com/auenger/MEPERECO/core/pkg/agent"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // maxPreviewTriggerTasks caps a single preview request so a pathological

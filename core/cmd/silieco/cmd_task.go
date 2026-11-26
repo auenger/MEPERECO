@@ -18,8 +18,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/util"
 )
 
 // resolveTextFlag picks between a `--<name>` inline value, a `--<name>-stdin`
@@ -236,7 +236,7 @@ var taskReorderCmd = &cobra.Command{
 		"  --top          move it to the top of its column\n" +
 		"  --bottom       move it to the bottom of its column\n\n" +
 		"Reorder stays inside the task's current column. To move an task to a\n" +
-		"different column, change its status first with `silieco task status`.",
+		"different column, change its status first with `meperstudio task status`.",
 	Args: exactArgs(1),
 	RunE: runTaskReorder,
 }
@@ -1095,7 +1095,7 @@ func runTaskCreate(cmd *cobra.Command, _ []string) error {
 	}
 	if hasDesc {
 		if err := guardLocalPathLinks(desc, "task description",
-			"Deliver the file itself with `silieco task create --attachment <path>` (repeatable) and drop the link."); err != nil {
+			"Deliver the file itself with `meperstudio task create --attachment <path>` (repeatable) and drop the link."); err != nil {
 			return err
 		}
 		body["description"] = desc
@@ -1155,7 +1155,7 @@ func runTaskCreate(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Quick-create stamp: when the daemon sets SILIECO_QUICK_CREATE_TASK_ID
-	// before invoking the agent, the agent's `silieco task create` call
+	// before invoking the agent, the agent's `meperstudio task create` call
 	// inherits the env var and tags the new task with origin_type=
 	// quick_create + origin_id=<run_id>. The completion handler then
 	// locates the task deterministically by origin instead of "most
@@ -1299,7 +1299,7 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 		// command that does. Telling the agent to "pass --attachment" here would
 		// name an argument this command rejects.
 		if err := guardLocalPathLinks(desc, "task description",
-			"`silieco task update` cannot carry files — deliver the file with `silieco task comment add <task-id> --attachment <path>` instead, and drop the link."); err != nil {
+			"`meperstudio task update` cannot carry files — deliver the file with `meperstudio task comment add <task-id> --attachment <path>` instead, and drop the link."); err != nil {
 			return err
 		}
 		body["description"] = desc
@@ -1724,7 +1724,7 @@ func taskReorderOutput(cmd *cobra.Command, task map[string]any) error {
 func reorderTargetNotInColumnError(ctx context.Context, client *cli.APIClient, otherRef, taskRef resolvedID, status string) error {
 	if other, err := fetchTask(ctx, client, otherRef.ID); err == nil {
 		if otherStatus := strVal(other, "status"); otherStatus != "" && otherStatus != status {
-			return fmt.Errorf("task %s is in the %q column but %s is in %q; move one with `silieco task status` first, or pick a target in the same column", otherRef.Display, otherStatus, taskRef.Display, status)
+			return fmt.Errorf("task %s is in the %q column but %s is in %q; move one with `meperstudio task status` first, or pick a target in the same column", otherRef.Display, otherStatus, taskRef.Display, status)
 		}
 	}
 	return fmt.Errorf("task %s was not found in the %q column", otherRef.Display, status)
@@ -1992,7 +1992,7 @@ func runTaskCommentAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--content, --content-stdin, or --content-file is required")
 	}
 	if err := guardLocalPathLinks(content, "comment body",
-		"Deliver the file itself with `silieco task comment add <task-id> --attachment <path>` (repeatable) and drop the link."); err != nil {
+		"Deliver the file itself with `meperstudio task comment add <task-id> --attachment <path>` (repeatable) and drop the link."); err != nil {
 		return err
 	}
 
@@ -2728,7 +2728,7 @@ func ambiguousAssigneeError(input string, matches []assigneeMatch) error {
 // assignee_id) by looking it up against the workspace's members, agents, and
 // (when allowed) squads. It is the deterministic counterpart to
 // resolveAssignee: callers that already hold a UUID (e.g. agents reading IDs
-// from `silieco workspace member list --output json`) should use this instead of
+// from `meperstudio workspace member list --output json`) should use this instead of
 // round-tripping through name matching, which can be ambiguous in workspaces
 // with overlapping names.
 func resolveAssigneeByID(ctx context.Context, client *cli.APIClient, id string, kinds assigneeKinds) (string, string, error) {

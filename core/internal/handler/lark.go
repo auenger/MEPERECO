@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/internal/integrations/lark"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/integrations/lark"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // LarkInstallationResponse is the wire shape for an installation row.

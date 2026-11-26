@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"hash/fnv"
 	"log/slog"
 	"math/rand"
@@ -22,13 +23,13 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
-	"github.com/silieco-ai/silieco/core/internal/daemon/repocache"
-	"github.com/silieco-ai/silieco/core/internal/selfexec"
-	"github.com/silieco-ai/silieco/core/pkg/agent"
-	"github.com/silieco-ai/silieco/core/pkg/runfailure"
-	"github.com/silieco-ai/silieco/core/pkg/skillbundle"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/daemon/repocache"
+	"github.com/auenger/MEPERECO/core/internal/selfexec"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
+	"github.com/auenger/MEPERECO/core/pkg/runfailure"
+	"github.com/auenger/MEPERECO/core/pkg/skillbundle"
 )
 
 // ErrRepoNotConfigured is returned by ensureRepoReady when the requested repo
@@ -1308,9 +1309,9 @@ func (d *Daemon) resolveAuth() error {
 		return fmt.Errorf("load CLI config: %w", err)
 	}
 	if cfg.Token == "" {
-		loginHint := "'silieco login'"
+		loginHint := "'meperstudio login'"
 		if d.cfg.Profile != "" {
-			loginHint = fmt.Sprintf("'silieco login --profile %s'", d.cfg.Profile)
+			loginHint = fmt.Sprintf("'meperstudio login --profile %s'", d.cfg.Profile)
 		}
 		d.logger.Warn("not authenticated — run " + loginHint + " to authenticate, then restart the daemon")
 		return fmt.Errorf("not authenticated: run %s first", loginHint)
@@ -2437,9 +2438,9 @@ func (d *Daemon) tryRenewToken(ctx context.Context) {
 	resp, err := d.client.RenewToken(reqCtx)
 	if err != nil {
 		if isUnauthorizedError(err) {
-			loginHint := "'silieco login'"
+			loginHint := "'meperstudio login'"
 			if d.cfg.Profile != "" {
-				loginHint = fmt.Sprintf("'silieco login --profile %s'", d.cfg.Profile)
+				loginHint = fmt.Sprintf("'meperstudio login --profile %s'", d.cfg.Profile)
 			}
 			d.logger.Warn("auth token rejected by server — run "+loginHint+" to re-authenticate, then restart the daemon", "error", err)
 			return
@@ -4333,6 +4334,7 @@ var runtimeDisplayNameOverrides = map[string]string{
 	"traecli": "Trae",
 	"grok":    "Grok",
 	"qwen":    "Qwen Code",
+	"zcode":   "ZCode",
 }
 
 // providerDisplayName returns the human-facing runtime name for a provider key.
@@ -4982,6 +4984,9 @@ func (d *Daemon) executeRun(ctx context.Context, agentRun AgentRun, provider str
 	agentName := agentRun.Agent.Name
 	skills := agentRun.Agent.Skills
 	instructions := agentRun.Agent.Instructions
+	if isDefaultHelperInstruction(instructions) {
+		instructions = cli.BrandCLIText(strings.ReplaceAll(instructions, "Sili Agent", "MEPER Agent"))
+	}
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
@@ -5385,13 +5390,15 @@ func (d *Daemon) executeRun(ctx context.Context, agentRun AgentRun, provider str
 			}
 		}
 	}
-	// Ensure the silieco CLI is on PATH inside the agent's environment.
-	// Some runtimes (e.g. Codex) run in an isolated sandbox that may not
-	// inherit the daemon's PATH. Prepend the directory of the running
-	// silieco binary so that `silieco` commands in the agent always resolve.
-	if selfBin, err := resolveSelfExecutable(); err == nil {
-		binDir := filepath.Dir(selfBin)
-		agentEnv["PATH"] = binDir + string(os.PathListSeparator) + os.Getenv("PATH")
+	branding.AddBrandedRunEnv(agentEnv)
+	// Provide the branded executable and preserve the installed legacy command.
+	selfBin, err := resolveSelfExecutable()
+	if err != nil {
+		return RunResult{}, fmt.Errorf("resolve agent CLI: %w", err)
+	}
+	agentEnv["PATH"], err = agentCLIPath(selfBin, runTempDir)
+	if err != nil {
+		return RunResult{}, fmt.Errorf("prepare MEPERStudio agent CLI: %w", err)
 	}
 	// Point Codex to the per-task CODEX_HOME so it discovers skills natively
 	// without polluting the system ~/.codex/skills/.
@@ -6711,15 +6718,24 @@ func convertSkillsForEnv(skills []SkillData) []execenv.SkillContextForEnv {
 	}
 	result := make([]execenv.SkillContextForEnv, len(skills))
 	for i, s := range skills {
+		content := s.Content
+		builtin := s.Source == "builtin" || strings.HasPrefix(s.ID, "builtin:")
+		if builtin {
+			content = cli.BrandCLIText(content)
+		}
 		result[i] = execenv.SkillContextForEnv{
 			Name:        s.Name,
 			Description: s.Description,
-			Content:     s.Content,
+			Content:     content,
 		}
 		for _, f := range s.Files {
+			content := f.Content
+			if builtin && strings.HasSuffix(f.Path, ".md") {
+				content = cli.BrandCLIText(content)
+			}
 			result[i].Files = append(result[i].Files, execenv.SkillFileContextForEnv{
 				Path:    f.Path,
-				Content: f.Content,
+				Content: content,
 			})
 		}
 	}
@@ -6816,7 +6832,7 @@ func socketSafeTempBaseDir() string {
 // daemon-internal variables and critical system paths.
 func isBlockedEnvKey(key string) bool {
 	upper := strings.ToUpper(key)
-	if strings.HasPrefix(upper, "SILIECO_") {
+	if branding.IsManagedEnvKey(upper) {
 		return true
 	}
 	switch upper {

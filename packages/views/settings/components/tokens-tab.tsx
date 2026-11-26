@@ -115,7 +115,7 @@ export function TokensTab() {
 
   const handleCopyCommand = async () => {
     if (!newToken) return;
-    if (await copyText(`silieco login --token ${newToken}`)) {
+    if (await copyText(`meperstudio login --token ${newToken}`)) {
       setCommandCopied(true);
       setTimeout(() => setCommandCopied(false), 2000);
     }
@@ -300,7 +300,7 @@ export function TokensTab() {
             <p className="text-caption text-muted-foreground">{t(($) => $.tokens.created_dialog.cli_hint)}</p>
             <div className="flex min-w-0 items-center gap-2">
               <code className="min-w-0 flex-1 truncate rounded-md border bg-muted/50 px-3 py-2 text-body select-all">
-                {`silieco login --token ${newToken}`}
+                {`meperstudio login --token ${newToken}`}
               </code>
               <Tooltip>
                 <TooltipTrigger

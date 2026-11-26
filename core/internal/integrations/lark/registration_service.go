@@ -13,9 +13,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // pgUniqueViolation is the Postgres SQLSTATE for a unique-constraint violation.

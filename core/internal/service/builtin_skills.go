@@ -6,8 +6,8 @@ import (
 	"path"
 	"strings"
 
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
-	"github.com/silieco-ai/silieco/core/pkg/skillbundle"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
+	"github.com/auenger/MEPERECO/core/pkg/skillbundle"
 )
 
 //go:embed builtin_skills

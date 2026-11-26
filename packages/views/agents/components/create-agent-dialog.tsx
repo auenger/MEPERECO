@@ -436,6 +436,7 @@ export function CreateAgentDialog({
 
             <ModelDropdown
               runtimeId={selectedRuntime?.id ?? null}
+              runtimeProvider={selectedRuntime?.provider}
               runtimeOnline={selectedRuntime?.status === "online"}
               value={model}
               onChange={setModel}

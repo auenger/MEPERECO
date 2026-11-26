@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	"github.com/silieco-ai/silieco/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/service"
 )
 
 // Router is the channel-agnostic inbound pipeline — the generalization of the

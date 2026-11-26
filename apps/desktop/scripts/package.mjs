@@ -60,7 +60,7 @@ export function stripLeadingSeparator(argv) {
 }
 
 export function deriveVersion() {
-  return process.env.SILIECO_BUILD_VERSION?.replace(/^v/, "") || JSON.parse(readFileSync(resolve(desktopRoot, "package.json"), "utf8")).version;
+  return process.env.MEPERSTUDIO_BUILD_VERSION?.replace(/^v/, "") || process.env.SILIECO_BUILD_VERSION?.replace(/^v/, "") || JSON.parse(readFileSync(resolve(desktopRoot, "package.json"), "utf8")).version;
 }
 
 function uniqueOrdered(values) {
@@ -241,6 +241,7 @@ export function builderArgsForTarget(
   }
   builderArgs.push(`--${target.arch}`);
   builderArgs.push(...parsed.sharedArgs);
+  if (!parsed.sharedArgs.some(arg => arg === "--publish" || arg.startsWith("--publish="))) builderArgs.push("--publish", "never");
   if (useScopedOutputDir) {
     builderArgs.push(
       `-c.directories.output=dist/${target.platform}-${target.arch}`,

@@ -125,7 +125,7 @@ export function StepWorkspaceDescription({
           <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Network className="size-5" />
           </div>
-          <span className="mt-8 font-mono text-caption text-primary">03 / 03</span>
+          <span className="mt-8 font-mono text-caption text-primary">02 / 02</span>
           <h2 className="mt-4 text-title-lg font-semibold leading-tight text-foreground">
             {t(($) => $.step_workspace_description.aside_title)}
           </h2>

@@ -3,7 +3,7 @@ package daemon
 import (
 	"encoding/json"
 
-	"github.com/silieco-ai/silieco/core/internal/runtimeapps"
+	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
 )
 
 // AgentEntry describes a single available agent CLI.

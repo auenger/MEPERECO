@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 type skillCreateInput struct {

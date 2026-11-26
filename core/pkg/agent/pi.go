@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -544,7 +545,7 @@ func piSessionDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".silieco", "pi-sessions"), nil
+	return filepath.Join(branding.StateDir(home), "pi-sessions"), nil
 }
 
 func newPiSessionPath() (string, error) {

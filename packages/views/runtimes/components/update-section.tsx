@@ -13,7 +13,7 @@ import type { RuntimeUpdateStatus } from "@silieco/core/types";
 import { useT } from "../../i18n";
 
 const GITHUB_RELEASES_URL =
-  "https://api.github.com/repos/silieco-ai/silieco/releases/latest";
+  "https://api.github.com/repos/auenger/MEPERECO/releases/latest";
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 let cachedLatestVersion: string | null = null;

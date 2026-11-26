@@ -18,11 +18,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
-// loginTokenPrefixes are the token prefixes `silieco login --token` accepts.
+// loginTokenPrefixes are the token prefixes `meperstudio login --token` accepts.
 // The CLI used to hardcode `sili_` only, which made it impossible to log in
 // with a MEPERStudio Cloud Node PAT (`mcn_`) even though the server happily
 // authenticates both kinds. Keep this list in sync with the prefix branches
@@ -43,7 +43,7 @@ func validateLoginTokenPrefix(token string) error {
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
-	Short: "Authenticate silieco with MEPERStudio",
+	Short: "Authenticate MEPERStudio with MEPERStudio",
 }
 
 var authStatusCmd = &cobra.Command{
@@ -97,7 +97,7 @@ func resolveAppURL(cmd *cobra.Command) string {
 	if err == nil && cfg.AppURL != "" {
 		return strings.TrimRight(cfg.AppURL, "/")
 	}
-	fmt.Fprintln(os.Stderr, "No app URL configured. Run 'silieco setup' first.")
+	fmt.Fprintln(os.Stderr, "No app URL configured. Run 'meperstudio setup' first.")
 	os.Exit(1)
 	return "" // unreachable
 }
@@ -328,7 +328,7 @@ func runAuthLoginBrowser(cmd *cobra.Command) error {
 		"expires_in_days": expiresInDays,
 	}, &patResp)
 	if err != nil {
-		return cli.WithUserMessage("Sign-in did not complete: the server could not mint an access token for the CLI. Run `silieco login` again.", err)
+		return cli.WithUserMessage("Sign-in did not complete: the server could not mint an access token for the CLI. Run `meperstudio login` again.", err)
 	}
 
 	// Verify the PAT works.
@@ -338,7 +338,7 @@ func runAuthLoginBrowser(cmd *cobra.Command) error {
 		Email string `json:"email"`
 	}
 	if err := patClient.GetJSON(ctx, "/api/me", &me); err != nil {
-		return cli.WithUserMessage("Sign-in did not complete: the server did not accept the new credential. Run `silieco login` again.", err)
+		return cli.WithUserMessage("Sign-in did not complete: the server did not accept the new credential. Run `meperstudio login` again.", err)
 	}
 
 	// Save to config. Reset workspace data on every login — the user or
@@ -441,7 +441,7 @@ func runAuthLoginToken(cmd *cobra.Command, providedToken string) error {
 		Email string `json:"email"`
 	}
 	if err := client.GetJSON(ctx, "/api/me", &me); err != nil {
-		return cli.WithUserMessage("Could not sign in with that token — make sure it is valid and not expired, then run `silieco login --token <token>` again.", err)
+		return cli.WithUserMessage("Could not sign in with that token — make sure it is valid and not expired, then run `meperstudio login --token <token>` again.", err)
 	}
 
 	profile := resolveProfile(cmd)
@@ -465,7 +465,7 @@ func runAuthStatus(cmd *cobra.Command, _ []string) error {
 	serverURL := resolveServerURL(cmd)
 
 	if token == "" {
-		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'silieco login' to authenticate.")
+		fmt.Fprintln(os.Stderr, "Not authenticated. Run 'meperstudio login' to authenticate.")
 		return nil
 	}
 
@@ -479,7 +479,7 @@ func runAuthStatus(cmd *cobra.Command, _ []string) error {
 		Email string `json:"email"`
 	}
 	if err := client.GetJSON(ctx, "/api/me", &me); err != nil {
-		fmt.Fprintf(os.Stderr, "Token is invalid or expired: %v\nRun 'silieco login' to re-authenticate.\n", err)
+		fmt.Fprintf(os.Stderr, "Token is invalid or expired: %v\nRun 'meperstudio login' to re-authenticate.\n", err)
 		return nil
 	}
 

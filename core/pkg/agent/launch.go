@@ -62,6 +62,7 @@ var launchPrefixBlockedArgs = map[string]map[string]blockedArgMode{
 	"pi":          piBlockedArgs,
 	"qoder":       qoderBlockedArgs,
 	"qwen":        qwenBlockedArgs,
+	"zcode":       zcodeBlockedArgs,
 	"traecli":     traecliBlockedArgs,
 }
 

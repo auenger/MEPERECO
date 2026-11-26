@@ -14,6 +14,7 @@ protocols:
   - name: MEPERStudio
     schemes:
       - silieco
+      - meperstudio
 asarUnpack:
   - resources/**
 mac:
@@ -21,12 +22,12 @@ mac:
   target:
     - dmg
     - zip
-  artifactName: silieco-desktop-${version}-mac-${arch}.${ext}
+  artifactName: meperstudio-desktop-${version}-mac-${arch}.${ext}
   notarize: true
 dmg:
-  artifactName: silieco-desktop-${version}-mac-${arch}.${ext}
+  artifactName: meperstudio-desktop-${version}-mac-${arch}.${ext}
 linux:
-  executableName: silieco-desktop
+  executableName: meperstudio-desktop
   desktop:
     entry:
       StartupWMClass: MEPERStudio
@@ -35,13 +36,16 @@ linux:
     - AppImage
     - deb
     - rpm
-  artifactName: silieco-desktop-${version}-linux-${arch}.${ext}
+  artifactName: meperstudio-desktop-${version}-linux-${arch}.${ext}
 rpm:
   fpm:
     - --rpm-rpmbuild-define=_build_id_links none
 win:
   target:
     - nsis
-  artifactName: silieco-desktop-${version}-windows-${arch}.${ext}
-publish: null
+  artifactName: meperstudio-desktop-${version}-windows-${arch}.${ext}
+publish:
+  provider: generic
+  url: https://studio.meper.cn/updates/desktop
+  publishAutoUpdate: true
 npmRebuild: false

@@ -7,7 +7,7 @@ import (
 
 	"github.com/slack-go/slack/slackevents"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
 )
 
 // This file holds the platform-neutral translation from a Slack Events API

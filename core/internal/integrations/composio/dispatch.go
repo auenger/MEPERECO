@@ -7,10 +7,10 @@ import (
 	"sort"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/runtimeapps"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	sdk "github.com/silieco-ai/silieco/core/pkg/composio"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	sdk "github.com/auenger/MEPERECO/core/pkg/composio"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // mcpOverlayServerName is the deterministic key under `mcpServers` used to

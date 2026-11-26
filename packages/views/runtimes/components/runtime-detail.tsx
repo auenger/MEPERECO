@@ -37,6 +37,7 @@ import {
   TooltipTrigger,
 } from "@silieco/ui/components/ui/tooltip";
 import { ActorAvatar } from "../../common/actor-avatar";
+import { ZCodeCliNotice } from "./zcode-cli-notice";
 import { BreadcrumbHeader } from "../../layout/breadcrumb-header";
 import { AppLink, useNavigation } from "../../navigation";
 import { availabilityConfig, workloadConfig } from "../../agents/presence";
@@ -188,6 +189,7 @@ export function RuntimeDetail({
               cliVersion={cliVersion}
               daemonShort={daemonShort}
             />
+            <ZCodeCliNotice provider={runtime.provider} />
             <UsageSection runtime={runtime} />
           </div>
 
@@ -327,7 +329,7 @@ function HeroCard({
         </Fact>
       </dl>
 
-      {/* Diagnostic IDs — silieco CLI git hash + truncated daemon UUID.
+      {/* Diagnostic IDs — meperstudio CLI git hash + truncated daemon UUID.
           Only useful when filing an task or reading logs; folded by
           default so they don't compete with the user-visible facts above. */}
       {hasTechDetails && (

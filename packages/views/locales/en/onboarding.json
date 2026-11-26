@@ -8,8 +8,8 @@
     "headline_line2": "from SOP to",
     "headline_emphasis": "execution.",
     "lede": "Organize intent into Workflows, move work through Stages, and assign Tasks to people or Agents. MEPERStudio keeps every collaborator working from the same context.",
-    "lede_web": "Create your Space in the browser, or install Desktop to connect a local runtime and let Agents execute Tasks inside each Workflow.",
-    "lede_desktop": "Detect a runtime, create a Space, and describe its goal. Then create Tasks directly or turn your team's SOP into a Workflow.",
+    "lede_web": "Create your Space now. Connect an Agent runtime later from workspace settings whenever you are ready.",
+    "lede_desktop": "Create a Space and describe its goal. Desktop connects available local runtimes automatically. Then create Tasks directly or turn your team's SOP into a Workflow.",
     "download_desktop": "Download Desktop",
     "continue_on_web": "Continue on web",
     "start_exploring": "Start exploring",
@@ -32,7 +32,7 @@
       "human_task": "Confirm release scope",
       "human_assignee": "Assigned to Mina",
       "agent_task": "Prepare release notes",
-      "agent_assignee": "Assigned to Sili Agent",
+      "agent_assignee": "Assigned to MEPER Agent",
       "people_collaboration": "People decide together",
       "agent_collaboration": "People and Agents relay work",
       "context_continuity": "Context stays shared"
@@ -153,7 +153,7 @@
   },
   "cloud_waitlist": {
     "intro_main": "Cloud runtimes aren't live yet. Leave your email and we'll reach out when they are.",
-    "intro_warning": "Heads-up: agents can't execute tasks without a runtime — if you hit Skip now, your workspace is read-only until you come back and install one.",
+    "intro_warning": "Heads-up: agents can't execute tasks without a runtime — if you hit Skip now, you can still use the workspace and connect a runtime later.",
     "email_label": "Email",
     "email_placeholder": "you@work.com",
     "reason_label": "Why cloud?",
@@ -165,7 +165,7 @@
     "failed_toast": "Failed to join waitlist"
   },
   "welcome_after_onboarding": {
-    "loading_helper": "Preparing Sili Agent…",
+    "loading_helper": "Preparing MEPER Agent…",
     "error_title": "Couldn't finish setup",
     "error_generic": "Something went wrong. Try again.",
     "retry": "Try again",
@@ -262,7 +262,7 @@
     "perk_invite": "Invite teammates — they see only this workspace",
     "perk_switch": "Switch to other workspaces anytime from the top-left",
     "next_runtime": "Connect a computer so your agents have somewhere to run",
-    "next_agent": "Bring Sili Agent online from your connected runtime",
+    "next_agent": "Bring MEPER Agent online from your connected runtime",
     "next_starter": "Open one onboarding task for your next step",
     "preview": {
       "inbox_label": "Inbox",

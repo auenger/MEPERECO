@@ -13,11 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	"github.com/silieco-ai/silieco/core/pkg/agent"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/db/relational"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/db/relational"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 type AgentRuntimeResponse struct {

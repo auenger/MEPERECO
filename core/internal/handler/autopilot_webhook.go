@@ -22,9 +22,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // maxWebhookBodyBytes is the request body size cap for webhook ingress.

@@ -16,8 +16,8 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // MembershipChecker verifies a user belongs to a workspace.

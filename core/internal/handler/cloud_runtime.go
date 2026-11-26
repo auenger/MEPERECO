@@ -11,8 +11,8 @@ import (
 	"net/url"
 
 	chimw "github.com/go-chi/chi/v5/middleware"
-	"github.com/silieco-ai/silieco/core/internal/cloudruntime"
-	"github.com/silieco-ai/silieco/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/cloudruntime"
+	"github.com/auenger/MEPERECO/core/internal/logger"
 )
 
 const maxCloudRuntimeRequestBodySize = 1 << 20

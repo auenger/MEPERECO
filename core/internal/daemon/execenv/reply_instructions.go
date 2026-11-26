@@ -34,10 +34,10 @@ func BuildNewCommentsHint(taskID, triggerCommentID, triggerThreadID, newComments
 		return fmt.Sprintf(
 			"%d new comment(s) on this task since your last run — don't read them all blindly. "+
 				"Start with the thread your triggering comment is in: "+
-				"`silieco task comment list %s --thread %s --since %s --output json` "+
+				"`meperstudio task comment list %s --thread %s --since %s --output json` "+
 				"(swap `--since` for `--tail 30` if you need the full thread, not just the delta). "+
 				"Only if you need context from the other threads, catch up task-wide: "+
-				"`silieco task comment list %s --since %s --output json`.\n\n",
+				"`meperstudio task comment list %s --since %s --output json`.\n\n",
 			newCommentCount, taskID, threadID, newCommentsSince, taskID, newCommentsSince,
 		)
 	}
@@ -46,7 +46,7 @@ func BuildNewCommentsHint(taskID, triggerCommentID, triggerThreadID, newComments
 	// task-wide catch-up.
 	return fmt.Sprintf(
 		"%d new comment(s) on this task since your last run. Catch up: "+
-			"`silieco task comment list %s --since %s --output json`.\n\n",
+			"`meperstudio task comment list %s --since %s --output json`.\n\n",
 		newCommentCount, taskID, newCommentsSince,
 	)
 }
@@ -70,7 +70,7 @@ func BuildResumedCommentsHint(taskID, triggerCommentID, triggerThreadID string) 
 			"Use the active thread anchor `%s` and triggering comment ID `%s`. "+
 			"If your reply depends on thread context, do not rely only on resumed session memory — "+
 			"first pull the triggering conversation with: "+
-			"`silieco task comment list %s --thread %s --tail 30 --output json`.\n\n",
+			"`meperstudio task comment list %s --thread %s --tail 30 --output json`.\n\n",
 		threadID, triggerCommentID, taskID, threadID,
 	)
 }
@@ -98,10 +98,10 @@ func BuildColdCommentsHint(taskID, triggerCommentID, triggerThreadID string) str
 	}
 	return fmt.Sprintf(
 		"Read the triggering conversation first: "+
-			"`silieco task comment list %s --thread %s --tail 30 --output json` "+
+			"`meperstudio task comment list %s --thread %s --tail 30 --output json` "+
 			"(that thread's root + its 30 newest replies). "+
 			"Need cross-thread background? Scan the other threads cheaply with "+
-			"`silieco task comment list %s --roots-only --summary --output json` and expand only "+
+			"`meperstudio task comment list %s --roots-only --summary --output json` and expand only "+
 			"what looks relevant.\n\n",
 		taskID, threadID, taskID,
 	)
@@ -138,10 +138,10 @@ func activeThreadID(triggerThreadID, triggerCommentID string) string {
 //     see:
 //     1. On Windows, PowerShell 5.1's `$OutputEncoding` defaults to
 //     ASCIIEncoding when piping to native commands and drops non-ASCII as
-//     `?` before the bytes reach `silieco.exe` (#2198 Chinese, #2236
+//     `?` before the bytes reach `meperstudio.exe` (#2198 Chinese, #2236
 //     Chinese, #2376 Cyrillic).
 //     2. On any host, when the model emits a multi-flag command (e.g.
-//     `silieco task create --title ... --assignee-id ... --project ...`)
+//     `meperstudio task create --title ... --assignee-id ... --project ...`)
 //     the bash heredoc/flag boundary is fragile: a `BODY \` "terminator
 //     with trailing token" is not recognised as the heredoc end, so flag
 //     lines after it are swallowed into the description; or a clean
@@ -184,9 +184,9 @@ func buildCommentReplyInstructionsSlim(provider, taskID, triggerCommentID string
 			"If you decide to reply, post it as a comment — always use the trigger comment ID below, "+
 				"do NOT reuse --parent values from previous turns in this session.\n\n"+
 				"On Windows, write the reply body to a UTF-8 file with your file-write tool first, then post with `--content-file`. "+
-				"Do NOT pipe via `--content-stdin` — PowerShell 5.1's `$OutputEncoding` defaults to ASCIIEncoding when piping to native commands and silently drops non-ASCII (Chinese, Japanese, Cyrillic, accents, emoji) as `?` before bytes reach `silieco.exe`. "+
+				"Do NOT pipe via `--content-stdin` — PowerShell 5.1's `$OutputEncoding` defaults to ASCIIEncoding when piping to native commands and silently drops non-ASCII (Chinese, Japanese, Cyrillic, accents, emoji) as `?` before bytes reach `meperstudio.exe`. "+
 				"See ## Comment Formatting above for the full rule:\n\n"+
-				"    silieco task comment add %s --parent %s --content-file ./reply.md\n"+
+				"    meperstudio task comment add %s --parent %s --content-file ./reply.md\n"+
 				"    Remove-Item ./reply.md\n\n"+
 				"Do NOT write literal `\\n` escapes to simulate line breaks; the file preserves real newlines.\n",
 			taskID, triggerCommentID,
@@ -197,7 +197,7 @@ func buildCommentReplyInstructionsSlim(provider, taskID, triggerCommentID string
 			"do NOT reuse --parent values from previous turns in this session.\n\n"+
 			"Write the reply body to a UTF-8 file with your file-write tool first, then post it with `--content-file` "+
 			"(see ## Comment Formatting above for why inline `--content` and `--content-stdin` HEREDOCs are unsafe — SILI-2904 / #4182):\n\n"+
-			"    silieco task comment add %s --parent %s --content-file ./reply.md\n"+
+			"    meperstudio task comment add %s --parent %s --content-file ./reply.md\n"+
 			"    rm ./reply.md\n\n"+
 			"Do NOT write literal `\\n` escapes to simulate line breaks; the file preserves real newlines.\n",
 		taskID, triggerCommentID,
@@ -244,18 +244,18 @@ func BuildMultiThreadCommentReplyInstructions(taskID string, targets []ThreadRep
 	if runtimeGOOS == "windows" {
 		cookbook = fmt.Sprintf(
 			"For EACH thread above, write that reply's body to its own UTF-8 file with your file-write tool, then post it with `--content-file` (do NOT use inline `--content` or a `--content-stdin` HEREDOC — see ## Comment Formatting above for why). Use a DISTINCT file per thread (never reuse one file) and remove each after posting:\n\n"+
-				"    silieco task comment add %s --parent <thread-1-parent> --content-file ./reply-1.md\n"+
+				"    meperstudio task comment add %s --parent <thread-1-parent> --content-file ./reply-1.md\n"+
 				"    Remove-Item ./reply-1.md\n"+
-				"    silieco task comment add %s --parent <thread-2-parent> --content-file ./reply-2.md\n"+
+				"    meperstudio task comment add %s --parent <thread-2-parent> --content-file ./reply-2.md\n"+
 				"    Remove-Item ./reply-2.md\n\n",
 			taskID, taskID,
 		)
 	} else {
 		cookbook = fmt.Sprintf(
 			"For EACH thread above, write that reply's body to its own UTF-8 file with your file-write tool, then post it with `--content-file` (do NOT use inline `--content` or a `--content-stdin` HEREDOC — see ## Comment Formatting above for why). Use a DISTINCT file per thread (never reuse one file) and remove each after posting:\n\n"+
-				"    silieco task comment add %s --parent <thread-1-parent> --content-file ./reply-1.md\n"+
+				"    meperstudio task comment add %s --parent <thread-1-parent> --content-file ./reply-1.md\n"+
 				"    rm ./reply-1.md\n"+
-				"    silieco task comment add %s --parent <thread-2-parent> --content-file ./reply-2.md\n"+
+				"    meperstudio task comment add %s --parent <thread-2-parent> --content-file ./reply-2.md\n"+
 				"    rm ./reply-2.md\n\n",
 			taskID, taskID,
 		)

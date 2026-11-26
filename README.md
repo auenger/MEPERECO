@@ -44,7 +44,7 @@ MEPERStudio 是面向 AI Agent 任务与团队协作的工作平台，提供 Web
    docker compose up -d postgres
    ```
 
-3. 在已配置环境变量的终端启动后端：
+3. 在项目根目录运行 `make server`（自动加载根目录 `.env`，也可通过 `SERVER_ENV_FILE` 指定配置文件）。Windows 或其他不使用 Make 的环境，可先将配置注入终端环境，再启动后端：
 
    ```powershell
    cd core
@@ -58,6 +58,14 @@ MEPERStudio 是面向 AI Agent 任务与团队协作的工作平台，提供 Web
    ```
 
    默认 Web 地址为 `http://localhost:3000`，后端端口为 `8080`。Web 开发脚本依赖 `sh`，Windows 下可使用 Git Bash 或 WSL。
+
+## 邮箱验证、密码注册与登录
+
+Web、Desktop 和 Mobile 默认支持邮箱和密码登录，也保留已有账号的邮箱验证码登录。新用户通过邮箱验证码验证后设置密码，才完成账号创建（遵循 `ALLOW_SIGNUP`、`ALLOWED_EMAIL_DOMAINS` 和 `ALLOWED_EMAILS`）；已有无密码账号可通过邮箱验证设置密码。验证码 10 分钟内有效，同一邮箱发送间隔 60 秒，最多允许 5 次错误验证；验证后的一次性密码设置凭证有效期为 10 分钟。
+
+公司邮件服务默认采用 `mail.amaxgs.com:587`（STARTTLS），发件人与认证账号均为 `business_trip@amaxgs.com`，已通过真实邮件投递测试。详细的 SMTP 参数、Core Server 启动方式、Docker 部署和排查指南见 [邮箱服务配置文档](docs/email-configuration.md)。
+
+真实邮箱密码仅配置在未纳入 Git 的 `.env` 或部署环境的密钥中。修改后运行 `make server`，或重新创建自托管后端容器使配置生效。旧账号仍可使用原邮箱验证码登录，密码设置和重置不改变已有用户身份或工作空间。
 
 ## 常用命令
 
@@ -87,8 +95,31 @@ go test ./...
 docker compose -f docker-compose.selfhost.yml -f docker-compose.selfhost.build.yml up -d --build
 ```
 
+正式域名为 `https://studio.meper.cn`，部署时通过同源反向代理转发 Web、API、认证及 WebSocket；现有本地开发地址仍可通过环境变量或客户端配置覆盖。
+
 部署参数参见 `.env.example` 和 Compose 文件。对外提供服务时，应配置域名、HTTPS、反向代理及实际使用的邮件、模型和存储服务。
 
 ## 命名约定
 
-项目名称统一为 **MEPERStudio**。当前源码中的内部包作用域、Go 模块路径、部分命令和环境变量仍使用既有标识；开发和部署时请以实际配置为准。
+项目名称统一为 **MEPERStudio**。对外 CLI 命令统一为 `meperstudio`，新配置使用 `MEPERSTUDIO_*`。内部包作用域、Go 模块路径、数据库标识、旧协议和 Skill ID 保留兼容。旧 `SILIECO_*` 环境变量仍可使用；两者同时设置时新名称优先。新安装默认使用 `~/.meperstudio`，已有 `~/.silieco` 配置目录继续使用，不搬迁正在运行的 Daemon 状态。
+
+
+## CLI 与 Daemon 安装及发布
+
+创建 Space 不需要连接 Daemon。桌面端内置 CLI 并自动管理本地 Daemon；Web 用户可以在运行时页面连接远程机器，或者到 [下载页](https://studio.meper.cn/download#cli) 下载安装包。
+
+macOS / Linux：
+
+```bash
+curl -fsSL https://studio.meper.cn/cli/install.sh | bash
+meperstudio setup self-host --server-url https://studio.meper.cn --app-url https://studio.meper.cn
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://studio.meper.cn/cli/install.ps1 | iex
+meperstudio setup self-host --server-url https://studio.meper.cn --app-url https://studio.meper.cn
+```
+
+`make cli-release VERSION=1.0.0` 从当前 Go 源码交叉构建 macOS、Linux 和 Windows 的 AMD64 / ARM64 安装包，输出到 `apps/web/public/cli/`，同时生成 `checksums.txt` 和 `version.txt`。旧安装包名称一并生成以兼容已有桌面客户端。发布新版本时使用新的 `VERSION`；自托管 Web Docker 镜像构建时自动执行该流程，不需要手动复制二进制文件。CLI 更新与桌面端自动恢复使用同一发布路径，其他部署可通过 `MEPERSTUDIO_CLI_DOWNLOAD_BASE_URL` 指定自己的 `/cli` 路径。

@@ -29,7 +29,7 @@ import (
 //   - Codex CLI may also read user-level state from `~/.codex/memories/`
 //     entirely outside the daemon's per-task isolation, dragging
 //     unrelated host-project context into Silieco tasks. The reproduction
-//     in github.com/silieco-ai/silieco#3130 saw Raw Memories from
+//     in historical upstream issue #3130 saw Raw Memories from
 //     `D:\Project\MoHaYu\WowChat` (a host-local project) injected into a
 //     brand-new Silieco task's first Codex turn.
 //

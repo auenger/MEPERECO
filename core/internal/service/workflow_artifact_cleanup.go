@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // CleanupArtifacts keeps tombstones for two days, repeating deletes hourly to

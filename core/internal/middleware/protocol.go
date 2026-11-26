@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // RequireProtocol prevents stale clients from interpreting task and run IDs

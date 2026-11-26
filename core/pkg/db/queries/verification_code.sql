@@ -5,17 +5,21 @@ RETURNING *;
 
 -- name: GetLatestVerificationCode :one
 SELECT * FROM verification_code
-WHERE email = $1
+WHERE id = (
+    SELECT id FROM verification_code WHERE email = $1
+    ORDER BY created_at DESC, id DESC LIMIT 1
+)
   AND used = FALSE
   AND expires_at > now()
-  AND attempts < 5
-ORDER BY created_at DESC
-LIMIT 1;
+  AND attempts < 5;
 
--- name: MarkVerificationCodeUsed :exec
+-- name: MarkVerificationCodeUsed :execrows
 UPDATE verification_code
 SET used = TRUE
-WHERE id = $1;
+WHERE id = $1 AND used = FALSE AND expires_at > now() AND attempts < 5
+  AND id = (SELECT newest.id FROM verification_code AS newest
+            WHERE newest.email = verification_code.email
+            ORDER BY newest.created_at DESC, newest.id DESC LIMIT 1);
 
 -- name: IncrementVerificationCodeAttempts :exec
 UPDATE verification_code
@@ -25,7 +29,7 @@ WHERE id = $1;
 -- name: GetLatestCodeByEmail :one
 SELECT * FROM verification_code
 WHERE email = $1
-ORDER BY created_at DESC
+ORDER BY created_at DESC, id DESC
 LIMIT 1;
 
 -- name: DeleteExpiredVerificationCodes :exec

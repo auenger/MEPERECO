@@ -34,7 +34,7 @@ export function mergeLatestChatMessagePage(
   // starts before its first shared row, it may have crossed the old page
   // boundary (even when the next page has not been loaded yet). Rebuild
   // cursor boundaries authoritatively instead of creating overlaps.
-  if (overlap < 0 || head.messages[overlap].id !== fresh.messages[0]?.id) return null;
+  if (overlap < 0 || head.messages[overlap]?.id !== fresh.messages[0]?.id) return null;
   // Prefix retains the historical half of the first page. The fresh suffix
   // replaces matching records (e.g. attachment IDs, failures) authoritatively.
   return {

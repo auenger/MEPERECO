@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/featureflags"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/featureflags"
 )
 
 type AppConfig struct {
@@ -22,9 +22,8 @@ type AppConfig struct {
 	CdnSigned bool `json:"cdn_signed,omitempty"`
 	// Public auth config consumed by the web app at runtime so self-hosted
 	// deployments do not need to rebuild the frontend image when operators
-	// toggle signup or wire Google OAuth.
-	AllowSignup    bool   `json:"allow_signup"`
-	GoogleClientID string `json:"google_client_id,omitempty"`
+	// toggle signup.
+	AllowSignup bool `json:"allow_signup"`
 	// WorkspaceCreationDisabled mirrors the server-side
 	// DISABLE_WORKSPACE_CREATION env var so the UI can hide every
 	// "Create workspace" affordance on self-hosted instances. Omitted
@@ -68,13 +67,12 @@ type AppConfig struct {
 }
 
 // GetConfig is mounted on the public (unauthenticated) route group because
-// the web app calls it before login to decide whether to render the Google
-// sign-in button and signup UI. Only add fields here that are safe to expose
-// to anonymous callers — never user- or tenant-scoped data.
+// the web app calls it before login to decide how to present the signup UI.
+// Only add fields here that are safe to expose to anonymous callers — never
+// user- or tenant-scoped data.
 func (h *Handler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	config := AppConfig{
 		AllowSignup:               os.Getenv("ALLOW_SIGNUP") != "false",
-		GoogleClientID:            os.Getenv("GOOGLE_CLIENT_ID"),
 		WorkspaceCreationDisabled: os.Getenv("DISABLE_WORKSPACE_CREATION") == "true",
 	}
 	if h.Storage != nil {
@@ -137,21 +135,15 @@ func normalizePublicURL(raw string) string {
 	return strings.TrimRight(strings.TrimSpace(raw), "/")
 }
 
-// isOfficialCloudDaemonConfig reports whether this deployment is the official
-// Silieco Cloud, identified by its frontend host alone (silieco.ai). The
-// daemon setup for the managed cloud is always
-// `silieco setup` (which hardcodes api.silieco.ai), so the per-deployment URLs
-// must be omitted from /api/config even when SILIECO_PUBLIC_URL is unset or
-// misconfigured. Previously this also required serverURL==api.silieco.ai, so a
-// cloud deployment that forgot SILIECO_PUBLIC_URL fell through and emitted a
-// `setup self-host --server-url https://silieco.ai` command — pointing the
-// daemon's backend at the frontend (no /health, no WebSocket proxy).
+// Only explicitly configured managed-cloud deployments omit self-hosted
+// daemon setup URLs. The MEPERStudio hostname itself is not a cloud sentinel.
 func isOfficialCloudDaemonConfig(appURL string) bool {
-	return urlHostEquals(appURL, "silieco.ai")
+	host := strings.TrimSpace(os.Getenv("MEPERSTUDIO_CLOUD_WEB_HOST"))
+	return host != "" && urlHostEquals(appURL, host)
 }
 
 // isOfficialCloudDeployment reports whether this server is the official Silieco
-// Cloud, reusing the same frontend-host signal as the daemon setup (silieco.ai).
+// Cloud, reusing the same frontend-host signal as the daemon setup (studio.meper.cn).
 // Managed-cloud-only behavior — such as suppressing the Help popover's
 // server-version row, which only matters to self-hosted operators — is gated on
 // this.

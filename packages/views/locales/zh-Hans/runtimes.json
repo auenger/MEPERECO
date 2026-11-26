@@ -1,4 +1,10 @@
 {
+  "zcode_cli": {
+    "title": "ZCode CLI 使用提示",
+    "login": "直接使用官方订阅时，请在运行时电脑执行 zcode login bigmodel（海外 Z.ai 账号使用 zcode login zai）完成终端授权。",
+    "model": "模型由 ZCode 或 Magpie 管理。MEPERStudio 仅驱动 CLI，不修改模型配置。桌面会话切换不一定同步至终端，请以终端实际使用的模型为准。",
+    "magpie": "使用 Magpie 管理模型"
+  },
   "page": {
     "title": "运行时",
     "tagline": "为智能体跑 CLI 会话的机器和云端 worker。",

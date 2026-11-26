@@ -112,6 +112,8 @@ export default function SettingsPage() {
           subtitle={user?.email}
         />
         <Separator />
+        <NavRow onPress={() => currentSlug && router.push(`/${currentSlug}/more/settings/password` as never)} chevronColor={mutedFg} title={user?.has_password ? "Change password" : "Set password"} subtitle="Account security" />
+        <Separator />
         <NavRow
           onPress={goNotifications}
           chevronColor={mutedFg}

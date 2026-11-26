@@ -14,11 +14,10 @@ import { selectPlatformReleaseAssetName } from "./cli-release-asset";
 // same-repo builds, but it can also repair or bootstrap a managed copy in
 // userData on first launch when the bundled binary is missing or unusable.
 
-const GITHUB_LATEST_BASE =
-  "https://github.com/silieco-ai/silieco/releases/latest/download";
+const CLI_DOWNLOAD_BASE = (process.env.MEPERSTUDIO_CLI_DOWNLOAD_BASE_URL || process.env.SILIECO_DOWNLOAD_BASE_URL || "https://studio.meper.cn/cli").replace(/\/+$/, "");
 
 function binaryName(): string {
-  return process.platform === "win32" ? "silieco.exe" : "silieco";
+  return process.platform === "win32" ? "meperstudio.exe" : "meperstudio";
 }
 
 export function managedCliPath(): string {
@@ -45,7 +44,7 @@ async function downloadToFile(url: string, dest: string): Promise<void> {
 // Fetch goreleaser's published checksums.txt and parse it into a
 // filename → sha256 lookup. Format is `<hex>  <filename>` per line.
 async function fetchChecksums(): Promise<Map<string, string>> {
-  const url = `${GITHUB_LATEST_BASE}/checksums.txt`;
+  const url = `${CLI_DOWNLOAD_BASE}/checksums.txt`;
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) {
     throw new Error(
@@ -100,9 +99,9 @@ async function installFresh(): Promise<string> {
       `no checksum for ${assetName} in checksums.txt — refusing to install unverified binary`,
     );
   }
-  const url = `${GITHUB_LATEST_BASE}/${assetName}`;
+  const url = `${CLI_DOWNLOAD_BASE}/${assetName}`;
 
-  const workDir = join(tmpdir(), `silieco-cli-${Date.now()}`);
+  const workDir = join(tmpdir(), `meperstudio-cli-${Date.now()}`);
   await mkdir(workDir, { recursive: true });
 
   try {
@@ -116,7 +115,9 @@ async function installFresh(): Promise<string> {
     console.log(`[cli-bootstrap] extracting ${assetName}`);
     await extractArchive(archivePath, workDir);
 
-    const extractedBin = join(workDir, binaryName());
+    const branded = join(workDir, binaryName());
+    const legacy = join(workDir, process.platform === "win32" ? "silieco.exe" : "silieco");
+    const extractedBin = existsSync(branded) ? branded : legacy;
     if (!existsSync(extractedBin)) {
       throw new Error(
         `archive ${assetName} did not contain ${binaryName()} at its root`,

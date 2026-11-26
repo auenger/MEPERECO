@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/selfexec"
+	"github.com/auenger/MEPERECO/core/internal/selfexec"
 )
 
 // BaselineVersion identifies the clean-break Task / AgentRun schema generation.

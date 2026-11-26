@@ -4,10 +4,8 @@ import Link from "next/link";
 import { cn } from "@silieco/ui/lib/utils";
 import { useAuthStore } from "@silieco/core/auth";
 import {
-  XMark,
   GitHubMark,
   githubUrl,
-  twitterUrl,
 } from "./shared";
 import { useLocale, locales, localeLabels } from "../i18n";
 import { useDashboardCtaHref } from "../utils/use-dashboard-cta";
@@ -26,20 +24,12 @@ export function LandingFooter() {
           {/* Left — newsletter / CTA */}
           <div className="lg:w-[340px] lg:shrink-0">
             <Link href="#product" className="flex items-center gap-3">
-              <img src="/brand/meper-studio-horizontal-white.svg" alt="MEPERStudio" width={510} height={112} className="h-auto w-[180px]" />
+              <img src="/brand/meper-studio-horizontal-white.svg" alt="MEPER Studio" width={544} height={112} className="h-auto w-[180px]" />
             </Link>
             <p className="mt-4 max-w-[300px] text-body leading-[1.7] text-white/50 sm:text-body-lg">
               {t.footer.tagline}
             </p>
             <div className="mt-4 flex items-center gap-3">
-              <Link
-                href={twitterUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white/40 transition-colors hover:text-white"
-              >
-                <XMark className="size-4" />
-              </Link>
               <Link
                 href={githubUrl}
                 target="_blank"
@@ -119,8 +109,8 @@ export function LandingFooter() {
           <div className="flex items-end gap-6 sm:gap-8">
             <img
               src="/brand/meper-studio-horizontal-white.svg"
-              alt="MEPERStudio"
-              width={510}
+              alt="MEPER Studio"
+              width={544}
               height={112}
               className="h-auto w-full"
             />

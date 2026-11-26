@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"strings"
 
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
 	"gopkg.in/yaml.v3"
 )
 
 // TaskContextMarkerRelPath is a non-secret marker the daemon writes under the
 // task workdir. The CLI uses it as a fallback daemon-task signal when a child
-// sandbox strips all SILIECO_* env vars before invoking `silieco`.
+// sandbox strips all SILIECO_* env vars before invoking `meperstudio`.
 const RunContextMarkerRelPath = ".silieco/daemon_task_context.json"
 
 // TaskContextMarkerManagedBy is the marker discriminator the CLI checks before
@@ -32,7 +32,7 @@ type runContextMarkerFile struct {
 // EnsureWorkspacesRootMarker writes a persistent daemon-task marker at
 // {workspacesRoot}/.silieco/daemon_task_context.json.
 //
-// The per-workdir marker only protects `silieco` invocations whose cwd is
+// The per-workdir marker only protects `meperstudio` invocations whose cwd is
 // inside the workdir, because the CLI discovers markers by walking *up* from
 // cwd. A sandboxed subprocess that lost every SILIECO_* env var and escaped
 // to the workdir's parent directory sits above that marker, finds no daemon
@@ -373,6 +373,8 @@ func skillsDirPath(workDir, provider string) string {
 		// SILI-2219 this used to fall back to .agent_context/skills/, which
 		// no openclaw scan path ever inspected.
 		return filepath.Join(workDir, "skills")
+	case "zcode":
+		return filepath.Join(workDir, ".zcode", "skills")
 	case "pi":
 		// Pi natively discovers skills from .pi/skills/ in the workdir.
 		return filepath.Join(workDir, ".pi", "skills")
@@ -737,7 +739,7 @@ func renderTaskContext(provider string, ctx RunContextForEnv) string {
 	}
 
 	b.WriteString("## Quick Start\n\n")
-	fmt.Fprintf(&b, "Run `silieco task get %s --output json` to fetch the full task details.\n\n", ctx.TaskID)
+	fmt.Fprintf(&b, "Run `meperstudio task get %s --output json` to fetch the full task details.\n\n", ctx.TaskID)
 
 	skills := modelVisibleSkills(ctx.AgentSkills)
 	if len(skills) > 0 {
@@ -794,9 +796,9 @@ func renderAutopilotContext(ctx RunContextForEnv) string {
 	}
 
 	b.WriteString("## Quick Start\n\n")
-	b.WriteString("This is a run-only autopilot task with no assigned task. Do not run `silieco task get` unless the autopilot instructions explicitly ask you to create or update an task.\n\n")
+	b.WriteString("This is a run-only autopilot task with no assigned task. Do not run `meperstudio task get` unless the autopilot instructions explicitly ask you to create or update an task.\n\n")
 	if ctx.AutopilotID != "" {
-		fmt.Fprintf(&b, "Run `silieco autopilot get %s --output json` if you need the full autopilot configuration.\n\n", ctx.AutopilotID)
+		fmt.Fprintf(&b, "Run `meperstudio autopilot get %s --output json` if you need the full autopilot configuration.\n\n", ctx.AutopilotID)
 	}
 	if strings.TrimSpace(ctx.AutopilotDescription) != "" {
 		b.WriteString("## Autopilot Instructions\n\n")

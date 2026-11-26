@@ -17,6 +17,7 @@ import { StepHeader } from "../components/step-header";
 import { RuntimeAsidePanel } from "../components/runtime-aside-panel";
 import { useRuntimePicker } from "../components/use-runtime-picker";
 import { ProviderLogo } from "../../runtimes/components/provider-logo";
+import { ZCodeCliNotice } from "../../runtimes/components/zcode-cli-notice";
 import { useT } from "../../i18n";
 
 /**
@@ -279,6 +280,10 @@ function FancyView({
               />
             )}
 
+            {phase === "found" && (
+              <ZCodeCliNotice provider={selected?.provider} className="mt-4" />
+            )}
+
             {/* Footer action bar. The controls are phase-scoped so no dead or
                 duplicated affordance ever shows:
                   - Skip: shown while scanning / found. The empty phase owns its
@@ -356,6 +361,8 @@ function ScanningView() {
         <span className="font-medium text-foreground">{"Pi"}</span>
         {", "}
         <span className="font-medium text-foreground">{"Cursor"}</span>
+        {", "}
+        <span className="font-medium text-foreground">{"ZCode"}</span>
         {t(($) => $.step_runtime.scanning_lede_suffix)}
       </p>
       <div className="mt-10 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -469,6 +476,8 @@ function EmptyView({
         <span className="font-medium text-foreground">{"Pi"}</span>
         {", "}
         <span className="font-medium text-foreground">{"Cursor"}</span>
+        {", "}
+        <span className="font-medium text-foreground">{"ZCode"}</span>
         {t(($) => $.step_runtime.empty_lede_suffix)}
       </p>
 

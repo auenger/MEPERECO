@@ -16,7 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var skillCmd = &cobra.Command{
@@ -265,6 +265,22 @@ func runSkillGet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get skill: %w", err)
 	}
 
+	// Old runtimes can still read the unmodified server skill registry. The
+	// branded executable renders built-in command examples in its own name.
+	if rootCmd.Name() == "meperstudio" && strings.HasPrefix(args[0], "builtin:") {
+		if content, ok := skill["content"].(string); ok {
+			skill["content"] = cli.BrandCLIText(content)
+		}
+		if files, ok := skill["files"].([]any); ok {
+			for _, value := range files {
+				if file, ok := value.(map[string]any); ok && strings.HasSuffix(strVal(file, "path"), ".md") {
+					if content, ok := file["content"].(string); ok {
+						file["content"] = cli.BrandCLIText(content)
+					}
+				}
+			}
+		}
+	}
 	output, _ := cmd.Flags().GetString("output")
 	if output == "json" {
 		return cli.PrintJSON(os.Stdout, skill)

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/service"
 )
 
 // Rejection codes let the editor say which input is at fault: a timezone the

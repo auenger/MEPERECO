@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var projectCmd = &cobra.Command{
@@ -282,7 +282,7 @@ func runProjectGet(cmd *cobra.Command, args []string) error {
 	// stdout stays parseable; the `resource_count` field on the response is
 	// the programmatic equivalent. JSON numbers decode as float64.
 	if n, _ := project["resource_count"].(float64); n > 0 {
-		fmt.Fprintf(os.Stderr, "%d resource(s) attached — run `silieco project resource list %s` to view.\n",
+		fmt.Fprintf(os.Stderr, "%d resource(s) attached — run `meperstudio project resource list %s` to view.\n",
 			int64(n), strVal(project, "id"))
 	}
 

@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
-// silieco task label {list|add|remove} — manages the labels attached to a
+// meperstudio task label {list|add|remove} — manages the labels attached to a
 // specific task. The label itself is managed via `silieco label ...`.
 
 var taskLabelCmd = &cobra.Command{

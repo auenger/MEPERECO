@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // This file is the Slack user-binding token flow: an unbound Slack user who

@@ -12,12 +12,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/pkg/agent"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
 )
 
 // ---------------------------------------------------------------------------
-// `silieco runtime profile ...` — custom runtime profiles (SILI-3284)
+// `meperstudio runtime profile ...` — custom runtime profiles (SILI-3284)
 //
 // A runtime profile lets a workspace declare a custom agent runtime built on
 // top of a supported protocol family (the routing backend) but launched via a

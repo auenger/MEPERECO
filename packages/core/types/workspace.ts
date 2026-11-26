@@ -31,6 +31,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  has_password?: boolean;
   avatar_url: string | null;
   onboarded_at: string | null;
   /**

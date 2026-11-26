@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/metrics"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/metrics"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // The channel-media intent ledger's reconciler settings are fixed constants,

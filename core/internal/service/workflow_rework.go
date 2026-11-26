@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 type ReworkWorkflowExecutionParams struct {

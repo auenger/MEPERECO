@@ -1,3 +1,14 @@
+# --- Public CLI distribution (all supported platforms) ---
+FROM golang:1.26-alpine AS cli-dist
+WORKDIR /src
+RUN apk add --no-cache git python3
+COPY core/go.mod core/go.sum ./core/
+RUN cd core && go mod download
+COPY core/ ./core/
+COPY scripts/build-cli-release.py ./scripts/
+ARG NEXT_PUBLIC_APP_VERSION=1.0.0
+RUN python3 scripts/build-cli-release.py --output /cli-release --version "$NEXT_PUBLIC_APP_VERSION"
+
 # --- Dependencies ---
 FROM node:22-alpine AS deps
 
@@ -42,7 +53,7 @@ COPY packages/ packages/
 # Re-link after source overlay (fixes any symlinks overwritten by COPY)
 RUN pnpm install --frozen-lockfile --offline
 
-ARG NEXT_PUBLIC_APP_VERSION=dev
+ARG NEXT_PUBLIC_APP_VERSION=1.0.0
 ENV NEXT_PUBLIC_APP_VERSION=$NEXT_PUBLIC_APP_VERSION
 ENV STANDALONE=true
 
@@ -56,7 +67,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV REMOTE_API_URL=http://backend:8080
-ENV SILIECO_DOWNLOAD_DIR=/app/apps/web/public/downloads
+ENV MEPERSTUDIO_DOWNLOAD_DIR=/app/apps/web/public/downloads
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
@@ -67,6 +78,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 # Copy public assets
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --from=cli-dist --chown=nextjs:nodejs /cli-release/ ./apps/web/public/cli/
 
 USER nextjs
 

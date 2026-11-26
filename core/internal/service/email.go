@@ -8,6 +8,7 @@ import (
 	"mime"
 	"mime/quotedprintable"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"os"
 	"strings"
@@ -94,6 +95,16 @@ func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 }
 
 func smtpAuthWithFallback(c smtpAuthClient, host, username, password string) (bool, error) {
+	if ok, mechanisms := c.Extension("AUTH"); ok {
+		hasPlain, hasLogin := false, false
+		for _, mechanism := range strings.Fields(strings.ToUpper(mechanisms)) {
+			hasPlain = hasPlain || mechanism == "PLAIN"
+			hasLogin = hasLogin || mechanism == "LOGIN"
+		}
+		if hasLogin && !hasPlain {
+			return false, c.Auth(&loginAuth{username: username, password: password, host: host})
+		}
+	}
 	plainErr := c.Auth(smtp.PlainAuth("", username, password, host))
 	if plainErr == nil {
 		return false, nil
@@ -117,10 +128,13 @@ func resolveFromEmail(smtpHost string) string {
 		if resendFrom != "" {
 			return resendFrom
 		}
-		return "noreply@silieco.ai"
+		return ""
 	}
 	if smtpFrom := strings.TrimSpace(os.Getenv("SMTP_FROM_EMAIL")); smtpFrom != "" {
 		return smtpFrom
+	}
+	if account := strings.TrimSpace(os.Getenv("SMTP_USERNAME")); account != "" {
+		return account
 	}
 	return resendFrom
 }
@@ -234,7 +248,11 @@ func NewEmailService() *EmailService {
 	case client != nil:
 		fmt.Printf("EmailService: Resend API from=%s\n", from)
 	default:
-		fmt.Println("EmailService: DEV mode — codes printed to stdout (set SILIECO_DEV_VERIFICATION_CODE in .env for a fixed local code)")
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {
+			fmt.Println("EmailService: email delivery unavailable — configure SMTP or Resend")
+		} else {
+			fmt.Println("EmailService: DEV mode — codes printed to stdout (set SILIECO_DEV_VERIFICATION_CODE in .env for a fixed local code)")
+		}
 	}
 
 	return &EmailService{
@@ -255,8 +273,13 @@ func NewEmailService() *EmailService {
 // Upgrades to STARTTLS when advertised by the server.
 // Set SMTP_TLS_INSECURE=true for self-signed or private CA certificates.
 func (s *EmailService) sendSMTP(to, subject, htmlBody string) error {
-	if strings.TrimSpace(s.fromEmail) == "" {
-		return fmt.Errorf("SMTP_FROM_EMAIL or RESEND_FROM_EMAIL is required when SMTP_HOST is set")
+	sender, err := mail.ParseAddress(s.fromEmail)
+	if err != nil || sender.Address != s.fromEmail {
+		return fmt.Errorf("SMTP sender must be a valid email address")
+	}
+	recipient, err := mail.ParseAddress(to)
+	if err != nil || recipient.Address != to {
+		return fmt.Errorf("SMTP recipient must be a valid email address")
 	}
 
 	c, err := s.openSMTPClient()
@@ -331,7 +354,9 @@ func (s *EmailService) sendSMTP(to, subject, htmlBody string) error {
 	if err = w.Close(); err != nil {
 		return fmt.Errorf("smtp end data: %w", err)
 	}
-	return c.Quit()
+	// The relay acknowledged DATA; a disconnect during QUIT does not undo delivery.
+	_ = c.Quit()
+	return nil
 }
 
 // SendVerificationCode sends a one-time login code. The code is server-generated
@@ -340,23 +365,26 @@ func (s *EmailService) sendSMTP(to, subject, htmlBody string) error {
 func (s *EmailService) SendVerificationCode(to, code string) error {
 	body := fmt.Sprintf(
 		`<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto;">
-			<h2>Your verification code</h2>
+			<h2>MEPERStudio 邮箱验证码 / Verification code</h2>
 			<p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 24px 0;">%s</p>
-			<p>This code expires in 10 minutes.</p>
+			<p>验证码 10 分钟内有效。This code expires in 10 minutes.</p>
 			<p style="color: #666; font-size: 14px;">If you didn't request this code, you can safely ignore this email.</p>
 		</div>`, code)
 
 	if s.smtpHost != "" {
-		return s.sendSMTP(to, "Your MEPERStudio verification code", body)
+		return s.sendSMTP(to, "MEPERStudio 邮箱验证码 / Verification code", body)
 	}
 	if s.client == nil {
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {
+			return fmt.Errorf("email delivery is not configured")
+		}
 		fmt.Printf("[DEV] Verification code for %s: %s\n", to, code)
 		return nil
 	}
 	params := &resend.SendEmailRequest{
 		From:    s.fromEmail,
 		To:      []string{to},
-		Subject: "Your MEPERStudio verification code",
+		Subject: "MEPERStudio 邮箱验证码 / Verification code",
 		Html:    body,
 	}
 	_, err := s.client.Emails.Send(params)
@@ -368,7 +396,7 @@ func (s *EmailService) SendVerificationCode(to, code string) error {
 func (s *EmailService) SendInvitationEmail(to, inviterName, workspaceName, invitationID string) error {
 	appURL := strings.TrimSpace(os.Getenv("FRONTEND_ORIGIN"))
 	if appURL == "" {
-		appURL = "https://silieco.ai"
+		appURL = "https://studio.meper.cn"
 	}
 	inviteURL := fmt.Sprintf("%s/invite/%s", appURL, invitationID)
 

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 const minShortIDPrefixLen = 4
@@ -162,12 +162,12 @@ func resolveTaskRef(ctx context.Context, client *cli.APIClient, input string) (r
 	if _, err := normalizeUUIDPrefix(trimmed); err == nil {
 		return resolvedID{}, fmt.Errorf(
 			"task ref %q looks like a short UUID prefix; short prefixes are no longer supported for tasks. "+
-				"Use the task key (e.g. SILI-123) shown by `silieco task list`, or pass the full UUID (run a list command with --full-id to copy it)",
+				"Use the task key (e.g. SILI-123) shown by `meperstudio task list`, or pass the full UUID (run a list command with --full-id to copy it)",
 			input,
 		)
 	}
 	return resolvedID{}, fmt.Errorf(
-		"task ref %q is not a recognized task reference; use the task key (e.g. SILI-123) shown by `silieco task list`, or pass the full UUID",
+		"task ref %q is not a recognized task reference; use the task key (e.g. SILI-123) shown by `meperstudio task list`, or pass the full UUID",
 		input,
 	)
 }
@@ -280,7 +280,7 @@ func resolveAgentRunID(ctx context.Context, client *cli.APIClient, taskID, input
 		return resolvedID{ID: trimmed, Display: trimmed}, nil
 	}
 	if strings.TrimSpace(taskID) == "" {
-		return resolvedID{}, fmt.Errorf("short run prefixes require --task <task-id>; pass a full run UUID or run `silieco task runs <task-id> --full-id`")
+		return resolvedID{}, fmt.Errorf("short run prefixes require --task <task-id>; pass a full run UUID or run `meperstudio task runs <task-id> --full-id`")
 	}
 	fetch := func(ctx context.Context, client *cli.APIClient) ([]idCandidate, error) {
 		return fetchRunRunCandidatesForTask(ctx, client, taskID)

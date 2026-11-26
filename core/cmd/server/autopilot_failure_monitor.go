@@ -13,11 +13,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // failureMonitorConfig is the tunable knob set for the autopilot failure

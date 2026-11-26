@@ -6,11 +6,11 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/handler"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/handler"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // mention represents a parsed @mention from markdown content (local alias).

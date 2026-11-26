@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/util/secretbox"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/util/secretbox"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // InstallationParams is the input shape RegistrationService assembles

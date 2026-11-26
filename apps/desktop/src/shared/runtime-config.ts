@@ -15,11 +15,11 @@ export type RuntimeConfigResult =
 
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   schemaVersion: 1,
-  // Internal HTTP deployment default. A user-provided
+  // Official MEPERStudio deployment. A user-provided
   // ~/.silieco/desktop.json still overrides this value when present.
-  apiUrl: "http://yilia.me:6688",
-  wsUrl: "ws://yilia.me:6688/ws",
-  appUrl: "http://yilia.me:6688",
+  apiUrl: "https://studio.meper.cn",
+  wsUrl: "wss://studio.meper.cn/ws",
+  appUrl: "https://studio.meper.cn",
 });
 
 const LOCAL_DEV_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
@@ -95,8 +95,8 @@ export function deriveWsUrl(apiUrl: string): string {
   return trimTrailingSlash(url.toString());
 }
 
-// Convention: api hosts are exposed at `api.<web-host>` (api.silieco.ai →
-// silieco.ai, api.test.silieco.ai → test.silieco.ai). Strip the leading
+// Convention: api hosts can be exposed at `api.<web-host>` (api.example.com →
+// example.com). Strip the leading
 // `api.` label so a single `apiUrl` configuration produces the right
 // shareable web URL. Hosts that don't match the convention (no leading
 // `api.` label, or short two-label hosts like `api.local`) fall through

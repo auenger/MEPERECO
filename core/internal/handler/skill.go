@@ -18,11 +18,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/db/relational"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/db/relational"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -57,7 +57,7 @@ type SkillResponse struct {
 // SkillSummaryResponse is the list-endpoint shape: everything SkillResponse
 // has except `content`. SKILL.md bodies routinely run 50–200KB and shipping
 // them in list payloads bloats responses past CLI timeouts on high-latency
-// links (GH silieco-ai/silieco#2174). Detail endpoints still return the full
+// links (GH historical upstream issue #2174). Detail endpoints still return the full
 // SkillResponse with content.
 type SkillSummaryResponse struct {
 	ID          string  `json:"id"`

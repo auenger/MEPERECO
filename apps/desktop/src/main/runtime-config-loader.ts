@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { stateDir } from "./state-dir";
 import {
   DEFAULT_RUNTIME_CONFIG,
   parseRuntimeConfig,
@@ -41,7 +42,7 @@ export async function loadRuntimeConfig(options: {
 }
 
 export function desktopConfigPath(): string {
-  return join(app.getPath("home"), ".silieco", "desktop.json");
+  return join(stateDir(app.getPath("home")), "desktop.json");
 }
 
 function isMissingFileError(err: unknown): boolean {

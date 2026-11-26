@@ -14,9 +14,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 var errSkillNotRefreshable = errors.New("this skill was not imported from a refreshable source")

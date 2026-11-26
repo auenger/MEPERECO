@@ -13,18 +13,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Configure the CLI, authenticate, and start the daemon",
-	Long: `Configures the CLI to connect to MEPERStudio Cloud (silieco.ai), then
+	Long: `Configures the CLI to connect to MEPERStudio Cloud (studio.meper.cn), then
 authenticates via browser and starts the agent daemon.
 
 If a configuration already exists, you will be prompted before overwriting.
 
-Use 'silieco setup self-host' to connect to a self-hosted server instead.
+Use 'meperstudio setup self-host' to connect to a self-hosted server instead.
 
 If you run this command over SSH on a remote machine, keep the localhost
 callback and follow the SSH tunnel hint printed during browser login. If your
@@ -32,21 +32,21 @@ browser can reach this CLI directly on a private network address, pass
 --callback-host <host-or-ip>.
 
 Use --profile to create an isolated configuration for a separate environment:
-  silieco setup self-host --profile staging --server-url https://api-staging.co`,
+  meperstudio setup self-host --profile staging --server-url https://api-staging.co`,
 	RunE: runSetupCloud,
 }
 
 var setupCloudCmd = &cobra.Command{
 	Use:   "cloud",
-	Short: "Configure the CLI for MEPERStudio Cloud (silieco.ai)",
-	Long: `Explicitly configures the CLI to connect to MEPERStudio Cloud (silieco.ai).
+	Short: "Configure the CLI for MEPERStudio Cloud (studio.meper.cn)",
+	Long: `Explicitly configures the CLI to connect to MEPERStudio Cloud (studio.meper.cn).
 
 If you run this command over SSH on a remote machine, keep the localhost
 callback and follow the SSH tunnel hint printed during browser login. If your
 browser can reach this CLI directly on a private network address, pass
 --callback-host <host-or-ip>.
 
-This is equivalent to running 'silieco setup' without a subcommand.`,
+This is equivalent to running 'meperstudio setup' without a subcommand.`,
 	RunE: runSetupCloud,
 }
 
@@ -63,9 +63,9 @@ If you run this command from a different machine than the server, also pass
 the OAuth login flow can return the token to the CLI.
 
 Examples:
-  silieco setup self-host
-  silieco setup self-host --server-url https://api.internal.co --app-url https://app.internal.co
-  silieco setup self-host --port 9090 --frontend-port 4000`,
+  meperstudio setup self-host
+  meperstudio setup self-host --server-url https://api.internal.co --app-url https://app.internal.co
+  meperstudio setup self-host --port 9090 --frontend-port 4000`,
 	RunE: runSetupSelfHost,
 }
 
@@ -73,8 +73,8 @@ func init() {
 	setupCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
 	setupCloudCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
 
-	setupSelfHostCmd.Flags().String("server-url", "", "Backend server URL (e.g. https://api.internal.co) (env: SILIECO_SERVER_URL)")
-	setupSelfHostCmd.Flags().String("app-url", "", "Frontend app URL (e.g. https://app.internal.co) (env: SILIECO_APP_URL)")
+	setupSelfHostCmd.Flags().String("server-url", "", "Backend server URL (e.g. https://api.internal.co) (env: MEPERSTUDIO_SERVER_URL)")
+	setupSelfHostCmd.Flags().String("app-url", "", "Frontend app URL (e.g. https://app.internal.co) (env: MEPERSTUDIO_APP_URL)")
 	setupSelfHostCmd.Flags().Int("port", 8080, "Backend server port (used when --server-url is not set)")
 	setupSelfHostCmd.Flags().Int("frontend-port", 3000, "Frontend port (used when --app-url is not set)")
 	setupSelfHostCmd.Flags().String(callbackHostFlag, "", callbackHostFlagHelp)
@@ -158,7 +158,7 @@ func runSetupCloud(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("save config: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "Configured for MEPERStudio Cloud (https://silieco.ai).")
+	fmt.Fprintln(os.Stderr, "Configured for MEPERStudio Cloud (https://studio.meper.cn).")
 	fmt.Fprintf(os.Stderr, "  server_url: %s\n", cfg.ServerURL)
 	fmt.Fprintf(os.Stderr, "  app_url:    %s\n", cfg.AppURL)
 	printConfigLocation(profile)
@@ -187,7 +187,7 @@ func runSetupSelfHost(cmd *cobra.Command, args []string) error {
 	//
 	// Honor SILIECO_SERVER_URL / SILIECO_APP_URL when the matching flag is not
 	// set — consistent with the rest of the CLI (resolveServerURL) and with the
-	// env vars documented on the root --server-url flag and in `silieco --help`.
+	// env vars documented on the root --server-url flag and in `meperstudio --help`.
 	// Before this, setup self-host read only the flags, so a self-hoster who set
 	// SILIECO_SERVER_URL still got the localhost default and an "unreachable"
 	// error (GitHub #3912).
@@ -233,7 +233,7 @@ func runSetupSelfHost(cmd *cobra.Command, args []string) error {
 	if !reachable {
 		fmt.Fprintf(os.Stderr, "\n⚠ Server at %s is not reachable.\n", serverURL)
 		fmt.Fprintln(os.Stderr, "  Your existing configuration was left unchanged.")
-		fmt.Fprintln(os.Stderr, "  Verify the URL, then re-run 'silieco setup self-host' once it's reachable.")
+		fmt.Fprintln(os.Stderr, "  Verify the URL, then re-run 'meperstudio setup self-host' once it's reachable.")
 		return nil
 	}
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/internal/cloudruntime"
+	"github.com/auenger/MEPERECO/core/internal/cloudruntime"
 )
 
 // Cloud billing endpoints proxy to the same silieco-cloud HTTP service

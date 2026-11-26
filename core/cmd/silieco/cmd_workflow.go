@@ -5,15 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 	"github.com/google/uuid"
-	"github.com/silieco-ai/silieco/core/internal/cli"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 	"github.com/spf13/cobra"
 )
 

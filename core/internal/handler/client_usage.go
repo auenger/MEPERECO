@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 const clientUsageBodyLimit = 16 * 1024

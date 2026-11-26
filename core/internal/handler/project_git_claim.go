@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/projectgit"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/runfailure"
+	"github.com/auenger/MEPERECO/core/internal/projectgit"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/runfailure"
 )
 
 var errProjectRepoDaemonUpgrade = errors.New("project repository mode requires an upgraded daemon")

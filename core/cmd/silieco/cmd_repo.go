@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 	"github.com/spf13/cobra"
 )
 

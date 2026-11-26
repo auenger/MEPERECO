@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 // Indirections over the real release / version helpers so tests can run the

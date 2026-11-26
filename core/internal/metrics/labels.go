@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/pkg/runfailure"
+	"github.com/auenger/MEPERECO/core/pkg/runfailure"
 )
 
 const (
@@ -133,6 +133,7 @@ var (
 		"deveco":        "deveco",
 		"pi":            "pi",
 		"qwen":          "qwen",
+		"zcode":         "zcode",
 		"other":         "other",
 	}
 	knownTerminalStatuses = map[string]string{

@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/silieco-ai/silieco/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/logger"
 )
 
 const rollupAdvisoryLockID = 4246

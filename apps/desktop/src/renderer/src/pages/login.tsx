@@ -6,18 +6,7 @@ import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { Button } from "@silieco/ui/components/ui/button";
 import { Input } from "@silieco/ui/components/ui/input";
 
-function requireRuntimeAppUrl(): string {
-  const runtimeConfig = window.desktopAPI.runtimeConfig;
-  if (!runtimeConfig.ok) {
-    throw new Error(
-      "Invariant violated: DesktopLoginPage rendered before App accepted runtime config",
-    );
-  }
-  return runtimeConfig.config.appUrl;
-}
-
 export function DesktopLoginPage() {
-  const appUrl = requireRuntimeAppUrl();
   const [serverUrl, setServerUrl] = useState(() => {
     const runtimeConfig = window.desktopAPI.runtimeConfig;
     return runtimeConfig.ok ? runtimeConfig.config.apiUrl : "";
@@ -25,14 +14,6 @@ export function DesktopLoginPage() {
   const [editingServer, setEditingServer] = useState(false);
   const [serverSaving, setServerSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-
-  const handleGoogleLogin = () => {
-    // Open web login page in the default browser with platform=desktop flag.
-    // The web callback will redirect back via silieco:// deep link with the token.
-    window.desktopAPI.openExternal(
-      `${appUrl}/login?platform=desktop`,
-    );
-  };
 
   const handleSaveServer = async () => {
     setServerSaving(true);
@@ -59,12 +40,10 @@ export function DesktopLoginPage() {
       <DragStrip />
       <LoginPage
         logo={<SiliecoIcon bordered size="lg" />}
-        passwordAuth
         onSuccess={() => {
           // Auth store update triggers AppContent re-render → shows DesktopShell.
           // Initial workspace navigation happens in routes.tsx via IndexRedirect.
         }}
-        onGoogleLogin={handleGoogleLogin}
       />
       <div className="flex flex-col items-center gap-1.5 pb-3">
         {editingServer ? (

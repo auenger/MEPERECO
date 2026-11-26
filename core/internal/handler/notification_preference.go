@@ -7,8 +7,8 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // validNotifGroups is the set of notification preference group keys that the

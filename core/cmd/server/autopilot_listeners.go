@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/handler"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/handler"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // registerAutopilotListeners hooks into task and run events to keep

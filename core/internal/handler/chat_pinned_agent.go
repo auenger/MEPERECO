@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // maxChatPinnedAgents caps the quick-agent bar so it stays compact.

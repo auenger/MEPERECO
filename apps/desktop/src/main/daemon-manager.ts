@@ -14,8 +14,9 @@ import {
   unwatchFile,
   type StatsListener,
 } from "fs";
-import { join } from "path";
-import { homedir, hostname } from "os";
+import { dirname, join } from "path";
+import { hostname } from "os";
+import { stateDir } from "./state-dir";
 import type {
   DaemonStatus,
   DaemonPrefs,
@@ -37,7 +38,7 @@ import {
 
 const DEFAULT_HEALTH_PORT = 19514;
 const POLL_INTERVAL_MS = 5_000;
-const PREFS_PATH = join(homedir(), ".silieco", "desktop_prefs.json");
+const PREFS_PATH = join(stateDir(), "desktop_prefs.json");
 const LOG_TAIL_RETRY_MS = 2_000;
 const LOG_TAIL_MAX_RETRIES = 5;
 // How long a start may sit in "starting" (with no /health) before we probe the
@@ -100,8 +101,8 @@ function healthPortForProfile(profile: string): number {
 
 function profileDir(profile: string): string {
   return profile
-    ? join(homedir(), ".silieco", "profiles", profile)
-    : join(homedir(), ".silieco");
+    ? join(stateDir(), "profiles", profile)
+    : stateDir();
 }
 
 function profileConfigPath(profile: string): string {
@@ -396,7 +397,7 @@ async function fetchHealth(): Promise<DaemonStatus> {
 }
 
 function findCliOnPath(): string | null {
-  const candidates = process.platform === "win32" ? ["silieco.exe"] : ["silieco"];
+  const candidates = process.platform === "win32" ? ["meperstudio.exe", "silieco.exe"] : ["meperstudio", "silieco"];
   const paths = (process.env["PATH"] ?? "").split(
     process.platform === "win32" ? ";" : ":",
   );
@@ -423,7 +424,7 @@ function findCliOnPath(): string | null {
  *   `app.asar.unpacked/`, so we swap the path segment to execute it.
  */
 function bundledCliPath(): string {
-  const binName = process.platform === "win32" ? "silieco.exe" : "silieco";
+  const binName = process.platform === "win32" ? "meperstudio.exe" : "meperstudio";
   return join(app.getAppPath(), "resources", "bin", binName).replace(
     "app.asar",
     "app.asar.unpacked",
@@ -519,6 +520,13 @@ async function resolveCliBinary(): Promise<string | null> {
       console.warn("[daemon] CLI auto-install failed, falling back to PATH:", err);
     }
 
+    const legacyName = process.platform === "win32" ? "silieco.exe" : "silieco";
+    for (const [legacy, source] of [[join(dirname(bundled), legacyName), "bundled"], [join(dirname(managed), legacyName), "managed"]] as const) {
+      if (existsSync(legacy)) {
+        const version = await probeCliBinary(legacy, source);
+        if (version) { cachedCliBinary = legacy; cachedCliBinaryVersion = version; return legacy; }
+      }
+    }
     const onPath = findCliOnPath();
     if (onPath) {
       const version = await probeCliBinary(onPath, "path");
@@ -736,7 +744,7 @@ async function loadPrefs(): Promise<DaemonPrefs> {
 }
 
 async function savePrefs(prefs: DaemonPrefs): Promise<void> {
-  const dir = join(homedir(), ".silieco");
+  const dir = stateDir();
   await mkdir(dir, { recursive: true });
   await writeFile(PREFS_PATH, JSON.stringify(prefs, null, 2), "utf-8");
 }
@@ -907,12 +915,12 @@ async function probeLocalRuntimes(): Promise<LocalRuntimeProbe> {
 // applied by fix-path in main/index.ts — as a top-level const it would
 // snapshot process.env at import time, before that block runs.
 function desktopSpawnEnv(): NodeJS.ProcessEnv {
-  return { ...process.env, SILIECO_LAUNCHED_BY: "desktop" };
+  return { ...process.env, MEPERSTUDIO_LAUNCHED_BY: "desktop", SILIECO_LAUNCHED_BY: "desktop" };
 }
 
 async function startDaemon(): Promise<{ success: boolean; error?: string }> {
   const bin = await resolveCliBinary();
-  if (!bin) return { success: false, error: "silieco CLI is not installed" };
+  if (!bin) return { success: false, error: "MEPERStudio CLI is not installed" };
 
   const active = await ensureActiveProfile();
   const existing = await fetchHealthAtPort(active.port);
@@ -982,7 +990,7 @@ async function stopDaemon(): Promise<{ success: boolean; error?: string }> {
   if (await lifecycleBlockedByForeignDaemon()) return { success: true };
 
   const bin = await resolveCliBinary();
-  if (!bin) return { success: false, error: "silieco CLI is not installed" };
+  if (!bin) return { success: false, error: "MEPERStudio CLI is not installed" };
 
   const active = await ensureActiveProfile();
   currentState = "stopping";

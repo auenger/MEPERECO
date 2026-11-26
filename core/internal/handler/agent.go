@@ -13,20 +13,20 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/attribution"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/attribution"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/runtimeapps"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	"github.com/silieco-ai/silieco/core/pkg/agent"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
 )
 
 // Mirrors AGENT_DESCRIPTION_MAX_LENGTH in packages/core/agents/constants.ts
@@ -1045,6 +1045,11 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Older desktop clients still seed the retired helper title.
+	if req.Template == onboardingAgentTemplate && req.Name == "Sili Agent" {
+		req.Name = onboardingAssistantName
+		req.Instructions = strings.ReplaceAll(req.Instructions, "Sili Agent", onboardingAssistantName)
+	}
 	if req.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return

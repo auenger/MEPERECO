@@ -1,6 +1,6 @@
 import { HELPER_DESCRIPTION, HELPER_INSTRUCTIONS } from "./helper-instructions";
 
-const HELPER_AGENT_NAME = "Sili Agent";
+const HELPER_AGENT_NAME = "MEPER Agent";
 
 /**
  * Skip path, task 2/2: "Create your first MEPERStudio Agent".
@@ -39,7 +39,7 @@ export function getCreateAgentGuideBody(opts: BodyOpts): string {
 }
 
 function enBody(installRuntimeMention: string): string {
-  return `Once your runtime is online (see ${installRuntimeMention}), build your first agent, Sili Agent. The prompt below is pre-written; just copy.
+  return `Once your runtime is online (see ${installRuntimeMention}), build your first agent, MEPER Agent. The prompt below is pre-written; just copy.
 
 ## 1. Open the new-agent screen
 
@@ -70,7 +70,7 @@ ${HELPER_INSTRUCTIONS.en}
 
 Hit **Create**. The new agent shows up in the workspace agent list.
 
-Now create an task (or reassign an existing one) → set assignee = Sili Agent → set status to **todo**. The runtime picks the task up within a few seconds and starts working. Watch progress in the task's Run panel.
+Now create an task (or reassign an existing one) → set assignee = MEPER Agent → set status to **todo**. The runtime picks the task up within a few seconds and starts working. Watch progress in the task's Run panel.
 
 ## Where to go next
 
@@ -80,7 +80,7 @@ Now create an task (or reassign an existing one) → set assignee = Sili Agent �
 }
 
 function zhBody(installRuntimeMention: string): string {
-  return `等运行时上线（见 ${installRuntimeMention}）之后，创建你的第一个 Agent：Sili Agent。下面的提示词已经写好，直接复制即可。
+  return `等运行时上线（见 ${installRuntimeMention}）之后，创建你的第一个 Agent：MEPER Agent。下面的提示词已经写好，直接复制即可。
 
 ## 1. 打开新建 agent 页
 
@@ -111,7 +111,7 @@ ${HELPER_INSTRUCTIONS.zh}
 
 点 **Create**。新 agent 会出现在 workspace 的 agent 列表里。
 
-接着创建一个 task（或把已有 task 重新分派）→ 把 assignee 设成 Sili Agent → 状态切到 **todo**。运行时会在几秒内接走任务并开始工作。在 task 的任务面板里看进度。
+接着创建一个 task（或把已有 task 重新分派）→ 把 assignee 设成 MEPER Agent → 状态切到 **todo**。运行时会在几秒内接走任务并开始工作。在 task 的任务面板里看进度。
 
 ## 接下来去哪
 

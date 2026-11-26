@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // This file is the SHARED, channel-agnostic chat-session service every IM

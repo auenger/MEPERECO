@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 func (h *Handler) BrowseProjectDirectory(w http.ResponseWriter, r *http.Request) {

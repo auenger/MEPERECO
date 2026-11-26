@@ -6,12 +6,11 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      name: "MEPERStudio",
-      url: "https://www.silieco.ai",
+      name: "MEPER Studio",
     },
     {
       "@type": "SoftwareApplication",
-      name: "MEPERStudio",
+      name: "MEPER Studio",
       applicationCategory: "ProjectManagement",
       operatingSystem: "Web",
       description:

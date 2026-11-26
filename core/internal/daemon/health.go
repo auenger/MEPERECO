@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/daemon/repocache"
+	"github.com/auenger/MEPERECO/core/internal/daemon/repocache"
 )
 
 // HealthResponse is returned by the daemon's local health endpoint.

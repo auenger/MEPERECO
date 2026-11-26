@@ -13,7 +13,7 @@ import (
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
 )
 
 // slackChannel is ONE installation's Socket Mode connection. Under the

@@ -15,8 +15,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	"github.com/silieco-ai/silieco/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/util"
 )
 
 // Installation is the channel-agnostic view of one channel_installation

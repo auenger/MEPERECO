@@ -9,6 +9,7 @@
   },
   "exports": {
     "./navigation": "./navigation/index.ts",
+    "./common/cli-commands": "./common/cli-commands.ts",
     "./common/actor-avatar": "./common/actor-avatar.tsx",
     "./editor": "./editor/index.ts",
     "./tasks/components": "./tasks/components/index.ts",

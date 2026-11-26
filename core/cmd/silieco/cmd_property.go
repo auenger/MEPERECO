@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
-// silieco property {list|get|create|update|archive|unarchive} — workspace
-// custom property definitions, and silieco task property {list|set|unset} —
+// meperstudio property {list|get|create|update|archive|unarchive} — workspace
+// custom property definitions, and meperstudio task property {list|set|unset} —
 // typed values on a single task. See core/internal/handler/property.go
 // for the validation contract (7 types, 20 active definitions/workspace,
 // owner/admin-only definition management, agents rejected on definition
@@ -70,7 +70,7 @@ var propertyCreateCmd = &cobra.Command{
 	Short: "Create a property definition (workspace owner/admin only)",
 	Long: `Create a property definition. Types: text, number, select, multi_select,
 date, checkbox, url. Select types take repeatable --option flags:
-  silieco property create --name Severity --type select \
+  meperstudio property create --name Severity --type select \
       --option "Critical:#ef4444" --option "Major:#f59e0b" --option "Minor:#6b7280"
 The ":#rrggbb" color suffix is optional.`,
 	Args: exactArgs(0),

@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/silieco-ai/silieco/core/internal/dispatch"
+	"github.com/auenger/MEPERECO/core/internal/dispatch"
 )
 
 // Unified execution-admission contract (SILI-4525).

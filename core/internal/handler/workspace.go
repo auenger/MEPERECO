@@ -10,12 +10,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/db/relational"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/db/relational"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 var nonAlpha = regexp.MustCompile(`[^a-zA-Z]`)

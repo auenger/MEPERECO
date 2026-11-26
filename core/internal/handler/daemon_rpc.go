@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
 )
 
 // rpcResponseCapture is a minimal in-memory http.ResponseWriter so a WS RPC can

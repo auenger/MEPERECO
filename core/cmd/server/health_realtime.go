@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
 )
 
 // realtimeMetricsHandler returns the HTTP handler for /health/realtime.

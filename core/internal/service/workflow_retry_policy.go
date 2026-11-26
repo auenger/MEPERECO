@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"time"
 
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 )
 
 // taskRetrySettings reads immutable execution configuration, never live stage

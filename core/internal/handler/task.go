@@ -18,14 +18,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/taskguard"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	agentpkg "github.com/silieco-ai/silieco/core/pkg/agent"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/taskguard"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	agentpkg "github.com/auenger/MEPERECO/core/pkg/agent"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // TaskResponse is the JSON response for an task.
@@ -3484,7 +3484,7 @@ func (h *Handler) BatchUpdateTasks(w http.ResponseWriter, r *http.Request) {
 	// real-world cases that hit this path are caller mistakes (status placed
 	// at the top level, "update" misspelled as singular). Telling the truth
 	// here — `{"updated": 0}` — keeps the wire shape stable while making the
-	// count match reality. See silieco-ai/silieco#1660.
+	// count match reality. See historical upstream issue #1660.
 	hasMutation := req.Updates.Title != nil ||
 		req.Updates.Description != nil ||
 		req.Updates.Status != nil ||

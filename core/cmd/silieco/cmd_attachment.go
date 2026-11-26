@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var attachmentCmd = &cobra.Command{
@@ -23,10 +23,10 @@ var attachmentDownloadCmd = &cobra.Command{
 	Short: "Download an attachment to a local file",
 	Long:  "Download an attachment by its ID to a local file.",
 	Example: `  # Download an image attachment to the current directory
-  $ silieco attachment download abc123
+  $ meperstudio attachment download abc123
 
   # Download to a specific directory
-  $ silieco attachment download abc123 -o /tmp/images`,
+  $ meperstudio attachment download abc123 -o /tmp/images`,
 	Args: exactArgs(1),
 	RunE: runAttachmentDownload,
 }
@@ -46,7 +46,7 @@ own line to place the item: files use !file[name](url) (a card), images use
 The run ID is read from SILIECO_RUN_ID (set by the daemon inside a run);
 override it with --run when needed.`,
 	Example: `  # Attach an image to the current chat reply
-  $ silieco attachment upload ./chart.png`,
+  $ meperstudio attachment upload ./chart.png`,
 	Args: exactArgs(1),
 	RunE: runAttachmentUpload,
 }

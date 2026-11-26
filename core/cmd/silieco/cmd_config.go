@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Manage configuration for silieco",
+	Short: "Manage configuration for MEPERStudio",
 	RunE:  runConfigShow,
 }
 

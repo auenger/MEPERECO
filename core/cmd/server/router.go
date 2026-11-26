@@ -17,28 +17,28 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	"github.com/silieco-ai/silieco/core/internal/cloudruntime"
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/featureflags"
-	"github.com/silieco-ai/silieco/core/internal/handler"
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
-	composiointeg "github.com/silieco-ai/silieco/core/internal/integrations/composio"
-	"github.com/silieco-ai/silieco/core/internal/integrations/lark"
-	"github.com/silieco-ai/silieco/core/internal/integrations/slack"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	"github.com/silieco-ai/silieco/core/internal/realtime"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/storage"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	"github.com/silieco-ai/silieco/core/internal/util/secretbox"
-	composiosdk "github.com/silieco-ai/silieco/core/pkg/composio"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/featureflag"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/cloudruntime"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/featureflags"
+	"github.com/auenger/MEPERECO/core/internal/handler"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
+	composiointeg "github.com/auenger/MEPERECO/core/internal/integrations/composio"
+	"github.com/auenger/MEPERECO/core/internal/integrations/lark"
+	"github.com/auenger/MEPERECO/core/internal/integrations/slack"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/storage"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/util/secretbox"
+	composiosdk "github.com/auenger/MEPERECO/core/pkg/composio"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/featureflag"
 )
 
 var defaultOrigins = []string{
@@ -783,10 +783,16 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 	contactSalesRL := middleware.RateLimit(rdb, envPositiveInt("RATE_LIMIT_CONTACT_SALES", 5), time.Hour, trustedProxies)
 	r.With(authRL).Post("/auth/send-code", h.SendCode)
 	r.With(authVerifyRL).Post("/auth/verify-code", h.VerifyCode)
-	r.With(authRL).Post("/auth/password/register", h.RegisterPassword)
 	r.With(authVerifyRL).Post("/auth/password/login", h.LoginPassword)
-	r.With(authRL).Post("/auth/google", h.GoogleLogin)
+	r.With(authRL).Post("/auth/password/send-code", h.SendPasswordCode)
+	r.With(authVerifyRL).Post("/auth/password/verify-code", h.VerifyPasswordCode)
+	r.With(authVerifyRL).Post("/auth/password/complete", h.CompletePassword)
 	r.Post("/auth/logout", h.Logout)
+
+	// Desktop update artifacts are served directly by this deployment, not GitHub.
+	desktopUpdates := handler.NewDesktopUpdateHandler(os.Getenv("MEPERSTUDIO_DESKTOP_UPDATE_DIR"))
+	r.Get("/updates/desktop/*", desktopUpdates)
+	r.Head("/updates/desktop/*", desktopUpdates)
 
 	// Public API
 	r.Get("/api/config", h.GetConfig)
@@ -883,6 +889,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		// --- User-scoped routes (no workspace context required) ---
 		r.Get("/api/me", h.GetMe)
 		r.Patch("/api/me", h.UpdateMe)
+		r.With(authVerifyRL).Post("/api/me/password", h.ChangePassword)
 		r.Patch("/api/me/onboarding", h.PatchOnboarding)
 		r.Post("/api/me/onboarding/complete", h.CompleteOnboarding)
 		r.Post("/api/me/onboarding/cloud-waitlist", h.JoinCloudWaitlist)

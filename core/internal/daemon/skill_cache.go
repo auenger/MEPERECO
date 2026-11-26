@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/silieco-ai/silieco/core/pkg/skillbundle"
+	"github.com/auenger/MEPERECO/core/pkg/skillbundle"
 )
 
 type SkillBundleCache struct {

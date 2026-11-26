@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"log/slog"
 	"net/url"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/mattn/go-shellwords"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 const (
@@ -217,7 +218,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 	// can re-run the same discovery on a live daemon (SILI-5439).
 	agents := probeAgentCLIs()
 	if len(agents) == 0 && !overrides.AllowNoAgents {
-		return Config{}, fmt.Errorf("no agent CLI found: install claude, codebuddy, codex, copilot, opencode, deveco, openclaw, hermes, pi, cursor-agent, kimi, kiro-cli, agy, qodercli, traecli, grok, or qwen and ensure it is on PATH")
+		return Config{}, fmt.Errorf("no agent CLI found: install claude, codebuddy, codex, copilot, opencode, deveco, openclaw, hermes, pi, cursor-agent, kimi, kiro-cli, agy, qodercli, traecli, grok, qwen, or zcode and ensure it is on PATH")
 	}
 
 	claudeArgs, err := shellArgsFromEnv("SILIECO_CLAUDE_ARGS")
@@ -411,7 +412,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 
 	// Auto-update config: default -> env override -> CLI override.
 	//
-	// Default is opt-in on Silieco Cloud (api.silieco.ai) and opt-out for
+	// Default is opt-in on Silieco Cloud (studio.meper.cn) and opt-out for
 	// self-hosted instances. Self-host operators frequently run a fork with
 	// their own patches, and silently upgrading their daemon to an upstream
 	// GitHub release would clobber that work; they also commonly stay on an
@@ -477,9 +478,8 @@ func LoadConfig(overrides Overrides) (Config, error) {
 
 // officialCloudHost is the hostname of Silieco's hosted cloud. It's the only
 // origin we treat as "official" for the auto-update default — staging,
-// preview, and any future *.silieco.ai subdomains are deliberately excluded
+// preview, and any future *.studio.meper.cn subdomains are deliberately excluded
 // so they inherit the safer self-host default until explicitly opted in.
-const officialCloudHost = "api.silieco.ai"
 
 // isOfficialCloudServer reports whether the resolved server base URL points
 // at Silieco's hosted cloud. Used to pick the auto-update default: cloud
@@ -492,7 +492,8 @@ func isOfficialCloudServer(baseURL string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.EqualFold(u.Hostname(), officialCloudHost)
+	host := strings.TrimSpace(os.Getenv("MEPERSTUDIO_CLOUD_API_HOST"))
+	return host != "" && strings.EqualFold(u.Hostname(), host)
 }
 
 // NormalizeServerBaseURL converts a WebSocket or HTTP URL to a base HTTP URL.
@@ -682,7 +683,7 @@ func isSiliecoHooksDir(dir string) bool {
 	if err != nil || home == "" {
 		return false
 	}
-	return samePathDir(dir, filepath.Join(home, ".silieco", "hooks"))
+	return samePathDir(dir, filepath.Join(branding.StateDir(home), "hooks"))
 }
 
 func samePathDir(a, b string) bool {
@@ -731,7 +732,7 @@ func isExecutableFile(path string) bool {
 // invocation, instead of paying the cost-per-miss.
 var defaultAgentCommandNames = []string{
 	"claude", "codex", "opencode", "deveco", "openclaw", "hermes",
-	"pi", "cursor-agent", "copilot", "kimi", "kiro-cli", "codebuddy", "agy", "traecli", "grok", "qwen",
+	"pi", "cursor-agent", "copilot", "kimi", "kiro-cli", "codebuddy", "agy", "traecli", "grok", "qwen", "zcode",
 }
 
 // codexDesktopAppBundlePaths returns candidate macOS app-bundle locations for
@@ -920,7 +921,7 @@ func buildLoginShellResolveScript(names []string) string {
 	b.WriteString("  case \"$p\" in /*) ;; *) continue ;; esac\n")
 	b.WriteString("  d=$(dirname \"$p\") && f=$(basename \"$p\") && c=$(cd \"$d\" 2>/dev/null && pwd -P) || continue\n")
 	b.WriteString("  hc=\"\"\n")
-	b.WriteString("  if [ -n \"${HOME:-}\" ]; then hd=\"$HOME/.silieco/hooks\"; hc=$(cd \"$hd\" 2>/dev/null && pwd -P) || hc=\"\"; fi\n")
+	b.WriteString("  if [ -n \"${HOME:-}\" ]; then hd=\"$HOME/.meperstudio/hooks\"; [ -d \"$HOME/.meperstudio\" ] || hd=\"$HOME/.silieco/hooks\"; hc=$(cd \"$hd\" 2>/dev/null && pwd -P) || hc=\"\"; fi\n")
 	b.WriteString("  if [ -n \"$hc\" ] && [ \"$c\" = \"$hc\" ]; then\n")
 	b.WriteString("    oldIFS=$IFS; IFS=:\n")
 	b.WriteString("    for d2 in $PATH; do\n")

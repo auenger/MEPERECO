@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/runtimeapps"
+	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
 )
 
 // This file holds the runtime brief assembler — the post-SILI-3560 path
@@ -39,7 +39,7 @@ import (
 // writeHeader emits the brief's leading title and one-line elevator pitch.
 func writeHeader(b *strings.Builder) {
 	b.WriteString("# MEPERStudio Agent Runtime\n\n")
-	b.WriteString("You are a coding agent in the MEPERStudio platform. Refer to the product as MEPERStudio in user-facing responses. The existing `silieco` CLI command remains the compatible way to interact with the platform.\n\n")
+	b.WriteString("You are a coding agent in the MEPERStudio platform. Refer to the product as MEPERStudio in user-facing responses. Use the `meperstudio` CLI for platform operations. Use the MEPERStudio name and the `meperstudio` command in user-facing replies.\n\n")
 }
 
 // writeBackgroundTaskSafetySlim emits the Background Task Safety section.
@@ -96,7 +96,7 @@ func writeBackgroundRunSafetySlim(b *strings.Builder) {
 	b.WriteString("- A user explicitly asking for a local development or test service to stay available after the turn is a persistent service handoff, not background-and-yield. Use it only when the running service itself is the requested deliverable, and hand off only once the service's lifecycle no longer depends on this run: stdio redirected to durable logs, an ownership and cleanup handle recorded (for example PID/profile). Then verify readiness before replying, and provide the URL, logs, and stop instructions. Leave no pending result or future wakeup. Without a supervisor, describe survival as best-effort, not guaranteed.\n")
 	b.WriteString("- The persistent-service exception does not cover tests, builds, CI polling, monitors, or any other work whose completion the agent still owes; those remain run-owned, and the CI-specific rules below still apply.\n")
 	b.WriteString("- External systems triggered by a completed action — for example GitHub Actions after a successful push — are not agent-owned background tasks. Do not wait for them by default; report them as pending and finish the handoff.\n")
-	b.WriteString("- Concretely, after a push or a PR create, unless the explicit exception below applies: do NOT run `gh pr checks --watch`, `gh run watch`, or any sleep / retry loop that polls check status. Enabling auto-merge (`gh pr merge --auto`) is fine — it returns immediately; waiting for it to land is not. Take at most ONE non-blocking status snapshot (`gh pr checks <pr>` or `silieco task pull-requests <task-id>`) and deliver the evidence you already have: \"Local tests pass (`go test ./...` / `pnpm test`); CI running: <PR link>\". A PR whose CI is still in flight is a complete hand-off.\n")
+	b.WriteString("- Concretely, after a push or a PR create, unless the explicit exception below applies: do NOT run `gh pr checks --watch`, `gh run watch`, or any sleep / retry loop that polls check status. Enabling auto-merge (`gh pr merge --auto`) is fine — it returns immediately; waiting for it to land is not. Take at most ONE non-blocking status snapshot (`gh pr checks <pr>` or `meperstudio task pull-requests <task-id>`) and deliver the evidence you already have: \"Local tests pass (`go test ./...` / `pnpm test`); CI running: <PR link>\". A PR whose CI is still in flight is a complete hand-off.\n")
 	b.WriteString("- A repo's merge requirements — \"CI must be green before merge\", required reviews, branch protection — are GitHub's merge gate, NOT your delivery acceptance criteria, and do not license a wait.\n")
 	b.WriteString("- The one exception: when the trigger comment or the task's acceptance criteria explicitly ask you for the CI result, that result IS the deliverable — wait for it as ONE foreground blocking call (`gh pr checks <pr> --watch`) inside this same turn and report the outcome. Nothing else re-opens this door.\n")
 	b.WriteString("- Never end a turn with a \"standing by\" / \"I'll report back when X finishes\" message — that becomes your final output and the task ends.\n\n")
@@ -242,11 +242,11 @@ func sanitizeBriefCodeToken(s string) string {
 
 // writeAvailableCommands emits the slim Available Commands section
 // (~2.4k chars vs legacy ~4.4k). Every test-asserted substring is
-// preserved: each `silieco task …` command name, all three `comment add`
+// preserved: each `meperstudio task …` command name, all three `comment add`
 // input modes, `--description-file <path>`, `--parent ""`, the
 // `Next reply cursor` / `Next thread cursor` stderr labels, the three
 // metadata discovery lines, the "core agent loop and common task
-// create/update tasks" intro phrase, and `silieco task comment add
+// create/update tasks" intro phrase, and `meperstudio task comment add
 // --help`.
 //
 // The fold-aware `--full` flag from SILI-3555 is documented inline on the
@@ -254,32 +254,32 @@ func sanitizeBriefCodeToken(s string) string {
 // behaviour as the legacy brief on that path.
 func writeAvailableCommands(b *strings.Builder) {
 	b.WriteString("## Available Commands\n\n")
-	b.WriteString("Prefer `--output json` for structured data. The default brief lists only the core agent loop and common task create/update tasks; for everything else run `silieco --help` or `silieco <command> --help`.\n\n")
+	b.WriteString("Prefer `--output json` for structured data. The default brief lists only the core agent loop and common task create/update tasks; for everything else run `meperstudio --help` or `meperstudio <command> --help`.\n\n")
 	b.WriteString("### Core\n")
-	b.WriteString("- `silieco task get <id> --output json` — full task.\n")
-	b.WriteString("- `silieco task comment list <task-id> [--roots-only] [--summary] [--thread <comment-id> [--tail N] | --recent N] [--before <ts> --before-id <uuid>] [--since <RFC3339>] [--full] --output json` — thread-aware comment reads. `--recent N` caps THREADS, not comments: every returned thread carries its root plus EVERY descendant with no per-thread cap, so on an task with fewer than N root threads it hands you the entire history apart from the resolved threads it folds. `--roots-only` (top-level comments with `reply_count` + `last_activity_at`) and `--summary` (clip each body to a preview) are how you bound a wide read; `--thread <id> --tail N` is how you bound a deep one. Resolved threads come back folded by default on complete-thread reads (default list, `--recent`, `--thread` without `--tail`); pass `--full` to expand. Page older replies / threads with `--before`/`--before-id` (stderr labels: `Next reply cursor`, `Next thread cursor`); `--help` for full semantics.\n")
-	b.WriteString("- `silieco task create --title \"...\" [--description-file <path>] [--priority X] [--status X] [--assignee X | --assignee-id <uuid>] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>] [--attachment <path>]` — create an task. SOP coordinates must be passed together. For agent-authored long descriptions prefer `--description-file <path>` (heredoc stdin can swallow trailing flags, #4182). Write that file inside your working directory (e.g. `./description.md`), never `/tmp` or shared paths, and treat a failed write as fatal — the CLI rejects a path outside the workdir so a stale file from another run can't leak in (SILI-4252).\n")
-	b.WriteString("- `silieco task update <id> [--title X] [--description-file <path>] [--priority X] [--status X] [--assignee X] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>]` — update fields; pass `--parent \"\"` to clear parent, or both SOP flags as empty strings to detach from a workflow run.\n")
-	b.WriteString("- `silieco task status <id> <status>` — flip status (todo / in_progress / in_review / done / blocked / backlog / cancelled).\n")
-	b.WriteString("- `silieco task children <id> [--output json]` — list a parent's sub-tasks grouped by stage.\n")
-	b.WriteString("- `silieco task comment add <task-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`. `silieco task comment add --help` for full flags.\n")
-	b.WriteString("- `silieco task metadata list <task-id> [--output json]` — list KV metadata.\n")
-	b.WriteString("- `silieco task metadata set <task-id> --key <k> --value <v> [--type string|number|bool]` — pin or overwrite a key.\n")
-	b.WriteString("- `silieco task metadata delete <task-id> --key <k>` — remove a key.\n")
-	b.WriteString("- `silieco repo checkout <url> [--ref <branch-or-sha>]` — repository checkout on a dedicated branch.\n\n")
+	b.WriteString("- `meperstudio task get <id> --output json` — full task.\n")
+	b.WriteString("- `meperstudio task comment list <task-id> [--roots-only] [--summary] [--thread <comment-id> [--tail N] | --recent N] [--before <ts> --before-id <uuid>] [--since <RFC3339>] [--full] --output json` — thread-aware comment reads. `--recent N` caps THREADS, not comments: every returned thread carries its root plus EVERY descendant with no per-thread cap, so on an task with fewer than N root threads it hands you the entire history apart from the resolved threads it folds. `--roots-only` (top-level comments with `reply_count` + `last_activity_at`) and `--summary` (clip each body to a preview) are how you bound a wide read; `--thread <id> --tail N` is how you bound a deep one. Resolved threads come back folded by default on complete-thread reads (default list, `--recent`, `--thread` without `--tail`); pass `--full` to expand. Page older replies / threads with `--before`/`--before-id` (stderr labels: `Next reply cursor`, `Next thread cursor`); `--help` for full semantics.\n")
+	b.WriteString("- `meperstudio task create --title \"...\" [--description-file <path>] [--priority X] [--status X] [--assignee X | --assignee-id <uuid>] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>] [--attachment <path>]` — create an task. SOP coordinates must be passed together. For agent-authored long descriptions prefer `--description-file <path>` (heredoc stdin can swallow trailing flags, #4182). Write that file inside your working directory (e.g. `./description.md`), never `/tmp` or shared paths, and treat a failed write as fatal — the CLI rejects a path outside the workdir so a stale file from another run can't leak in (SILI-4252).\n")
+	b.WriteString("- `meperstudio task update <id> [--title X] [--description-file <path>] [--priority X] [--status X] [--assignee X] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>]` — update fields; pass `--parent \"\"` to clear parent, or both SOP flags as empty strings to detach from a workflow run.\n")
+	b.WriteString("- `meperstudio task status <id> <status>` — flip status (todo / in_progress / in_review / done / blocked / backlog / cancelled).\n")
+	b.WriteString("- `meperstudio task children <id> [--output json]` — list a parent's sub-tasks grouped by stage.\n")
+	b.WriteString("- `meperstudio task comment add <task-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`. `meperstudio task comment add --help` for full flags.\n")
+	b.WriteString("- `meperstudio task metadata list <task-id> [--output json]` — list KV metadata.\n")
+	b.WriteString("- `meperstudio task metadata set <task-id> --key <k> --value <v> [--type string|number|bool]` — pin or overwrite a key.\n")
+	b.WriteString("- `meperstudio task metadata delete <task-id> --key <k>` — remove a key.\n")
+	b.WriteString("- `meperstudio repo checkout <url> [--ref <branch-or-sha>]` — repository checkout on a dedicated branch.\n\n")
 	b.WriteString("### Squad maintenance\n")
-	b.WriteString("- `silieco squad member set-role <squad-id> --member-id <id> --member-type <agent|member> --role <role> [--output json]` — change role in place (use this instead of remove+add).\n\n")
+	b.WriteString("- `meperstudio squad member set-role <squad-id> --member-id <id> --member-type <agent|member> --role <role> [--output json]` — change role in place (use this instead of remove+add).\n\n")
 }
 
 // writeAvailableCommandsQuickCreate emits a minimal Available Commands
 // section for quick-create runs. Quick-create's hard guardrails forbid
-// every CLI other than `silieco task create`, so listing more would just
+// every CLI other than `meperstudio task create`, so listing more would just
 // tempt the model to bend the guardrail.
 func writeAvailableCommandsQuickCreate(b *strings.Builder) {
 	b.WriteString("## Available Commands\n\n")
-	b.WriteString("**Use `--output json` for structured data.** For anything beyond `task create`, run `silieco --help` or `silieco <command> --help`.\n\n")
+	b.WriteString("**Use `--output json` for structured data.** For anything beyond `task create`, run `meperstudio --help` or `meperstudio <command> --help`.\n\n")
 	b.WriteString("### Core\n")
-	b.WriteString("- `silieco task create --title \"...\" [--description \"...\" | --description-file <path> | --description-stdin] [--priority X] [--status X] [--assignee X | --assignee-id <uuid>] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>] [--attachment <path>]` — Create a new task; SOP coordinates must be passed together and `--attachment` may be repeated. For agent-authored long descriptions, prefer `--description-file <path>` over `--description-stdin` (flags after a HEREDOC terminator can be silently swallowed, #4182). Write that file inside your working directory (e.g. `./description.md`), never `/tmp` or shared paths, and treat a failed write as fatal — the CLI rejects a path outside the workdir so a stale file from another run can't leak in (SILI-4252).\n\n")
+	b.WriteString("- `meperstudio task create --title \"...\" [--description \"...\" | --description-file <path> | --description-stdin] [--priority X] [--status X] [--assignee X | --assignee-id <uuid>] [--parent <task-id>] [--stage N] [--project <project-id>] [--workflow-instance <uuid> --workflow-stage <uuid>] [--due-date <RFC3339>] [--attachment <path>]` — Create a new task; SOP coordinates must be passed together and `--attachment` may be repeated. For agent-authored long descriptions, prefer `--description-file <path>` over `--description-stdin` (flags after a HEREDOC terminator can be silently swallowed, #4182). Write that file inside your working directory (e.g. `./description.md`), never `/tmp` or shared paths, and treat a failed write as fatal — the CLI rejects a path outside the workdir so a stale file from another run can't leak in (SILI-4252).\n\n")
 }
 
 // writeCommentFormatting emits the cross-platform file-first guardrail.
@@ -288,7 +288,7 @@ func writeAvailableCommandsQuickCreate(b *strings.Builder) {
 func writeCommentFormatting(b *strings.Builder) {
 	b.WriteString("## Comment Formatting\n\n")
 	if runtimeGOOS == "windows" {
-		b.WriteString("On Windows, **always write the comment body to a UTF-8 file with your file-write tool first, then post it with `--content-file <path>`** — do NOT pipe via `--content-stdin` (PowerShell 5.1's `$OutputEncoding` defaults to ASCIIEncoding when piping to a native command, silently dropping non-ASCII characters as `?` before they reach `silieco.exe`). Never use inline `--content` for agent-authored comments. Write that file inside your working directory (`./reply.md`), never `/tmp` or shared paths — the CLI rejects a `--content-file` path outside the workdir so another run's stale file can't leak in (SILI-4252). Keep the same `--parent` value from the trigger comment when replying. Delete the temp file (`Remove-Item ./reply.md`) after posting; do not rely on `\\n` escapes.\n\n")
+		b.WriteString("On Windows, **always write the comment body to a UTF-8 file with your file-write tool first, then post it with `--content-file <path>`** — do NOT pipe via `--content-stdin` (PowerShell 5.1's `$OutputEncoding` defaults to ASCIIEncoding when piping to a native command, silently dropping non-ASCII characters as `?` before they reach `meperstudio.exe`). Never use inline `--content` for agent-authored comments. Write that file inside your working directory (`./reply.md`), never `/tmp` or shared paths — the CLI rejects a `--content-file` path outside the workdir so another run's stale file can't leak in (SILI-4252). Keep the same `--parent` value from the trigger comment when replying. Delete the temp file (`Remove-Item ./reply.md`) after posting; do not rely on `\\n` escapes.\n\n")
 		return
 	}
 	b.WriteString("For task comments, **always write the comment body to a UTF-8 file with your file-write tool first, then post it with `--content-file <path>`**. Never use inline `--content` for agent-authored comments — the shell rewrites backticks / `$()` / quotes in the body (SILI-2904). Never use `--content-stdin` with a HEREDOC alongside other flags either — the heredoc/flag boundary is fragile and flags get silently swallowed (#4182). Write that file inside your working directory (`./reply.md`), never `/tmp` or shared paths — the CLI rejects a `--content-file` path outside the workdir so another run's stale file can't leak in (SILI-4252). Keep the same `--parent` value from the trigger comment when replying. Delete the temp file (`rm ./reply.md`) after posting; do not rely on `\\n` escapes.\n\n")
@@ -302,7 +302,7 @@ func writeRepositories(b *strings.Builder, ctx RunContextForEnv) {
 		return
 	}
 	b.WriteString("## Repositories\n\n")
-	b.WriteString("Available in this workspace — `silieco repo checkout <url> [--ref <branch-or-sha>]` to fetch (creates a repository checkout on a dedicated branch).\n\n")
+	b.WriteString("Available in this workspace — `meperstudio repo checkout <url> [--ref <branch-or-sha>]` to fetch (creates a repository checkout on a dedicated branch).\n\n")
 	for _, repo := range ctx.Repos {
 		if repo.Description != "" {
 			fmt.Fprintf(b, "- %s — %s\n", repo.URL, repo.Description)
@@ -336,7 +336,7 @@ func writeProjectContext(b *strings.Builder, ctx RunContextForEnv) {
 			fmt.Fprintf(b, "- %s\n", formatProjectResource(r))
 		}
 		b.WriteString("\nResources are pointers — open them only when relevant to the task. ")
-		b.WriteString("For `github_repo` resources, use `silieco repo checkout <url>` to fetch the code. Add `--ref <branch-or-sha>` when a task or handoff names an exact revision.\n\n")
+		b.WriteString("For `github_repo` resources, use `meperstudio repo checkout <url>` to fetch the code. Add `--ref <branch-or-sha>` when a task or handoff names an exact revision.\n\n")
 	} else {
 		b.WriteString("This project has no resources attached yet.\n\n")
 	}
@@ -349,7 +349,7 @@ func writeTaskMetadata(b *strings.Builder) {
 	b.WriteString("## Task Metadata\n\n")
 	b.WriteString("`metadata` is a small KV bag per task — a high-signal scratchpad for facts future runs on this same task will read more than once (PR URL, deploy URL, current blocker). Most runs pin **zero** new keys; that is the expected case.\n\n")
 	b.WriteString("- **Read on entry.** Metadata is hints, not truth: latest comment / code wins on conflict. Empty `{}` is normal.\n")
-	b.WriteString("- **Write on exit.** Pin only if BOTH: (a) materially important to this task, AND (b) a future run is likely to re-read it. Otherwise leave the bag alone. Stale keys: overwrite with the new value or `silieco task metadata delete`.\n")
+	b.WriteString("- **Write on exit.** Pin only if BOTH: (a) materially important to this task, AND (b) a future run is likely to re-read it. Otherwise leave the bag alone. Stale keys: overwrite with the new value or `meperstudio task metadata delete`.\n")
 	b.WriteString("- **What NOT to pin.** No secrets, tokens, or API keys. No logs or comment summaries. No runtime bookkeeping (attempts, run timestamps, agent ids). No single-run details — those belong in the result comment.\n")
 	b.WriteString("- **Recommended keys** (use snake_case ASCII; reuse these names so queries stay consistent): `pr_url`, `pr_number`, `pipeline_status`, `deploy_url`, `external_task_url`, `waiting_on`, `blocked_reason`, `decision`.\n\n")
 }
@@ -384,11 +384,11 @@ func writeWorkflowHeader(b *strings.Builder) {
 func writeWorkflowChat(b *strings.Builder) {
 	b.WriteString("**You are in chat mode.** A user is messaging you directly in a chat window.\n\n")
 	b.WriteString("- Respond conversationally and helpfully to the user's message\n")
-	b.WriteString("- You have full access to the `silieco` CLI to look up tasks, workspace info, members, agents, etc.\n")
-	b.WriteString("- If asked about tasks, use `silieco task list --output json` or `silieco task get <id> --output json`\n")
-	b.WriteString("- If asked about the workspace, use `silieco workspace get --output json`\n")
+	b.WriteString("- You have full access to the `meperstudio` CLI to look up tasks, workspace info, members, agents, etc.\n")
+	b.WriteString("- If asked about tasks, use `meperstudio task list --output json` or `meperstudio task get <id> --output json`\n")
+	b.WriteString("- If asked about the workspace, use `meperstudio workspace get --output json`\n")
 	b.WriteString("- If asked to perform actions (create tasks, update status, etc.), use the appropriate CLI commands\n")
-	b.WriteString("- If the task requires code changes, use `silieco repo checkout <url>` to get the code first. Use `--ref <branch-or-sha>` when you need an exact revision\n")
+	b.WriteString("- If the task requires code changes, use `meperstudio repo checkout <url>` to get the code first. Use `--ref <branch-or-sha>` when you need an exact revision\n")
 	b.WriteString("- Keep responses concise and direct\n\n")
 }
 
@@ -397,8 +397,8 @@ func writeWorkflowChat(b *strings.Builder) {
 func writeWorkflowQuickCreate(b *strings.Builder) {
 	b.WriteString("**This task was triggered by quick-create.** There is NO existing MEPERStudio task. Follow the field and output rules in the user message you just received; ignore the default assignment-task workflow.\n\n")
 	b.WriteString("Hard guardrails (apply even if the user message is missing):\n")
-	b.WriteString("- Run exactly one `silieco task create` invocation, then exit.\n")
-	b.WriteString("- Do NOT call `silieco task get`, `silieco task status`, or `silieco task comment add` for this task — there is no task to query, transition, or comment on. The platform writes the user's success/failure inbox notification automatically based on whether `silieco task create` succeeded.\n")
+	b.WriteString("- Run exactly one `meperstudio task create` invocation, then exit.\n")
+	b.WriteString("- Do NOT call `meperstudio task get`, `meperstudio task status`, or `meperstudio task comment add` for this task — there is no task to query, transition, or comment on. The platform writes the user's success/failure inbox notification automatically based on whether `meperstudio task create` succeeded.\n")
 	b.WriteString("- If the CLI returns an error, exit with that error as the only output. Do not retry.\n\n")
 }
 
@@ -424,10 +424,10 @@ func writeWorkflowAutopilot(b *strings.Builder, ctx RunContextForEnv) {
 		b.WriteString("\n\n")
 	}
 	if ctx.AutopilotID != "" {
-		fmt.Fprintf(b, "- Run `silieco autopilot get %s --output json` if you need the full autopilot configuration\n", ctx.AutopilotID)
+		fmt.Fprintf(b, "- Run `meperstudio autopilot get %s --output json` if you need the full autopilot configuration\n", ctx.AutopilotID)
 	}
 	b.WriteString("- Complete the autopilot instructions directly\n")
-	b.WriteString("- Do not run `silieco task get`, `silieco task comment add`, or `silieco task status` for this run unless the autopilot instructions explicitly tell you to create or update an task\n\n")
+	b.WriteString("- Do not run `meperstudio task get`, `meperstudio task comment add`, or `meperstudio task status` for this run unless the autopilot instructions explicitly tell you to create or update an task\n\n")
 }
 
 // writeWorkflowTask emits the single task workflow used by BOTH
@@ -480,31 +480,31 @@ func writeWorkflowTask(b *strings.Builder, ctx RunContextForEnv) {
 	b.WriteString("Steps 1–6 below are the same in both modes. The mode blocks after them differ, and they differ on task status in particular — **apply exactly one mode block, the one the user message named. Never apply both.** If neither line is present, treat the turn as Reply mode and do not change the task status.\n\n")
 
 	b.WriteString("**Steps 1–6 — both modes**\n\n")
-	fmt.Fprintf(b, "1. Run `silieco task get %s --output json` to understand the task context\n", ctx.TaskID)
-	fmt.Fprintf(b, "2. Run `silieco task metadata list %s --output json` to see what prior agents pinned — best-effort, empty `{}` and CLI failures are normal. See the `## Task Metadata` section above for what to look for.\n", ctx.TaskID)
-	fmt.Fprintf(b, "3. Catch up on the comment history — this is mandatory, not optional, but read it in two bounded steps instead of one bulk pull. First scan every thread cheaply: `silieco task comment list %s --roots-only --summary --output json`, which tells you what discussion exists without paying for its contents. Then expand only the threads that matter: `silieco task comment list %s --thread <thread-id> --tail 30 --output json`. Earlier comments often carry context the task body lacks (e.g. which repo to work in, the prior agent's findings, the reason the task was reassigned to you). Skipping this step is the most common cause of agents acting on stale or incomplete instructions — so always run the scan, even when the trigger looks self-contained. In Reply mode the per-turn user message names the thread to expand first; the scan is how you decide whether any OTHER thread is also relevant. If these two reads genuinely are not enough, the rest of the read surface and its pagination cursors are documented once in `## Available Commands` above.\n", ctx.TaskID, ctx.TaskID)
+	fmt.Fprintf(b, "1. Run `meperstudio task get %s --output json` to understand the task context\n", ctx.TaskID)
+	fmt.Fprintf(b, "2. Run `meperstudio task metadata list %s --output json` to see what prior agents pinned — best-effort, empty `{}` and CLI failures are normal. See the `## Task Metadata` section above for what to look for.\n", ctx.TaskID)
+	fmt.Fprintf(b, "3. Catch up on the comment history — this is mandatory, not optional, but read it in two bounded steps instead of one bulk pull. First scan every thread cheaply: `meperstudio task comment list %s --roots-only --summary --output json`, which tells you what discussion exists without paying for its contents. Then expand only the threads that matter: `meperstudio task comment list %s --thread <thread-id> --tail 30 --output json`. Earlier comments often carry context the task body lacks (e.g. which repo to work in, the prior agent's findings, the reason the task was reassigned to you). Skipping this step is the most common cause of agents acting on stale or incomplete instructions — so always run the scan, even when the trigger looks self-contained. In Reply mode the per-turn user message names the thread to expand first; the scan is how you decide whether any OTHER thread is also relevant. If these two reads genuinely are not enough, the rest of the read surface and its pagination cursors are documented once in `## Available Commands` above.\n", ctx.TaskID, ctx.TaskID)
 	b.WriteString("4. Complete the task within your Agent Identity boundaries. Do not investigate, implement, create tasks, update tasks, or delegate if your Agent Identity forbids that action; if your role is delegation-only, perform the allowed delegation work and stop once that outcome is delivered.\n")
 	if ctx.IsSquadLeader {
-		fmt.Fprintf(b, "5. **Post your final results as a comment** (unless your outcome is `no_action` — in that case, calling `silieco squad activity %s no_action --reason \"...\"` alone is sufficient; you MUST exit without posting any comment. DO NOT post a comment announcing no_action or saying you are exiting silently): post it with `silieco task comment add %s` using the platform-correct non-inline mode from ## Comment Formatting (never inline `--content`). Your results are only visible to the user if posted via this CLI call; text in your terminal or run logs is NOT delivered.\n", ctx.TaskID, ctx.TaskID)
+		fmt.Fprintf(b, "5. **Post your final results as a comment** (unless your outcome is `no_action` — in that case, calling `meperstudio squad activity %s no_action --reason \"...\"` alone is sufficient; you MUST exit without posting any comment. DO NOT post a comment announcing no_action or saying you are exiting silently): post it with `meperstudio task comment add %s` using the platform-correct non-inline mode from ## Comment Formatting (never inline `--content`). Your results are only visible to the user if posted via this CLI call; text in your terminal or run logs is NOT delivered.\n", ctx.TaskID, ctx.TaskID)
 	} else {
-		fmt.Fprintf(b, "5. **Post your final results as a comment — this step is mandatory**: post it with `silieco task comment add %s` using the platform-correct non-inline mode from ## Comment Formatting (never inline `--content`). Your results are only visible to the user if posted via this CLI call; text in your terminal or run logs is NOT delivered. In Reply mode this step is conditional on the reply rule below.\n", ctx.TaskID)
+		fmt.Fprintf(b, "5. **Post your final results as a comment — this step is mandatory**: post it with `meperstudio task comment add %s` using the platform-correct non-inline mode from ## Comment Formatting (never inline `--content`). Your results are only visible to the user if posted via this CLI call; text in your terminal or run logs is NOT delivered. In Reply mode this step is conditional on the reply rule below.\n", ctx.TaskID)
 	}
-	b.WriteString("6. Before exiting: only if this run produced a fact that clears the high bar (important AND likely to be re-read by future runs on this same task, e.g. a new PR URL or deploy URL), or you noticed a metadata key from entry that is now stale, pin or clear it via `silieco task metadata set`/`delete`. Most runs write nothing here — that is the expected outcome, not a gap. When in doubt, do not write. See the `## Task Metadata` section above for the full bar.\n\n")
+	b.WriteString("6. Before exiting: only if this run produced a fact that clears the high bar (important AND likely to be re-read by future runs on this same task, e.g. a new PR URL or deploy URL), or you noticed a metadata key from entry that is now stale, pin or clear it via `meperstudio task metadata set`/`delete`. Most runs write nothing here — that is the expected outcome, not a gap. When in doubt, do not write. See the `## Task Metadata` section above for the full bar.\n\n")
 
 	b.WriteString("**Ownership mode only — you own the task status this run**\n\n")
-	fmt.Fprintf(b, "- Before step 4, run `silieco task status %s in_progress` unless your Agent Identity forbids task status changes; if it does, skip it.\n", ctx.TaskID)
+	fmt.Fprintf(b, "- Before step 4, run `meperstudio task status %s in_progress` unless your Agent Identity forbids task status changes; if it does, skip it.\n", ctx.TaskID)
 	if ctx.IsSquadLeader {
-		fmt.Fprintf(b, "- After this initial dispatch, leave the parent task `in_progress` — do NOT run `silieco task status %s in_review` or `done` on this turn. Dispatching members is not completion. You will be re-triggered when members post updates or a stage closes; only then, if the overall goal is met, move the parent to `in_review`.\n", ctx.TaskID)
+		fmt.Fprintf(b, "- After this initial dispatch, leave the parent task `in_progress` — do NOT run `meperstudio task status %s in_review` or `done` on this turn. Dispatching members is not completion. You will be re-triggered when members post updates or a stage closes; only then, if the overall goal is met, move the parent to `in_review`.\n", ctx.TaskID)
 	} else {
-		fmt.Fprintf(b, "- When done, run `silieco task status %s in_review` unless your Agent Identity forbids task status changes; if it does, skip it.\n", ctx.TaskID)
+		fmt.Fprintf(b, "- When done, run `meperstudio task status %s in_review` unless your Agent Identity forbids task status changes; if it does, skip it.\n", ctx.TaskID)
 	}
-	fmt.Fprintf(b, "- If blocked, run `silieco task status %s blocked` unless your Agent Identity forbids task status changes. Post a comment explaining the blocker unless your Agent Identity forbids task comments.\n\n", ctx.TaskID)
+	fmt.Fprintf(b, "- If blocked, run `meperstudio task status %s blocked` unless your Agent Identity forbids task status changes. Post a comment explaining the blocker unless your Agent Identity forbids task comments.\n\n", ctx.TaskID)
 
 	b.WriteString("**Reply mode only — respond to the comment in the user message**\n\n")
 	b.WriteString("- Your primary job is to respond to THAT specific comment, even if you have handled similar requests before in this session. Do NOT confuse it with previous comments; take its id from the user message, never from this file or from an earlier turn.\n")
 	b.WriteString("- **Decide whether a reply is warranted.** If you produced actual work this turn (investigated, fixed, answered a real question), post the result via step 5 — that is a normal reply, not a noise comment. If the triggering comment was a pure acknowledgment / thanks / sign-off from another agent AND you produced no work this turn, do NOT post a reply — and do NOT post a comment saying 'No reply needed' or similar. Simply exit with no output. Silence is a valid and preferred way to end agent-to-agent conversations.\n")
 	if ctx.IsSquadLeader {
-		fmt.Fprintf(b, "- **Squad leader rule:** If your evaluation outcome is `no_action`, call `silieco squad activity %s no_action --reason \"...\"` and then EXIT IMMEDIATELY. DO NOT post any comment whose only purpose is to announce that you are taking no action, exiting silently, or acknowledging another agent. A comment like \"No action needed\" or \"Exiting silently\" is noise — the `squad activity` call already records your decision in the timeline.\n", ctx.TaskID)
+		fmt.Fprintf(b, "- **Squad leader rule:** If your evaluation outcome is `no_action`, call `meperstudio squad activity %s no_action --reason \"...\"` and then EXIT IMMEDIATELY. DO NOT post any comment whose only purpose is to announce that you are taking no action, exiting silently, or acknowledging another agent. A comment like \"No action needed\" or \"Exiting silently\" is noise — the `squad activity` call already records your decision in the timeline.\n", ctx.TaskID)
 	}
 	b.WriteString("- If a reply IS warranted: do any requested work first, then **decide whether to include any `@mention` link.** The default is NO mention. Only mention when you are escalating to a human owner who is not yet involved, delegating a concrete new sub-task to another agent for the first time, or the user explicitly asked you to loop someone in. Never @mention the agent you are replying to as a thank-you or sign-off.\n")
 	b.WriteString("- **If you reply, posting it as a comment is mandatory.** Text in your terminal or run logs is NOT delivered to the user. Use the `--parent` value the per-turn user message gives you for this turn; do NOT reuse a `--parent` from an earlier turn in this session. When that message lists more than one thread to answer, post one reply per thread instead of merging them.\n")
@@ -531,20 +531,20 @@ func writeWorkflowTask(b *strings.Builder, ctx RunContextForEnv) {
 // to two short paragraphs).
 func writeSubTaskCreation(b *strings.Builder) {
 	b.WriteString("## Sub-task Creation\n\n")
-	b.WriteString("**Choosing `--status` when creating sub-tasks.** `--status todo` = **start now** (default — agent assignees fire immediately). `--status backlog` = **wait**, then promote later with `silieco task status <child-id> todo`. Parallel children: all `--status todo`. Strict serial 1→2→3: only Step 1 `todo`, Steps 2/3 `--status backlog` from the start.\n\n")
-	b.WriteString("**Ordering with stages.** For phased plans, group children with `--stage <N>` (N ≥ 1) instead of hand-promoting the backlog chain — stage members run together, and the parent wakes once per stage. Use `--stage k --status backlog` for later stages, then `silieco task children <id>` to inspect groupings before promoting. Reach for stages whenever a plan has more than one step or a step must wait for a group.\n\n")
+	b.WriteString("**Choosing `--status` when creating sub-tasks.** `--status todo` = **start now** (default — agent assignees fire immediately). `--status backlog` = **wait**, then promote later with `meperstudio task status <child-id> todo`. Parallel children: all `--status todo`. Strict serial 1→2→3: only Step 1 `todo`, Steps 2/3 `--status backlog` from the start.\n\n")
+	b.WriteString("**Ordering with stages.** For phased plans, group children with `--stage <N>` (N ≥ 1) instead of hand-promoting the backlog chain — stage members run together, and the parent wakes once per stage. Use `--stage k --status backlog` for later stages, then `meperstudio task children <id>` to inspect groupings before promoting. Reach for stages whenever a plan has more than one step or a step must wait for a group.\n\n")
 }
 
 // writeSkills emits the Skills section listing skill names + descriptions.
 func writeSkills(b *strings.Builder, provider string, ctx RunContextForEnv) {
 	skills := modelVisibleSkills(ctx.AgentSkills)
 	b.WriteString("## Skills\n\n")
-	b.WriteString("Only skills relevant to this run are installed: platform basics, enabled Agent skills, and required SOP-stage skills. For other platform guidance when needed, run `silieco skill get builtin:catalog --output json`, then `silieco skill get builtin:<name> --output json` to read the selected skill and its supporting files. This catalog is not a list of installed skills.\n\n")
+	b.WriteString("Only skills relevant to this run are installed: platform basics, enabled Agent skills, and required SOP-stage skills. For other platform guidance when needed, run `meperstudio skill get builtin:catalog --output json`, then `meperstudio skill get builtin:<name> --output json` to read the selected skill and its supporting files. This catalog is not a list of installed skills.\n\n")
 	if len(skills) == 0 {
 		return
 	}
 	switch provider {
-	case "claude", "codebuddy", "codex", "copilot", "opencode", "deveco", "openclaw", "hermes", "pi", "cursor", "kimi", "kiro", "qoder", "antigravity", "qwen":
+	case "claude", "codebuddy", "codex", "copilot", "opencode", "deveco", "openclaw", "hermes", "pi", "cursor", "kimi", "kiro", "qoder", "antigravity", "qwen", "zcode":
 		// Hermes discovers these from its per-task HERMES_HOME/skills (seeded by
 		// the daemon), so it needs the same "discovered automatically" framing
 		// as the other native-discovery runtimes rather than a path pointer.
@@ -579,7 +579,7 @@ func writeMentions(b *strings.Builder) {
 func writeAttachments(b *strings.Builder) {
 	b.WriteString("## Attachments\n\n")
 	b.WriteString("Tasks and comments may include file attachments (images, documents, etc.).\n")
-	b.WriteString("When a task includes attachment IDs and you need the files, inspect `silieco attachment --help` and use the authenticated CLI path. Do not open MEPERStudio resource URLs directly.\n")
+	b.WriteString("When a task includes attachment IDs and you need the files, inspect `meperstudio attachment --help` and use the authenticated CLI path. Do not open MEPERStudio resource URLs directly.\n")
 	// Closes the inbound half of the SILI-4899 loop: an attachment the agent
 	// just downloaded is the most tempting local path to echo back, because it
 	// came from the conversation and *feels* shared. It is not — the download
@@ -587,11 +587,11 @@ func writeAttachments(b *strings.Builder) {
 	b.WriteString("An attachment you download lands in your own workdir: that local path is a private working copy, not something the reader can open. Never echo it back into a deliverable as a link — re-deliver the file itself if it needs to travel (see `## Output`).\n\n")
 }
 
-// writeAlwaysUseCLI emits the "must go through the silieco CLI" guardrail
+// writeAlwaysUseCLI emits the "must go through the meperstudio CLI" guardrail
 // (compressed).
 func writeAlwaysUseCLI(b *strings.Builder) {
-	b.WriteString("## Important: Always Use the `silieco` CLI\n\n")
-	b.WriteString("Access MEPERStudio platform resources (tasks, comments, attachments, files) only through the `silieco` CLI — never `curl` / `wget`. For any operation the CLI doesn't cover, post a comment mentioning the workspace owner rather than working around it.\n\n")
+	b.WriteString("## Important: Always Use the `meperstudio` CLI\n\n")
+	b.WriteString("Access MEPERStudio platform resources (tasks, comments, attachments, files) only through the `meperstudio` CLI — never `curl` / `wget`. For any operation the CLI doesn't cover, post a comment mentioning the workspace owner rather than working around it.\n\n")
 }
 
 // writeDeliveryInvariant emits the always-on delivery contract, shared by every
@@ -625,11 +625,11 @@ func writeOutput(b *strings.Builder, kind runKind, ctx RunContextForEnv) {
 		b.WriteString("This is a run-only autopilot task, so there may be no task comment to post. Your final assistant output is captured automatically as the autopilot run result. Keep it concise and state the outcome.\n\n")
 		b.WriteString("**Delivering files here:** this surface is text-only — the run result carries no attachments. Describe what you produced; do not link its path.\n")
 	case kindQuickCreate:
-		b.WriteString("This is a quick-create task. There is NO existing task to comment on. Your final stdout is captured automatically and the platform writes the user's success/failure inbox notification based on whether `silieco task create` succeeded.\n\n")
-		b.WriteString("- Do NOT call `silieco task comment add` — the task you just created has no conversation context for this run.\n")
-		b.WriteString("- Print exactly one final line: `Created <identifier-or-id>: <title>` after a successful `silieco task create`. Use the created task's `identifier` from JSON output when available; otherwise use its `id`. Do not assume any workspace task prefix such as `SILI-`; workspaces can use custom prefixes.\n")
+		b.WriteString("This is a quick-create task. There is NO existing task to comment on. Your final stdout is captured automatically and the platform writes the user's success/failure inbox notification based on whether `meperstudio task create` succeeded.\n\n")
+		b.WriteString("- Do NOT call `meperstudio task comment add` — the task you just created has no conversation context for this run.\n")
+		b.WriteString("- Print exactly one final line: `Created <identifier-or-id>: <title>` after a successful `meperstudio task create`. Use the created task's `identifier` from JSON output when available; otherwise use its `id`. Do not assume any workspace task prefix such as `SILI-`; workspaces can use custom prefixes.\n")
 		b.WriteString("- On CLI failure, exit with the CLI error as the only output. The platform translates that into a `quick_create_failed` inbox item carrying the original prompt for the user.\n\n")
-		b.WriteString("**Delivering files here:** your stdout is text-only. A file that belongs to the new task goes on the `silieco task create` call itself via `--attachment <path>`; never put its path in the description or in your stdout line.\n")
+		b.WriteString("**Delivering files here:** your stdout is text-only. A file that belongs to the new task goes on the `meperstudio task create` call itself via `--attachment <path>`; never put its path in the description or in your stdout line.\n")
 	case kindChat:
 		b.WriteString("This is a chat session. Your reply is delivered directly to the chat window the user is reading.\n\n")
 		// Two-layer channel policy (SILI-4899). This is the DELIVERY layer: any
@@ -638,19 +638,19 @@ func writeOutput(b *strings.Builder, kind runKind, ctx RunContextForEnv) {
 		// orthogonal HISTORY layer (which read commands exist) is Slack-only and
 		// lives in the per-turn chat prompt — do not collapse the two.
 		if ctx.ChatChannelType != "" {
-			fmt.Fprintf(b, "**Delivering files here:** this %s conversation is text-only — MEPERStudio cannot push a file you produced back into it. `silieco attachment upload` does NOT apply: it binds to a MEPERStudio chat reply, which this is not. Say in words what you produced and where it can be obtained; never upload and then write as though the file arrived, and never link its local path.\n", ChannelDisplayName(ctx.ChatChannelType))
+			fmt.Fprintf(b, "**Delivering files here:** this %s conversation is text-only — MEPERStudio cannot push a file you produced back into it. `meperstudio attachment upload` does NOT apply: it binds to a MEPERStudio chat reply, which this is not. Say in words what you produced and where it can be obtained; never upload and then write as though the file arrived, and never link its local path.\n", ChannelDisplayName(ctx.ChatChannelType))
 		} else {
-			b.WriteString("**Delivering files here:** run `silieco attachment upload <local-path>` — it binds the file to your reply and it renders as an attachment card. That command is the ONLY way a file reaches the user; a path written into your reply text is not.\n")
+			b.WriteString("**Delivering files here:** run `meperstudio attachment upload <local-path>` — it binds the file to your reply and it renders as an attachment card. That command is the ONLY way a file reaches the user; a path written into your reply text is not.\n")
 		}
 	default:
 		if ctx.IsSquadLeader {
-			b.WriteString("⚠️ **Final results MUST be delivered via `silieco task comment add`** — unless your outcome is `no_action`. When you evaluate a trigger and decide no action is needed, calling `silieco squad activity <task-id> no_action --reason \"...\"` alone is sufficient; you MUST exit without posting any comment. DO NOT post a comment that announces no_action, acknowledges another agent, or says you are exiting silently — such comments are noise. For all other outcomes (`action`, `failed`), a comment is still mandatory.\n\n")
+			b.WriteString("⚠️ **Final results MUST be delivered via `meperstudio task comment add`** — unless your outcome is `no_action`. When you evaluate a trigger and decide no action is needed, calling `meperstudio squad activity <task-id> no_action --reason \"...\"` alone is sufficient; you MUST exit without posting any comment. DO NOT post a comment that announces no_action, acknowledges another agent, or says you are exiting silently — such comments are noise. For all other outcomes (`action`, `failed`), a comment is still mandatory.\n\n")
 		} else {
-			b.WriteString("⚠️ **Final results MUST be delivered via `silieco task comment add`.** The user does NOT see your terminal output, assistant chat text, or run logs — only comments on the task. A task that finishes without a result comment is invisible to the user, even if the work itself was correct.\n\n")
+			b.WriteString("⚠️ **Final results MUST be delivered via `meperstudio task comment add`.** The user does NOT see your terminal output, assistant chat text, or run logs — only comments on the task. A task that finishes without a result comment is invisible to the user, even if the work itself was correct.\n\n")
 		}
 		b.WriteString("**Post exactly ONE comment per run — your final result, before this turn exits.** Do NOT post progress updates, plans, or \"here's what I'm about to do next\" as comments while you work; keep all planning and progress in your own reasoning.\n\n")
 		b.WriteString("Keep comments concise and natural — state the outcome, not the process (good: \"Fixed the login redirect. PR: https://...\"; bad: numbered process logs).\n\n")
-		b.WriteString("**Delivering files here:** pass `--attachment <path>` to `silieco task comment add` (repeatable). The file uploads and renders on the comment; that is the only way a screenshot or artifact reaches the reader.\n")
+		b.WriteString("**Delivering files here:** pass `--attachment <path>` to `meperstudio task comment add` (repeatable). The file uploads and renders on the comment; that is the only way a screenshot or artifact reaches the reader.\n")
 	}
 	b.WriteString("\n")
 	writeDeliveryInvariant(b)

@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/skill"
+	"github.com/auenger/MEPERECO/core/internal/skill"
 )
 
 const (
@@ -152,6 +152,12 @@ func localSkillRootsForProvider(provider string) ([]localSkillRoot, bool, error)
 		providerRoot = filepath.Join(home, ".config", "deveco", "skills")
 	case "openclaw":
 		providerRoot = filepath.Join(home, ".openclaw", "skills")
+	case "zcode":
+		base := strings.TrimSpace(os.Getenv("ZCODE_DATA_BASE_DIR"))
+		if base == "" {
+			base = home
+		}
+		providerRoot = filepath.Join(base, ".zcode", "skills")
 	case "pi":
 		providerRoot = filepath.Join(home, ".pi", "agent", "skills")
 	case "cursor":

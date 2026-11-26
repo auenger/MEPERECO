@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { TextField } from "@/components/ui/text-field";
+import { api } from "@/data/api";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Text } from "@/components/ui/text";
 import { OtpInput, type OtpInputRef } from "@/components/ui/otp-input";
 import { Button } from "@/components/ui/button";
-import { SiliecoLogo } from "@/components/brand/silieco-logo";
+import { DutyScreen } from "@/components/auth/duty-screen";
 import { useAuthStore } from "@/data/auth-store";
 import { mapAuthError } from "@/lib/auth-error";
 
@@ -16,7 +18,12 @@ const RESEND_COOLDOWN_SECONDS = 60;
 export default function Verify() {
   const sendCode = useAuthStore((s) => s.sendCode);
   const verifyCode = useAuthStore((s) => s.verifyCode);
-  const { email = "" } = useLocalSearchParams<{ email?: string }>();
+  const { email = "", purpose = "code" } = useLocalSearchParams<{ email?: string; purpose?: string }>();
+  const acceptLogin = useAuthStore((s) => s.acceptLogin);
+  const [passwordToken, setPasswordToken] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +45,10 @@ export default function Verify() {
     setSubmitting(true);
     setError(null);
     try {
+      if (purpose === "register" || purpose === "reset") {
+        const { token } = await api.verifyPasswordCode(email, value, purpose);
+        setPasswordToken(token); setSubmitting(false); setCode(""); return;
+      }
       await verifyCode(email, value);
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/");
@@ -56,7 +67,8 @@ export default function Verify() {
     setResending(true);
     setError(null);
     try {
-      await sendCode(email);
+      if (purpose === "register" || purpose === "reset") await api.sendPasswordCode(email, purpose);
+      else await sendCode(email);
       setCooldown(RESEND_COOLDOWN_SECONDS);
       otpRef.current?.clear();
       setCode("");
@@ -68,79 +80,84 @@ export default function Verify() {
     }
   };
 
+  const complete = async () => {
+    if (submitting) return;
+    if (Array.from(password).length < 12 || password !== confirmPassword) {setError("Use at least 12 characters and matching passwords."); return;}
+    setSubmitting(true);setError(null);
+    try { await acceptLogin(await api.completePassword(passwordToken, password)); router.replace("/"); }
+    catch (err) { setError(mapAuthError(err, "Couldn't save password.")); }
+    finally { setSubmitting(false); }
+  };
+  if (passwordToken) return <DutyScreen phase="received" title="Set a password" description="Email verified. Use at least 12 characters (up to 72 bytes).">
+    <View className="gap-2">
+      <Text>New password</Text>
+      <View className="relative"><TextField accessibilityLabel="New password" secureTextEntry={!showPassword} autoComplete="new-password" autoCapitalize="none" value={password} onChangeText={setPassword} className="pr-12"/><Pressable accessibilityRole="button" accessibilityLabel={showPassword ? "Hide password" : "Show password"} onPress={()=>setShowPassword(!showPassword)} className="absolute right-3 top-0 bottom-0 justify-center"><Ionicons name={showPassword?"eye-off-outline":"eye-outline"} size={20} color="#64748b"/></Pressable></View>
+      <Text>Confirm password</Text><TextField accessibilityLabel="Confirm password" secureTextEntry={!showPassword} autoComplete="new-password" autoCapitalize="none" value={confirmPassword} onChangeText={setConfirmPassword}/>
+      {error && <Text className="text-sm text-destructive">{error}</Text>}
+    </View>
+    <Button size="lg" className="bg-brand" disabled={submitting||!password||!confirmPassword} onPress={complete}><Text className="text-brand-foreground">{submitting?"Saving...":"Confirm password"}</Text></Button>
+    <Button variant="ghost" disabled={submitting} onPress={()=>router.back()}><Text>Use a different email</Text></Button>
+  </DutyScreen>;
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View className="flex-1 justify-center px-6 gap-6">
-          <View className="items-center gap-3">
-            <SiliecoLogo size={32} />
-            <View className="gap-1 items-center">
-              <Text className="text-2xl font-semibold text-foreground">
-                Enter verification code
-              </Text>
-              <Text className="text-sm text-muted-foreground text-center">
-                We sent a 6-digit code to {email}
-              </Text>
-            </View>
-          </View>
+    <DutyScreen
+      phase="received"
+      title="Check your email"
+      description={`Enter the 6-digit code we sent to ${email}.`}
+    >
+      <View className="gap-3 items-center">
+        <OtpInput
+          ref={otpRef}
+          numberOfDigits={CODE_LENGTH}
+          value={code}
+          onChange={setCode}
+          onComplete={submit}
+          autoFocus
+          editable={!submitting}
+        />
+        {error ? (
+          <Text className="text-sm text-destructive">{error}</Text>
+        ) : null}
+      </View>
 
-          <View className="gap-3 items-center">
-            <OtpInput
-              ref={otpRef}
-              numberOfDigits={CODE_LENGTH}
-              value={code}
-              onChange={setCode}
-              onComplete={submit}
-              autoFocus
-              editable={!submitting}
-            />
-            {error ? (
-              <Text className="text-sm text-destructive">{error}</Text>
-            ) : null}
-          </View>
+      <View className="gap-3">
+        <Button
+          size="lg"
+          className="bg-brand active:bg-brand/90"
+          disabled={submitting || code.length < CODE_LENGTH}
+          onPress={() => submit(code)}
+        >
+          <Text className="text-brand-foreground">{submitting ? "Verifying..." : "Verify"}</Text>
+        </Button>
 
-          <View className="gap-3">
-            <Button
-              size="lg"
-              disabled={submitting || code.length < CODE_LENGTH}
-              onPress={() => submit(code)}
-            >
-              <Text>{submitting ? "Verifying..." : "Verify"}</Text>
-            </Button>
+        <Pressable
+          onPress={onResend}
+          disabled={cooldown > 0 || resending}
+          className="py-2 items-center"
+        >
+          <Text
+            className={
+              cooldown > 0 || resending
+                ? "text-sm text-muted-foreground"
+                : "text-sm text-primary"
+            }
+          >
+            {resending
+              ? "Sending..."
+              : cooldown > 0
+                ? `Resend code in ${cooldown}s`
+                : "Resend code"}
+          </Text>
+        </Pressable>
 
-            <Pressable
-              onPress={onResend}
-              disabled={cooldown > 0 || resending}
-              className="py-2 items-center"
-            >
-              <Text
-                className={
-                  cooldown > 0 || resending
-                    ? "text-sm text-muted-foreground"
-                    : "text-sm text-primary"
-                }
-              >
-                {resending
-                  ? "Sending..."
-                  : cooldown > 0
-                    ? `Resend code in ${cooldown}s`
-                    : "Resend code"}
-              </Text>
-            </Pressable>
-
-            <Button
-              variant="ghost"
-              disabled={submitting}
-              onPress={() => router.back()}
-            >
-              <Text>Use a different email</Text>
-            </Button>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <Button
+          variant="ghost"
+          disabled={submitting}
+          onPress={() => router.back()}
+        >
+          <Text>Use a different email</Text>
+        </Button>
+      </View>
+    </DutyScreen>
   );
 }

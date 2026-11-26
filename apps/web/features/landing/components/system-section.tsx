@@ -74,7 +74,7 @@ export function SystemSection() {
                     </p>
                     <div className="mt-5 flex items-center gap-2 text-caption font-medium text-[#0a0d12]/40">
                       <CheckCircle2 className="size-4 text-[#3978f6]" />
-                      <span>MEPERStudio / {layer.name.toLowerCase()}</span>
+                      <span>MEPER Studio / {layer.name.toLowerCase()}</span>
                     </div>
                   </div>
                 </article>

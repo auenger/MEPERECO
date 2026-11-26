@@ -1,4 +1,4 @@
-module github.com/silieco-ai/silieco/core
+module github.com/auenger/MEPERECO/core
 
 go 1.26.1
 

@@ -3,7 +3,7 @@ package lark
 import (
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/util"
 )
 
 // uuidString renders a pgtype.UUID as its canonical string form. Shared by

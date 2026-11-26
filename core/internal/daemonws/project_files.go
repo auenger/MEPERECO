@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 type projectFilePending struct {

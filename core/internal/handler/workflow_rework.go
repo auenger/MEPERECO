@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/service"
 )
 
 // ReworkWorkflowExecution requires an explicit source attempt and target. A

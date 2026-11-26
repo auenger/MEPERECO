@@ -436,7 +436,7 @@ type WorktreeParams struct {
 	// inside WorkDir instead of a linked worktree whose gitdir lives under the
 	// shared cache. Linux Codex tasks need this because workspace-write keeps a
 	// resolved external worktree gitdir read-only even when it is explicitly
-	// listed as a writable root (silieco-ai/silieco#2925).
+	// listed as a writable root (historical upstream issue #2925).
 	IsolatedGitMetadata bool
 }
 
@@ -1173,7 +1173,7 @@ case "$COMMIT_SOURCE" in
   merge|squash) exit 0 ;;
 esac
 
-TRAILER="Co-authored-by: silieco-agent <github@silieco.ai>"
+TRAILER="Co-authored-by: MEPERStudio Agent <agent@meperstudio.local>"
 
 # Don't add if already present.
 if grep -qF "$TRAILER" "$COMMIT_MSG_FILE"; then

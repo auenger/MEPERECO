@@ -15,7 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/silieco-ai/silieco/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/logger"
 )
 
 func main() {

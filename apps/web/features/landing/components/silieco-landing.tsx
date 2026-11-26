@@ -14,6 +14,7 @@ import {
   GitBranch,
   FolderOpen,
 } from "lucide-react";
+import { SilkBackground } from "@silieco/ui/components/common/silk-background";
 import { HomeHeader, HomeFooter } from "./home-chrome";
 import { EcosystemPlayer } from "./ecosystem-player";
 import { useLocale, toLandingDictionaryLocale } from "../i18n";
@@ -83,8 +84,9 @@ export function SiliecoLanding() {
         />
         <main id="product">
           <section className="home-hero home-shell" id="ecosystem">
+            <SilkBackground className="home-silk" />
             <div className="hero-message">
-              <p className="home-eyebrow">SILIECO / HUMAN × AGENT</p>
+              <p className="home-eyebrow">MEPER STUDIO / HUMAN × AGENT</p>
               <h1>
                 {c.title[0]}
                 <br />
@@ -239,18 +241,18 @@ export function SiliecoLanding() {
                 controls
                 playsInline
                 preload="none"
-                poster="/media/silieco-collaboration-v3.png"
+                poster="/media/meper-studio-collaboration-v3.png"
                 tabIndex={0}
                 aria-label={c.videoLabel}
                 onError={() => setVideoError(true)}
               >
                 <source
-                  src="/media/silieco-collaboration-v3.mp4"
+                  src="/media/meper-studio-collaboration-v3.mp4"
                   type="video/mp4"
                 />
                 <track
                   kind="subtitles"
-                  src="/media/silieco-collaboration-v3.zh.vtt"
+                  src="/media/meper-studio-collaboration-v3.zh.vtt"
                   srcLang="zh"
                   label="中文"
                 />

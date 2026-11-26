@@ -195,8 +195,8 @@ export function DaemonSettingsTab() {
             This device&apos;s daemon runs outside the app — for example inside
             WSL2 — so the app can&apos;t start or stop it. Start or stop it from
             that environment with{" "}
-            <code className="font-mono text-caption">silieco daemon start</code> /{" "}
-            <code className="font-mono text-caption">silieco daemon stop</code>.
+            <code className="font-mono text-caption">meperstudio daemon start</code> /{" "}
+            <code className="font-mono text-caption">meperstudio daemon stop</code>.
           </p>
         </div>
       )}
@@ -230,8 +230,8 @@ export function DaemonSettingsTab() {
             cliInstalled === null
               ? "Checking…"
               : cliInstalled
-                ? "silieco CLI is installed and available."
-                : "silieco CLI not found. It ships bundled with this app — restart the app and the daemon will pick it up."
+                ? "meperstudio CLI is installed and available."
+                : "meperstudio CLI not found. It ships bundled with this app — restart the app and the daemon will pick it up."
           }
         >
           {cliInstalled !== false && <span />}

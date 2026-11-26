@@ -12,7 +12,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 )
 
 const SchemaVersion = "silieco.skill-evaluation-suite/v1"

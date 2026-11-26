@@ -103,7 +103,7 @@ export function SlackTab() {
             <p className="text-caption text-muted-foreground">
               {t(($) => $.slack.not_enabled_description_prefix)}{" "}
               <code className="rounded bg-muted px-1 py-0.5 text-micro">
-                SILIECO_SLACK_SECRET_KEY
+                MEPERSTUDIO_SLACK_SECRET_KEY
               </code>{" "}
               {t(($) => $.slack.not_enabled_description_suffix)}{" "}
               {t(($) => $.slack.not_enabled_self_host_hint)}
@@ -242,7 +242,7 @@ function InstallationRow({
 const SLACK_BYO_VIDEO_URL = "";
 
 // slackDocsUrl previously pointed at the docs site; removed while external
-// doc links are being retired from the app (dead silieco.ai/docs target).
+// doc links are being retired from the app (dead studio.meper.cn/docs target).
 
 // SlackAgentBindButton is the per-agent CTA exposed from the agent detail page.
 // Slack uses the bring-your-own-app model: the button opens a dialog where the

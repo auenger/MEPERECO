@@ -281,7 +281,7 @@ export function GitHubTab({ embedded = false }: { embedded?: boolean }) {
                 <p className="text-body text-muted-foreground">
                   {t(($) => $.github.feature_co_author_description_prefix)}{" "}
                   <code className="rounded bg-muted px-1 py-0.5 text-caption">
-                    {"Co-authored-by: silieco-agent <github@silieco.ai>"}
+                    {"Co-authored-by: MEPERStudio Agent <agent@meperstudio.local>"}
                   </code>{" "}
                   {t(($) => $.github.feature_co_author_description_suffix)}
                 </p>

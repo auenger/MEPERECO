@@ -175,6 +175,9 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 			annotateCodebuddyThinking(ctx, models, executablePath)
 			return models, nil
 		})
+	case "zcode":
+		// ZCode/Magpie own the model configuration; no per-agent catalog.
+		return []Model{}, nil
 	case "qwen":
 		// Qwen Code has no account-independent headless model catalog. An
 		// empty list keeps the runtime default and manual model entry available
@@ -193,7 +196,7 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 }
 
 // ModelSelectionSupported reports whether setting `agent.model` has
-// any effect for the given provider. Every built-in provider now honours
+// any effect for the given provider. Most built-in providers honour
 // `opts.Model` end-to-end — Hermes routes it through the ACP
 // `session/set_model` RPC before each prompt; Claude / Codex / Cursor /
 // Gemini / Copilot / Kimi / Kiro / OpenCode / OpenClaw / Pi / Antigravity
@@ -201,11 +204,11 @@ func ListModels(ctx context.Context, providerType, executablePath string) ([]Mod
 // 1.0.6 — SILI-3125).
 //
 // The hook is retained — rather than inlining `true` at the call sites — so
-// a future model-less runtime can opt out in one place, which makes the UI
+// a runtime such as ZCode can opt out in one place, which makes the UI
 // render a disabled "Managed by runtime" picker instead of an empty
 // dropdown plus a silently-ignored manual-entry field.
 func ModelSelectionSupported(providerType string) bool {
-	return true
+	return providerType != "zcode"
 }
 
 // ModelKnownIncompatibleWithProvider reports whether a saved model is a known
@@ -218,6 +221,9 @@ func ModelKnownIncompatibleWithProvider(providerType, model string) bool {
 	model = strings.TrimSpace(model)
 	if model == "" {
 		return false
+	}
+	if !ModelSelectionSupported(providerType) {
+		return true
 	}
 
 	accepted, ok := acceptedModelIDsForProvider(providerType)
@@ -501,7 +507,7 @@ func discoverOpenCodeModels(ctx context.Context, executablePath string) ([]Model
 	// Newer opencode (1.15+) syncs its hosted free-model catalog over the
 	// network on `opencode models`, which can take ~6s; the previous 5s cap
 	// timed out and returned an empty list, so the runtime showed online but
-	// the model picker was empty. See silieco-ai/silieco#3627.
+	// the model picker was empty. See historical upstream issue #3627.
 	runCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, executablePath, "models", "--verbose")

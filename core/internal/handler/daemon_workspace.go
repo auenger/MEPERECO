@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
 )
 
 type DaemonWorkspaceResponse struct {

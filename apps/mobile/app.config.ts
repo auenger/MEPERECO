@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const isProd = env === "production";
   const isStaging = env === "staging";
   const httpHost =
-    env === "development" ? process.env.SILIECO_IOS_HTTP_HOST : undefined;
+    env === "development" ? (process.env.MEPERSTUDIO_IOS_HTTP_HOST ?? process.env.SILIECO_IOS_HTTP_HOST) : undefined;
 
   if (httpHost !== undefined) {
     let apiUrl: URL;
@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       apiUrl = new URL(process.env.EXPO_PUBLIC_API_URL ?? "");
     } catch {
       throw new Error(
-        "SILIECO_IOS_HTTP_HOST requires an explicit HTTP EXPO_PUBLIC_API_URL",
+        "MEPERSTUDIO_IOS_HTTP_HOST requires an explicit HTTP EXPO_PUBLIC_API_URL",
       );
     }
     if (
@@ -32,7 +32,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       apiUrl.hostname !== httpHost
     ) {
       throw new Error(
-        "SILIECO_IOS_HTTP_HOST must exactly match the HTTP API hostname",
+        "MEPERSTUDIO_IOS_HTTP_HOST must exactly match the HTTP API hostname",
       );
     }
   }
@@ -45,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         ? "MEPERStudio (Staging)"
         : "MEPERStudio (Dev)",
     slug: "silieco-mobile",
-    version: "0.1.0",
+    version: "1.0.0",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     scheme: "silieco",

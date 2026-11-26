@@ -1,29 +1,25 @@
 package handler
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
 )
 
 // SignupError represents signup restriction errors
@@ -52,11 +48,12 @@ var supportedLanguages = map[string]struct{}{
 }
 
 type UserResponse struct {
-	ID        string  `json:"id"`
-	Name      string  `json:"name"`
-	Email     string  `json:"email"`
-	AvatarURL *string `json:"avatar_url"`
-	Language  *string `json:"language"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Email       string  `json:"email"`
+	HasPassword bool    `json:"has_password"`
+	AvatarURL   *string `json:"avatar_url"`
+	Language    *string `json:"language"`
 	// Pinned IANA tz; nil = no preference (use browser-detected tz).
 	Timezone                *string         `json:"timezone"`
 	OnboardedAt             *string         `json:"onboarded_at"`
@@ -85,6 +82,7 @@ func (h *Handler) userToResponse(u db.User) UserResponse {
 		ID:                      uuidToString(u.ID),
 		Name:                    u.Name,
 		Email:                   u.Email,
+		HasPassword:             u.PasswordHash.Valid && u.PasswordHash.String != "",
 		AvatarURL:               h.resolveAvatarURLPtr(textToPtr(u.AvatarUrl)),
 		Language:                textToPtr(u.Language),
 		Timezone:                textToPtr(u.Timezone),
@@ -176,78 +174,47 @@ func (h *Handler) writePasswordLogin(w http.ResponseWriter, r *http.Request, use
 
 func normalizePasswordAuthRequest(req PasswordAuthRequest) (email, password string, ok bool) {
 	email = strings.ToLower(strings.TrimSpace(req.Email))
-	password = strings.TrimSpace(req.Password)
-	return email, password, strings.Contains(email, "@") && len(password) >= 6
-}
-
-func (h *Handler) RegisterPassword(w http.ResponseWriter, r *http.Request) {
-	var req PasswordAuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	email, password, ok := normalizePasswordAuthRequest(req)
-	if !ok {
-		writeError(w, http.StatusBadRequest, "valid email and password of at least 6 characters are required")
-		return
-	}
-	if _, err := h.Queries.GetUserByEmail(r.Context(), email); err == nil {
-		writeError(w, http.StatusConflict, "account already exists")
-		return
-	} else if !isNotFound(err) {
-		writeError(w, http.StatusInternalServerError, "failed to lookup user")
-		return
-	}
-	if err := h.checkSignupAllowed(email, true); err != nil {
-		writeError(w, http.StatusForbidden, err.Error())
-		return
-	}
-	name := strings.SplitN(email, "@", 2)[0]
-	user, err := h.Queries.CreateUser(r.Context(), db.CreateUserParams{Name: name, Email: email})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to create user")
-		return
-	}
-	if _, err := h.DB.Exec(
-		r.Context(),
-		`UPDATE "user" SET password_hash = crypt($2, gen_salt('bf', 12)), updated_at = now() WHERE id = $1`,
-		user.ID,
-		password,
-	); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to set password")
-		return
-	}
-	obsmetrics.RecordEvent(h.Analytics, h.Metrics, analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r)))
-	h.writePasswordLogin(w, r, user)
+	password = req.Password
+	return email, password, validVerificationEmail(email) && validLoginPassword(password)
 }
 
 func (h *Handler) LoginPassword(w http.ResponseWriter, r *http.Request) {
 	var req PasswordAuthRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	email, password, ok := normalizePasswordAuthRequest(req)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "valid email and password of at least 6 characters are required")
+		writeError(w, http.StatusBadRequest, "valid email and password are required")
+		return
+	}
+	if !h.allowPasswordRequest(w, r, "login", email, 10, 150, 900) {
 		return
 	}
 	user, err := h.Queries.GetUserByEmail(r.Context(), email)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid email or password")
+	if err != nil && !isNotFound(err) {
+		writeError(w, http.StatusServiceUnavailable, "authentication temporarily unavailable")
 		return
 	}
 	var matches bool
-	err = h.DB.QueryRow(
-		r.Context(),
-		`SELECT crypt($2, password_hash) = password_hash FROM "user" WHERE id = $1 AND password_hash IS NOT NULL`,
-		user.ID,
-		password,
-	).Scan(&matches)
-	if err != nil || !matches {
+	// Perform a comparable bcrypt operation for unknown accounts and passwordless users.
+	if err != nil || !user.PasswordHash.Valid || user.PasswordHash.String == "" {
+		// The result is deliberately discarded; this only equalizes the password check cost.
+		var dummy string
+		_ = h.DB.QueryRow(r.Context(), `SELECT crypt($1,gen_salt('bf',12))`, password).Scan(&dummy)
+	} else {
+		err = h.DB.QueryRow(r.Context(), `SELECT crypt($2,password_hash)=password_hash FROM "user" WHERE id=$1 AND password_hash IS NOT NULL`, user.ID, password).Scan(&matches)
+		if err != nil && !isNotFound(err) {
+			writeError(w, http.StatusServiceUnavailable, "authentication temporarily unavailable")
+			return
+		}
+	}
+	if !matches {
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
+	h.clearPasswordLoginLimit(r.Context(), email)
 	h.writePasswordLogin(w, r, user)
 }
 
@@ -260,39 +227,6 @@ func (h *Handler) signSessionJWT(user db.User) (string, error) {
 		"iat":   time.Now().Unix(),
 	})
 	return token.SignedString(auth.JWTSecret())
-}
-
-// findOrCreateUser returns the existing user for an email, or creates one if
-// none exists. isNew reports whether this call created the user — the signup
-// event fires on that edge, covering both the verification-code and Google
-// OAuth entry points.
-func (h *Handler) findOrCreateUser(ctx context.Context, email string) (user db.User, isNew bool, err error) {
-	user, err = h.Queries.GetUserByEmail(ctx, email)
-	isNew = isNotFound(err)
-	if err != nil && !isNew {
-		return db.User{}, false, err
-	}
-
-	if err := h.checkSignupAllowed(email, isNew); err != nil {
-		return db.User{}, false, err
-	}
-
-	if !isNew {
-		return user, false, nil
-	}
-
-	name := email
-	if at := strings.Index(email, "@"); at > 0 {
-		name = email[:at]
-	}
-	created, err := h.Queries.CreateUser(ctx, db.CreateUserParams{
-		Name:  name,
-		Email: email,
-	})
-	if err != nil {
-		return db.User{}, false, err
-	}
-	return created, true, nil
 }
 
 // signupSourceFromRequest reads the attribution cookie the web frontend
@@ -367,6 +301,11 @@ func contains(slice []string, s string) bool {
 	return false
 }
 
+func validVerificationEmail(email string) bool {
+	address, err := mail.ParseAddress(email)
+	return err == nil && address.Address == email && len(email) <= 254
+}
+
 func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 	var req SendCodeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -375,47 +314,32 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if email == "" {
-		writeError(w, http.StatusBadRequest, "email is required")
+	if !validVerificationEmail(email) {
+		writeError(w, http.StatusBadRequest, "valid email is required")
 		return
 	}
 
-	// Check signup restrictions before sending magic link
+	// Only existing users may log in with the ordinary email code. New
+	// users use the separate, email-verified password registration flow.
 	_, err := h.Queries.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		if !isNotFound(err) {
-			// Real database/query error → return 500
 			writeError(w, http.StatusInternalServerError, "failed to lookup user")
 			return
 		}
-		// User does not exist → treat as new user
-		isNewUser := true
-		if err := h.checkSignupAllowed(email, isNewUser); err != nil {
-			var signupErr SignupError
-			if errors.As(err, &signupErr) {
-				writeError(w, http.StatusForbidden, signupErr.Error())
-			} else {
-				writeError(w, http.StatusForbidden, "user registration is disabled")
-			}
+		if h.checkSignupAllowed(email, true) != nil {
+			writeError(w, http.StatusForbidden, "user registration is disabled")
 			return
 		}
-	} else {
-		// User already exists → always allowed to login
-		isNewUser := false
-		if err := h.checkSignupAllowed(email, isNewUser); err != nil {
-			// This should rarely happen, but handle it anyway
-			var signupErr SignupError
-			if errors.As(err, &signupErr) {
-				writeError(w, http.StatusForbidden, signupErr.Error())
-			} else {
-				writeError(w, http.StatusForbidden, "user registration is disabled")
-			}
-			return
-		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "Verification code sent"})
+		return
 	}
-
 	// Rate limit: max 1 code per 60 seconds per email
 	latest, err := h.Queries.GetLatestCodeByEmail(r.Context(), email)
+	if err != nil && !isNotFound(err) {
+		writeError(w, http.StatusInternalServerError, "failed to lookup verification code")
+		return
+	}
 	if err == nil && time.Since(latest.CreatedAt.Time) < 60*time.Second {
 		writeError(w, http.StatusTooManyRequests, "please wait before requesting another code")
 		return
@@ -427,7 +351,7 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = h.Queries.CreateVerificationCode(r.Context(), db.CreateVerificationCodeParams{
+	storedCode, err := h.Queries.CreateVerificationCode(r.Context(), db.CreateVerificationCodeParams{
 		Email:     email,
 		Code:      code,
 		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(10 * time.Minute), Valid: true},
@@ -438,6 +362,8 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.EmailService.SendVerificationCode(email, code); err != nil {
+		// Remove the undelivered code so the user can retry immediately.
+		_, _ = h.DB.Exec(r.Context(), "DELETE FROM verification_code WHERE id = $1", storedCode.ID)
 		slog.Error("failed to send verification code", "email", email, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to send verification code")
 		return
@@ -459,8 +385,8 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	code := strings.TrimSpace(req.Code)
 
-	if email == "" || code == "" {
-		writeError(w, http.StatusBadRequest, "email and code are required")
+	if !validVerificationEmail(email) || !isSixDigitCode(code) {
+		writeError(w, http.StatusBadRequest, "valid email and six-digit code are required")
 		return
 	}
 
@@ -477,23 +403,20 @@ func (h *Handler) VerifyCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.Queries.MarkVerificationCodeUsed(r.Context(), dbCode.ID); err != nil {
+	consumed, err := h.Queries.MarkVerificationCodeUsed(r.Context(), dbCode.ID)
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to verify code")
 		return
 	}
-
-	user, isNew, err := h.findOrCreateUser(r.Context(), email)
-	if err != nil {
-		var signupErr SignupError
-		if errors.As(err, &signupErr) {
-			writeError(w, http.StatusForbidden, signupErr.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to create user")
+	if consumed != 1 {
+		writeError(w, http.StatusBadRequest, "invalid or expired code")
 		return
 	}
-	if isNew {
-		obsmetrics.RecordEvent(h.Analytics, h.Metrics, analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r)))
+
+	user, err := h.Queries.GetUserByEmail(r.Context(), email)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid or expired code")
+		return
 	}
 
 	tokenString, err := h.signSessionJWT(user)
@@ -544,176 +467,6 @@ type UpdateMeRequest struct {
 	ProfileDescription *string `json:"profile_description"`
 	// IANA tz to pin; "" clears back to NULL; nil leaves untouched.
 	Timezone *string `json:"timezone"`
-}
-
-type GoogleLoginRequest struct {
-	Code        string `json:"code"`
-	RedirectURI string `json:"redirect_uri"`
-}
-
-type googleTokenResponse struct {
-	AccessToken string `json:"access_token"`
-	IDToken     string `json:"id_token"`
-	TokenType   string `json:"token_type"`
-}
-
-type googleUserInfo struct {
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Picture string `json:"picture"`
-}
-
-func (h *Handler) GoogleLogin(w http.ResponseWriter, r *http.Request) {
-	var req GoogleLoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.Code == "" {
-		writeError(w, http.StatusBadRequest, "code is required")
-		return
-	}
-
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
-	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	if clientID == "" || clientSecret == "" {
-		writeError(w, http.StatusServiceUnavailable, "Google login is not configured")
-		return
-	}
-
-	redirectURI := req.RedirectURI
-	if redirectURI == "" {
-		redirectURI = os.Getenv("GOOGLE_REDIRECT_URI")
-	}
-
-	// Exchange authorization code for tokens.
-	tokenResp, err := http.PostForm("https://oauth2.googleapis.com/token", url.Values{
-		"code":          {req.Code},
-		"client_id":     {clientID},
-		"client_secret": {clientSecret},
-		"redirect_uri":  {redirectURI},
-		"grant_type":    {"authorization_code"},
-	})
-	if err != nil {
-		slog.Error("google oauth token exchange failed", "error", err)
-		writeError(w, http.StatusBadGateway, "failed to exchange code with Google")
-		return
-	}
-	defer tokenResp.Body.Close()
-
-	tokenBody, err := io.ReadAll(tokenResp.Body)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "failed to read Google token response")
-		return
-	}
-
-	if tokenResp.StatusCode != http.StatusOK {
-		slog.Error("google oauth token exchange returned error", "status", tokenResp.StatusCode, "body", string(tokenBody))
-		writeError(w, http.StatusBadRequest, "failed to exchange code with Google")
-		return
-	}
-
-	var gToken googleTokenResponse
-	if err := json.Unmarshal(tokenBody, &gToken); err != nil {
-		writeError(w, http.StatusBadGateway, "failed to parse Google token response")
-		return
-	}
-
-	// Fetch user info from Google.
-	userInfoReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://www.googleapis.com/oauth2/v2/userinfo", nil)
-	if err != nil {
-		slog.Error("failed to create userinfo request", "error", err)
-		writeError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	userInfoReq.Header.Set("Authorization", "Bearer "+gToken.AccessToken)
-
-	userInfoResp, err := http.DefaultClient.Do(userInfoReq)
-	if err != nil {
-		slog.Error("google userinfo fetch failed", "error", err)
-		writeError(w, http.StatusBadGateway, "failed to fetch user info from Google")
-		return
-	}
-	defer userInfoResp.Body.Close()
-
-	var gUser googleUserInfo
-	if err := json.NewDecoder(userInfoResp.Body).Decode(&gUser); err != nil {
-		writeError(w, http.StatusBadGateway, "failed to parse Google user info")
-		return
-	}
-
-	if gUser.Email == "" {
-		writeError(w, http.StatusBadRequest, "Google account has no email")
-		return
-	}
-
-	email := strings.ToLower(strings.TrimSpace(gUser.Email))
-
-	user, isNew, err := h.findOrCreateUser(r.Context(), email)
-	if err != nil {
-		var signupErr SignupError
-		if errors.As(err, &signupErr) {
-			writeError(w, http.StatusForbidden, signupErr.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to create user")
-		return
-	}
-	if isNew {
-		evt := analytics.Signup(uuidToString(user.ID), user.Email, signupSourceFromRequest(r))
-		evt.Properties["auth_method"] = "google"
-		obsmetrics.RecordEvent(h.Analytics, h.Metrics, evt)
-	}
-
-	// Update name and avatar from Google profile if the user was just created
-	// (default name is email prefix) or has no avatar yet.
-	needsUpdate := false
-	newName := user.Name
-	newAvatar := user.AvatarUrl
-
-	if gUser.Name != "" && user.Name == strings.Split(email, "@")[0] {
-		newName = gUser.Name
-		needsUpdate = true
-	}
-	if gUser.Picture != "" && !user.AvatarUrl.Valid {
-		newAvatar = pgtype.Text{String: gUser.Picture, Valid: true}
-		needsUpdate = true
-	}
-
-	if needsUpdate {
-		updated, err := h.Queries.UpdateUser(r.Context(), db.UpdateUserParams{
-			ID:        user.ID,
-			Name:      newName,
-			AvatarUrl: newAvatar,
-		})
-		if err == nil {
-			user = updated
-		}
-	}
-
-	tokenString, err := h.signSessionJWT(user)
-	if err != nil {
-		slog.Warn("google login failed", append(logger.RequestAttrs(r), "error", err, "email", email)...)
-		writeError(w, http.StatusInternalServerError, "failed to generate token")
-		return
-	}
-
-	if err := auth.SetAuthCookies(w, tokenString); err != nil {
-		slog.Warn("failed to set auth cookies", "error", err)
-	}
-
-	if h.CFSigner != nil {
-		for _, cookie := range h.CFSigner.SignedCookies(time.Now().Add(72 * time.Hour)) {
-			http.SetCookie(w, cookie)
-		}
-	}
-
-	slog.Info("user logged in via google", append(logger.RequestAttrs(r), "user_id", uuidToString(user.ID), "email", user.Email)...)
-	writeJSON(w, http.StatusOK, LoginResponse{
-		Token: tokenString,
-		User:  h.userToResponse(user),
-	})
 }
 
 // MintCLIToken returns a fresh JWT for the authenticated user.

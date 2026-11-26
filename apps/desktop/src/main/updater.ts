@@ -19,12 +19,13 @@ autoUpdater.autoInstallOnAppQuit = true;
 
 // Windows arm64 ships its own update metadata channel because
 // electron-builder's `latest.yml` is not arch-suffixed on Windows — both
-// arches would otherwise collide on the same file in the GitHub Release.
+// arches would otherwise collide on the same file on the update server.
 // See scripts/package.mjs (builderArgsForTarget) for the publish-side half
 // of this pact. Pin the channel here so arm64 clients fetch
 // `latest-arm64.yml` instead of the x64 metadata.
 if (process.platform === "win32" && process.arch === "arm64") {
   autoUpdater.channel = "latest-arm64";
+  autoUpdater.allowDowngrade = false;
 }
 
 interface ChannelConfigurableUpdater {
@@ -113,18 +114,11 @@ export function setupAutoUpdater(
   getMainWindow: () => BrowserWindow | null,
   updateFeedUrl?: string,
 ): void {
-  // Self-hosted update feed. electron-builder's publish is null, so
-  // electron-updater has no app-update.yml and its default feed would point
-  // at a nonexistent GitHub release. Instead the feed is derived at runtime
-  // from the deployment's own API server (see index.ts): a generic-provider
-  // URL that must serve, relative to the URL given here:
-  //   latest.yml            — Windows/Linux x64 metadata
-  //   latest-arm64.yml      — Windows arm64 metadata (channel below)
-  //   latest-x64-mac.yml    — macOS Intel metadata
-  //   latest-mac.yml        — macOS Apple Silicon metadata
-  // plus the installer artifacts those files reference. Releases are
-  // published by uploading the built artifacts + metadata to that path
-  // (no CI publish step — electron-builder stays publish: null).
+  // The packaged generic provider generates app-update.yml and platform
+  // metadata. Override its URL with the user's current deployment:
+  // latest.yml / latest-arm64.yml (Windows), latest-mac.yml /
+  // latest-x64-mac.yml (macOS), latest-linux.yml / latest-linux-arm64.yml
+  // (Linux). Upload the built metadata and referenced artifacts together.
   if (updateFeedUrl) {
     autoUpdater.setFeedURL({ provider: "generic", url: updateFeedUrl });
   }

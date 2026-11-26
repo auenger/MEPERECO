@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ import (
 // (Silieco Cloud) MUST use the Redis-backed implementation, otherwise the
 // pending request is invisible to whichever replica receives the next call
 // and the picker shows "No models available" (regression: see task
-// review on silieco-ai/silieco#2009).
+// review on historical upstream issue #2009).
 
 // ModelListStatus represents the lifecycle of a model list request.
 type ModelListStatus string

@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/runtimeapps"
+	"github.com/auenger/MEPERECO/core/internal/runtimeapps"
 )
 
 // RepoContextForEnv describes a workspace repo available for checkout.

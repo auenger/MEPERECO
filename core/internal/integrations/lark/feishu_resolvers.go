@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
 )
 
 // This file is the Feishu ResolverSet: the platform-specific implementations

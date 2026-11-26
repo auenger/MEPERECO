@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/silieco-ai/silieco/core/pkg/redact"
+	"github.com/auenger/MEPERECO/core/pkg/redact"
 )
 
 // agentStderrTailBytes bounds the stderr tail captured for inclusion in

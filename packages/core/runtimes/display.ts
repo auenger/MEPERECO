@@ -43,6 +43,7 @@ export function runtimeDisplayLabel(
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   traecli: "Trae",
   qwen: "Qwen Code",
+  zcode: "ZCode",
 };
 
 /**

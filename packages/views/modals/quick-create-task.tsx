@@ -320,7 +320,7 @@ export function AgentCreatePanel({
   }, [setActiveMode]);
 
   // Daemon CLI version gate. The agent-create flow needs the runtime's
-  // bundled silieco CLI to be ≥ MIN_QUICK_CREATE_CLI_VERSION; older
+  // bundled meperstudio CLI to be ≥ MIN_QUICK_CREATE_CLI_VERSION; older
   // daemons handle attachments and partial-failure retries incorrectly
   // (see PR #1851 / SILI-1496). Pre-check on the picker so the user gets
   // immediate feedback instead of waiting for the inbox failure; the

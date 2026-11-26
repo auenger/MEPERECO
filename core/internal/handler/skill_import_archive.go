@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	skillpkg "github.com/silieco-ai/silieco/core/internal/skill"
+	skillpkg "github.com/auenger/MEPERECO/core/internal/skill"
 )
 
 // maxImportArchiveUploadSize bounds the compressed upload accepted by the

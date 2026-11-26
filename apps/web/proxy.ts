@@ -89,7 +89,7 @@ export function proxy(req: NextRequest) {
 
   // --- Root path: redirect logged-in users to their last workspace ---
   // The official cloud host also serves the public marketing site. Visiting
-  // https://silieco.ai/ must remain a public-site navigation even when a local
+  // https://studio.meper.cn/ must remain a public-site navigation even when a local
   // desktop/runtime session has fresh auth cookies; explicit app routes such
   // as /acme/tasks and legacy /tasks still route to the workspace app.
   if (
@@ -115,6 +115,7 @@ export const config = {
   // request time instead of being baked into next.config.js at build time.
   matcher: [
     "/api/:path*",
+    "/updates/desktop/:path*",
     "/health",
     "/auth/:path*",
     "/uploads/:path*",

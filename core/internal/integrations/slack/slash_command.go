@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/slack-go/slack"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // This file implements the Slack `/task` SLASH COMMAND. It is deliberately

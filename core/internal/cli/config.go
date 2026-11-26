@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"os"
 	"path/filepath"
 )
-
-const defaultCLIConfigPath = ".silieco/config.json"
 
 // CLIConfig holds persistent CLI settings.
 type CLIConfig struct {
@@ -189,9 +188,9 @@ func CLIConfigPathForProfile(profile string) (string, error) {
 		return "", fmt.Errorf("resolve CLI config path: %w", err)
 	}
 	if profile == "" {
-		return filepath.Join(home, defaultCLIConfigPath), nil
+		return filepath.Join(branding.StateDir(home), "config.json"), nil
 	}
-	return filepath.Join(home, ".silieco", "profiles", profile, "config.json"), nil
+	return filepath.Join(branding.StateDir(home), "profiles", profile, "config.json"), nil
 }
 
 // ProfileDir returns the base directory for a profile's state files (pid, log).
@@ -202,9 +201,9 @@ func ProfileDir(profile string) (string, error) {
 		return "", fmt.Errorf("resolve profile dir: %w", err)
 	}
 	if profile == "" {
-		return filepath.Join(home, ".silieco"), nil
+		return branding.StateDir(home), nil
 	}
-	return filepath.Join(home, ".silieco", "profiles", profile), nil
+	return filepath.Join(branding.StateDir(home), "profiles", profile), nil
 }
 
 // LoadCLIConfig reads the CLI config from disk (default profile).

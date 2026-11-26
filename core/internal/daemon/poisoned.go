@@ -3,8 +3,8 @@ package daemon
 import (
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/pkg/agent"
-	"github.com/silieco-ai/silieco/core/pkg/runfailure"
+	"github.com/auenger/MEPERECO/core/pkg/agent"
+	"github.com/auenger/MEPERECO/core/pkg/runfailure"
 )
 
 // FailureReason values for tasks whose session is "poisoned" — i.e.

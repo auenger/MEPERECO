@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 )
 
 // ExpireStageCalls applies explicit per-call execution deadlines. Queue wait

@@ -8,7 +8,7 @@ import (
 
 	"github.com/slack-go/slack"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
 )
 
 // TypeSlack is the channel discriminator for the Slack adapter. It is defined

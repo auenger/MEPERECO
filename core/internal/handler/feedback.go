@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // feedbackImageRegex is a coarse check for markdown image syntax ![alt](url).

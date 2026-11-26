@@ -3,7 +3,7 @@ package featureflags
 import (
 	"context"
 
-	"github.com/silieco-ai/silieco/core/pkg/featureflag"
+	"github.com/auenger/MEPERECO/core/pkg/featureflag"
 )
 
 const (

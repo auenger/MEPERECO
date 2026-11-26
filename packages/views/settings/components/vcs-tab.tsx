@@ -208,7 +208,7 @@ export function VCSTab({ fixedProvider, excludeGitLab = false }: { fixedProvider
               <p className="text-caption text-muted-foreground">
                 {t(($) => $.vcs.not_configured)}{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-micro">
-                  SILIECO_VCS_SECRET_KEY
+                  MEPERSTUDIO_VCS_SECRET_KEY
                 </code>
                 .
               </p>

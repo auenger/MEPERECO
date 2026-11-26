@@ -31,7 +31,7 @@ export interface LatestRelease {
 }
 
 const GITHUB_RELEASES_URL =
-  "https://api.github.com/repos/silieco-ai/silieco/releases?per_page=2";
+  "https://api.github.com/repos/auenger/MEPERECO/releases?per_page=2";
 
 const REVALIDATE_SECONDS = 300;
 

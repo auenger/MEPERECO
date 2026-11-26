@@ -191,7 +191,7 @@ export function syncLatestChatMessageQueries(qc: QueryClient, sessionId: string)
     job.dirty = false;
     const dataVersion = query.state.dataUpdateCount;
     try {
-      const fresh = await api.listChatMessagesPage(sessionId, { limit: before.pages[0].limit ?? 50 });
+      const fresh = await api.listChatMessagesPage(sessionId, { limit: before.pages[0]?.limit ?? 50 });
       if (!sameScope()) { finish(); return; }
       if (query.state.fetchStatus !== "idle"
         || query.state.dataUpdateCount !== dataVersion

@@ -551,7 +551,7 @@ func isKiroTaskCommentAddCommand(command string) bool {
 		return false
 	}
 	executable := strings.TrimPrefix(parts[0], "./")
-	if executable != "silieco" && !strings.HasSuffix(executable, "/silieco") {
+	if executable != "meperstudio" && !strings.HasSuffix(executable, "/meperstudio") && executable != "silieco" && !strings.HasSuffix(executable, "/silieco") {
 		return false
 	}
 	return parts[1] == "task" && parts[2] == "comment" && parts[3] == "add"

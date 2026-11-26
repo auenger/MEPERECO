@@ -1,6 +1,6 @@
 /**
  * The 3 starter tasks the Runtime-path Welcome Modal offers a user after
- * Sili Agent is created. Each card maps to ONE task being created
+ * MEPER Agent is created. Each card maps to ONE task being created
  * via `api.createTask` with:
  *   - title = STARTER_PROMPT.title[lang]
  *   - description = STARTER_PROMPT.prompt[lang]
@@ -48,7 +48,7 @@ export const HELPER_STARTER_PROMPTS: Record<StarterCardId, StarterPrompt> = {
       zh: "用 slides 介绍 MEPERStudio 能为我做什么",
     },
     prompt: {
-      en: `Build me a single-file HTML slide deck that shows what MEPERStudio can do for me. Tailor it to my role and use case (see "About me" below). Paste the FULL HTML in a fenced \`\`\`html block in a comment on this task so I can copy it straight out, save as \`silieco-intro.html\`, and double-click to open it in a browser.
+      en: `Build me a single-file HTML slide deck that shows what MEPERStudio can do for me. Tailor it to my role and use case (see "About me" below). Paste the FULL HTML in a fenced \`\`\`html block in a comment on this task so I can copy it straight out, save as \`meperstudio-intro.html\`, and double-click to open it in a browser.
 
 **Format**
 - One self-contained .html, all CSS / JS inline. Zero dependencies, no build tools, no external images (use CSS-generated visuals — gradients, geometric shapes, SVG inline).
@@ -74,7 +74,7 @@ export const HELPER_STARTER_PROMPTS: Record<StarterCardId, StarterPrompt> = {
 - ArrowLeft / ArrowRight and Space to advance. Small page indicator in a corner.
 
 When done, also reply with a one-sentence summary of which scenarios you picked for me and why.`,
-      zh: `给我做一份单文件 HTML 演示稿,介绍 MEPERStudio 能为我做什么。根据我的角色和使用场景定制(见下面"关于我")。把完整 HTML 贴到这条 task 的评论里的 \`\`\`html 代码块中,我直接复制下来存成 \`silieco-intro.html\` 双击就能在浏览器里打开。
+      zh: `给我做一份单文件 HTML 演示稿,介绍 MEPERStudio 能为我做什么。根据我的角色和使用场景定制(见下面"关于我")。把完整 HTML 贴到这条 task 的评论里的 \`\`\`html 代码块中,我直接复制下来存成 \`meperstudio-intro.html\` 双击就能在浏览器里打开。
 
 **产出格式**
 - 一个自包含 .html,CSS / JS 全部 inline。零依赖、不用打包、不引外部图片(视觉用纯 CSS 生成 —— 渐变、几何形状、内联 SVG)。

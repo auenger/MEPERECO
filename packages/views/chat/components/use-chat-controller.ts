@@ -790,7 +790,7 @@ export function useChatController(opts?: { isActive?: boolean }) {
     firstItemIndex,
     hasOlderMessages: !!hasOlderMessages,
     isFetchingOlderMessages,
-    fetchOlderMessages,
+    fetchOlderMessages: () => void fetchOlderMessages(),
     // draft restore
     restoreDraftRequest,
     handleRestoreDraftApplied,

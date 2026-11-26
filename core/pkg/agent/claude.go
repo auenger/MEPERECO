@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"io"
 	"log/slog"
 	"os"
@@ -774,7 +775,7 @@ var resumeRejectedPhrases = []string{
 	// session found with ID <id>. Run `qwen --resume` without an ID to
 	// choose from existing sessions."
 	"no saved session found",
-	// Reported verbatim in silieco-ai/silieco#5704 against Claude Code
+	// Reported verbatim in historical upstream issue #5704 against Claude Code
 	// 2.1.207 (zh-CN): "400 此 session 已绑定另外的ai账号，请执行 /new 开启新
 	// session". This is the account-switch guardrail this signal exists for.
 	"已绑定另外",
@@ -877,7 +878,7 @@ func mergeEnv(base []string, extra map[string]string) []string {
 		// SILIECO_* in the daemon's own environment is not task context. Drop
 		// the inherited namespace for every backend and append only the values
 		// daemon.go explicitly assembled for this task below.
-		if isFilteredChildEnvKey(key) || strings.HasPrefix(strings.ToUpper(key), "SILIECO_") {
+		if isFilteredChildEnvKey(key) || branding.IsManagedEnvKey(key) {
 			continue
 		}
 		env = append(env, entry)

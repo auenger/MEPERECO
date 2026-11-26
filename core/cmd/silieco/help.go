@@ -6,6 +6,9 @@ import (
 	"text/template"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 // Command group IDs used across the CLI.
@@ -53,6 +56,12 @@ func initHelp(root *cobra.Command) {
 
 func applyTemplates(cmd *cobra.Command) {
 	for _, c := range cmd.Commands() {
+		if cmd.Root().Name() == "meperstudio" {
+			c.Example = cli.BrandCLIText(c.Example)
+			c.Long = cli.BrandCLIText(c.Long)
+			c.Short = cli.BrandCLIText(c.Short)
+			c.Flags().VisitAll(func(f *pflag.Flag) { f.Usage = cli.BrandCLIText(f.Usage) })
+		}
 		if c.HasSubCommands() {
 			c.SetHelpTemplate(subHelpTemplate)
 			c.SetUsageTemplate(subHelpTemplate)
@@ -110,7 +119,7 @@ func init() {
 var rootHelpTemplate = `Work seamlessly with MEPERStudio from the command line.
 
 USAGE
-  silieco <command> <subcommand> [flags]
+  {{.Name}} <command> <subcommand> [flags]
 {{range .Groups}}
 {{.Title}}
 {{formatCommandList (commandsInGroup $.Commands .ID)}}
@@ -118,17 +127,17 @@ USAGE
 FLAGS
 {{.LocalFlags.FlagUsages}}
 EXAMPLES
-  $ silieco login
-  $ silieco task list --output json
-  $ silieco daemon start
-  $ silieco agent list --output json
+  $ {{.Name}} login
+  $ {{.Name}} task list --output json
+  $ {{.Name}} daemon start
+  $ {{.Name}} agent list --output json
 
 ENVIRONMENT VARIABLES
-  SILIECO_SERVER_URL    Override the default server URL
-  SILIECO_WORKSPACE_ID  Set the active workspace
+  MEPERSTUDIO_SERVER_URL    Override the default server URL
+  MEPERSTUDIO_WORKSPACE_ID  Set the active workspace
 
 LEARN MORE
-  Use ` + "`silieco <command> <subcommand> --help`" + ` for more information about a command.
+  Use ` + "`{{.Root.Name}} <command> <subcommand> --help`" + ` for more information about a command.
 `
 
 var subHelpTemplate = `{{.Short}}
@@ -173,5 +182,5 @@ EXAMPLES
 {{- end}}
 
 LEARN MORE
-  Use ` + "`silieco <command> <subcommand> --help`" + ` for more information about a command.
+  Use ` + "`{{.Root.Name}} <command> <subcommand> --help`" + ` for more information about a command.
 `

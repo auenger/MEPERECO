@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
 )
 
 // freshSessionRetryPrompt prefixes an explicit context-loss disclosure onto the
@@ -79,7 +79,7 @@ func buildWorkflowStagePromptBlock(stage *WorkflowStageContextData) string {
 	} else {
 		b.WriteString("This is the final Stage in the SOP Run.\n")
 	}
-	fmt.Fprintf(&b, "Any continuation, child, or follow-up task derived from this task MUST remain attached to SOP Run %s unless the user explicitly asks for work outside the SOP. Always pass both `--workflow-instance %s` and `--workflow-stage <stage-id>` to `silieco task create`.\n", stage.InstanceID, stage.InstanceID)
+	fmt.Fprintf(&b, "Any continuation, child, or follow-up task derived from this task MUST remain attached to SOP Run %s unless the user explicitly asks for work outside the SOP. Always pass both `--workflow-instance %s` and `--workflow-stage <stage-id>` to `meperstudio task create`.\n", stage.InstanceID, stage.InstanceID)
 	b.WriteString("Choose `<stage-id>` from the Stage list above: match a specifically named or semantically intended phase first (for example, an MVP/prototype request maps to a Stage named Prototype or MVP); otherwise use the next Stage when the user says next/successor, and otherwise keep the current Stage for work in the same phase. Never create an unbound continuation task merely because it is assigned to a human, parked in Backlog, or should not run automatically. Backlog controls execution only; SOP attachment is independent. Binding a task to a later Stage does not transition the SOP Run.\n")
 	if len(stage.RequiredSkills) > 0 {
 		b.WriteString("The following current-Stage skills are mandatory for this run:\n")
@@ -136,22 +136,22 @@ func buildPromptBody(agentRun AgentRun, provider string) string {
 		b.WriteString("You were handed this task with a handoff note. Treat it as the assigner's scoping instruction for this run; follow it before doing anything broader, and do not reply to it as if it were a comment:\n\n")
 		fmt.Fprintf(&b, "> %s\n\n", agentRun.HandoffNote)
 	}
-	fmt.Fprintf(&b, "Start by running `silieco task get %s --output json` to understand your task, then complete it.\n", agentRun.TaskID)
-	fmt.Fprintf(&b, "For comment history, follow the rule in your runtime workflow file (assignment-triggered tasks treat the read as mandatory). Scan the threads first with `silieco task comment list %s --roots-only --summary --output json`, then expand only what matters with `--thread <thread-id> --tail 30`. Your runtime workflow file documents the rest of the read surface, including pagination and `--since` for incremental polling.\n", agentRun.TaskID)
+	fmt.Fprintf(&b, "Start by running `meperstudio task get %s --output json` to understand your task, then complete it.\n", agentRun.TaskID)
+	fmt.Fprintf(&b, "For comment history, follow the rule in your runtime workflow file (assignment-triggered tasks treat the read as mandatory). Scan the threads first with `meperstudio task comment list %s --roots-only --summary --output json`, then expand only what matters with `--thread <thread-id> --tail 30`. Your runtime workflow file documents the rest of the read surface, including pagination and `--since` for incremental polling.\n", agentRun.TaskID)
 	return b.String()
 }
 
 // buildQuickCreatePrompt constructs a prompt for quick-create tasks. The
 // user typed a single natural-language sentence in the create-task modal;
-// the agent's job is to translate it into one `silieco task create` CLI
+// the agent's job is to translate it into one `meperstudio task create` CLI
 // invocation, using its judgment to decide whether fetching referenced URLs
 // would produce a better task. No task exists yet, so the agent must NOT
-// call `silieco task get` or attempt to comment — there's nothing to read
+// call `meperstudio task get` or attempt to comment — there's nothing to read
 // or reply to.
 func buildQuickCreatePrompt(agentRun AgentRun) string {
 	var b strings.Builder
 	b.WriteString("You are running as a quick-create assistant for a MEPERStudio workspace.\n\n")
-	b.WriteString("A user captured the following input via the quick-create modal. There is NO existing task. Your job is to create a well-formed task from this input with a single `silieco task create` command.\n\n")
+	b.WriteString("A user captured the following input via the quick-create modal. There is NO existing task. Your job is to create a well-formed task from this input with a single `meperstudio task create` command.\n\n")
 	fmt.Fprintf(&b, "User input:\n> %s\n\n", agentRun.QuickCreatePrompt)
 
 	b.WriteString("Field rules:\n\n")
@@ -162,7 +162,7 @@ func buildQuickCreatePrompt(agentRun AgentRun) string {
 	// description — the core optimization
 	b.WriteString("- **description**: The description is the executing agent's primary context. Aim for high fidelity — they should grasp the user's intent as if they had read the raw input themselves. Use a two-section structure:\n\n")
 	b.WriteString("  1. **User request** — Faithfully restate what the user wants in their own words. Preserve specific names, identifiers, file paths, code snippets, and technical terms verbatim. Strip non-spec material before writing it (this is removal, not paraphrasing): verbal routing wrappers about creating the task or routing it (e.g. \"create an task\", \"分配给 X\", \"让 @X 处理\") and pure conversational fillers (e.g. \"对吧？\"). When in doubt, keep it.\n\n")
-	b.WriteString("     CC exception: `silieco task create` has no `--subscriber` flag, and the platform auto-subscribes members whose `[@Name](mention://member/<uuid>)` link appears in the description. When the user wrote \"cc @Y\", strip the verbal \"cc\" wrapper from the User request body and append a final `CC: <mention link(s)>` line to the description so the cc routing still fires.\n\n")
+	b.WriteString("     CC exception: `meperstudio task create` has no `--subscriber` flag, and the platform auto-subscribes members whose `[@Name](mention://member/<uuid>)` link appears in the description. When the user wrote \"cc @Y\", strip the verbal \"cc\" wrapper from the User request body and append a final `CC: <mention link(s)>` line to the description so the cc routing still fires.\n\n")
 	b.WriteString("  2. **Context** — include ONLY when the input cited external resources AND you successfully fetched them AND they produced verifiable facts worth recording. Summarize facts only (e.g. \"PR #45 changes auth to JWT\"), not interpretation or unsolicited reference implementations. If you have nothing factual to add, omit the section entirely — never use it as an apology log for resources you could not fetch.\n\n")
 	b.WriteString("  Hard rules: never invent requirements, implementation details, or acceptance criteria the user did not express; never reduce multi-sentence input to a single vague sentence; never echo the title.\n\n")
 	b.WriteString("  Passing the description: a short, single-line body with no code, quotes, backticks, `$()`, or other special characters may go inline via `--description \"...\"`. Anything multi-line, or containing code snippets / file paths / quotes / backticks / `$()` / special characters, or otherwise long — which quick-create descriptions usually are — MUST be written to `./description.md` and passed with `--description-file ./description.md`; passing rich text inline lets the shell rewrite or truncate it (SILI-2904). That file MUST live inside your current working directory (e.g. `./description.md`) — never `/tmp` or any machine-shared path, where a different run may have left a stale file that would silently become this task's description. If the file write fails for any reason, stop and fix it; never run `--description-file` against a file whose write did not succeed.\n\n")
@@ -176,7 +176,7 @@ func buildQuickCreatePrompt(agentRun AgentRun) string {
 
 	// assignee
 	b.WriteString("- **assignee**:\n")
-	b.WriteString("    - When the user names someone (\"assign to X\" / \"@X\"), call `silieco workspace member list --output json`, `silieco agent list --output json`, and `silieco squad list --output json` and find the matching entity by display name. Squads are first-class assignees too — a squad name (e.g. \"Super Human\") routes work to the squad leader, who then delegates. On a clean unambiguous match, prefer `--assignee-id <uuid>` using the `user_id` (member) or `id` (agent or squad) from that JSON — UUID matching is exact and robust to name collisions in workspaces with overlapping names. `--assignee <name>` (fuzzy) is acceptable as a fallback when names are unambiguous. On no match or ambiguous match, do NOT pass either flag — instead append a final line to the description: `Unrecognized assignee: X`.\n")
+	b.WriteString("    - When the user names someone (\"assign to X\" / \"@X\"), call `meperstudio workspace member list --output json`, `meperstudio agent list --output json`, and `meperstudio squad list --output json` and find the matching entity by display name. Squads are first-class assignees too — a squad name (e.g. \"Super Human\") routes work to the squad leader, who then delegates. On a clean unambiguous match, prefer `--assignee-id <uuid>` using the `user_id` (member) or `id` (agent or squad) from that JSON — UUID matching is exact and robust to name collisions in workspaces with overlapping names. `--assignee <name>` (fuzzy) is acceptable as a fallback when names are unambiguous. On no match or ambiguous match, do NOT pass either flag — instead append a final line to the description: `Unrecognized assignee: X`.\n")
 	b.WriteString("    - Treat bare @-routing as an assignee directive even when the user did not write the English word \"assign\". This includes Chinese imperatives like `让 @独立团 review 这个 PR`, `给 @X 处理`, or `交给 @X`; strip the leading `@`/`＠` before matching display names. Do not keep that routing wrapper or `@Name` in the description unless it is a true CC-style notification rather than ownership. If the matched entity is a squad, pass the squad's `id` as `--assignee-id`, not the leader agent's id.\n")
 	agentID := ""
 	agentName := ""
@@ -245,10 +245,10 @@ func buildQuickCreatePrompt(agentRun AgentRun) string {
 
 	// output format
 	b.WriteString("Output format:\n")
-	b.WriteString("- Run exactly one `silieco task create --output json` invocation. Do not retry for any reason — even on non-zero exit. The task may already exist; another attempt would create a duplicate.\n")
+	b.WriteString("- Run exactly one `meperstudio task create --output json` invocation. Do not retry for any reason — even on non-zero exit. The task may already exist; another attempt would create a duplicate.\n")
 	b.WriteString("- Parse the JSON response to read the created task's `identifier` (preferred) or `id` (fallback). Do not scrape human output and do not assume any workspace task prefix such as `SILI-`; workspaces can use custom prefixes.\n")
 	b.WriteString("- After success, print exactly one line: `Created <identifier-or-id>: <title>` and exit. No commentary, no follow-up tool calls.\n")
-	b.WriteString("- Do NOT call `silieco task get` or `silieco task comment add` — there is no task to query or comment on.\n")
+	b.WriteString("- Do NOT call `meperstudio task get` or `meperstudio task comment add` — there is no task to query or comment on.\n")
 	b.WriteString("- On CLI error or JSON parse error, exit with the error as the only output. The platform writes a failure notification automatically.\n")
 	return b.String()
 }
@@ -314,19 +314,19 @@ func buildCommentPrompt(agentRun AgentRun, provider string) string {
 				b.WriteString(":\n")
 				fmt.Fprintf(&b, "  > %s\n", strings.ReplaceAll(strings.TrimSpace(cc.Content), "\n", "\n  > "))
 			}
-			fmt.Fprintf(&b, "\nIf you need the surrounding discussion for any of them, fetch its thread with `silieco task comment list %s --thread <thread-id> --tail 30 --output json` using the thread id shown above.\n\n", agentRun.TaskID)
+			fmt.Fprintf(&b, "\nIf you need the surrounding discussion for any of them, fetch its thread with `meperstudio task comment list %s --thread <thread-id> --tail 30 --output json` using the thread id shown above.\n\n", agentRun.TaskID)
 		} else if len(agentRun.CoalescedCommentIDs) > 0 {
-			fmt.Fprintf(&b, "This run also covers %d earlier comment(s) posted before it started — you must read and address them too, not just the one above: %s. These may be in DIFFERENT threads, so do not assume they share the triggering thread; fetch each by pulling the task-wide discussion with `silieco task comment list %s --recent 30 --output json` (expand with `--full` if a thread is folded) and locate the ids above.\n\n",
+			fmt.Fprintf(&b, "This run also covers %d earlier comment(s) posted before it started — you must read and address them too, not just the one above: %s. These may be in DIFFERENT threads, so do not assume they share the triggering thread; fetch each by pulling the task-wide discussion with `meperstudio task comment list %s --recent 30 --output json` (expand with `--full` if a thread is folded) and locate the ids above.\n\n",
 				len(agentRun.CoalescedCommentIDs), strings.Join(agentRun.CoalescedCommentIDs, ", "), agentRun.TaskID)
 		}
 		if agentRun.TriggerAuthorType == "agent" {
 			b.WriteString("⚠️ The triggering comment was posted by another agent. Decide whether a reply is warranted. If you produced actual work this turn (investigated, fixed something, answered a real question), post the result as a normal reply — that is NOT a noise comment, and the standard rule that final results must be delivered via comment still applies. If the triggering comment was a pure acknowledgment, thanks, or sign-off AND you produced no work this turn, do NOT reply — and do NOT post a comment saying 'No reply needed' or similar. Simply exit with no output. Silence is the preferred way to end agent-to-agent threads. If you do reply, do not @mention the other agent as a sign-off (that re-triggers them and starts a loop).\n\n")
 		}
 		if agentRun.Agent != nil && strings.Contains(agentRun.Agent.Instructions, "## Squad Operating Protocol") {
-			fmt.Fprintf(&b, "⚠️ **Squad leader no_action rule:** If you decide no action is needed, call `silieco squad activity %s no_action --reason \"...\"` and EXIT. DO NOT post any comment — not even one that says \"no action needed\" or \"exiting silently\". The squad activity call records your decision; a comment is redundant noise.\n\n", agentRun.TaskID)
+			fmt.Fprintf(&b, "⚠️ **Squad leader no_action rule:** If you decide no action is needed, call `meperstudio squad activity %s no_action --reason \"...\"` and EXIT. DO NOT post any comment — not even one that says \"no action needed\" or \"exiting silently\". The squad activity call records your decision; a comment is redundant noise.\n\n", agentRun.TaskID)
 		}
 	}
-	fmt.Fprintf(&b, "Start by running `silieco task get %s --output json` to understand your task, then decide how to proceed.\n\n", agentRun.TaskID)
+	fmt.Fprintf(&b, "Start by running `meperstudio task get %s --output json` to understand your task, then decide how to proceed.\n\n", agentRun.TaskID)
 	// Comment-reading pointer. Warm path with new comments: task-wide
 	// since-delta count, but steer the agent to read the triggering thread
 	// first. Warm resumed path with no new comments: the trigger is already
@@ -340,7 +340,7 @@ func buildCommentPrompt(agentRun AgentRun, provider string) string {
 	} else if cold := execenv.BuildColdCommentsHint(agentRun.TaskID, agentRun.TriggerCommentID, agentRun.TriggerThreadID); cold != "" {
 		b.WriteString(cold)
 	} else {
-		fmt.Fprintf(&b, "Read the discussion: scan with `silieco task comment list %s --roots-only --summary --output json`, then expand what matters with `--thread <thread-id> --tail 30`.\n\n", agentRun.TaskID)
+		fmt.Fprintf(&b, "Read the discussion: scan with `meperstudio task comment list %s --roots-only --summary --output json`, then expand what matters with `--thread <thread-id> --tail 30`.\n\n", agentRun.TaskID)
 	}
 	// Reply routing. When this run coalesced comments spanning MORE THAN ONE
 	// root thread, answer each thread in its own thread instead of dumping one
@@ -443,7 +443,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 	// history is the MEPERStudio chat_session the agent already resumes.
 	//
 	// The history half is Slack-only, and that is a real server constraint, not a
-	// simplification: `silieco chat history` / `silieco chat thread` are served by
+	// simplification: `meperstudio chat history` / `meperstudio chat thread` are served by
 	// handlers hardwired to h.SlackHistory (handler/chat_history.go), so on a
 	// Feishu session both commands return "no channel integration". Teaching them
 	// there would send the agent down a path that always fails. A Feishu run works
@@ -461,12 +461,12 @@ func buildChatPrompt(agentRun AgentRun) string {
 		fmt.Fprintf(&b, "You are operating inside a %s conversation — not the MEPERStudio web app. This conversation and its history live in %s, NOT in MEPERStudio; never look in MEPERStudio tasks or comments for it.\n", platform, platform)
 		if agentRun.ChatChannelType == execenv.ChannelTypeSlack {
 			b.WriteString("The message below may be only what triggered you. Read the conversation with:\n")
-			b.WriteString("- `silieco chat history --output json` — the channel overview: recent top-level messages, each thread tagged with a `thread_id` and `reply_count`. It does NOT expand thread contents.\n")
-			b.WriteString("- `silieco chat thread [<thread_id>] --output json` — read one thread's messages; omit the id to read the thread you are in, or pass a `thread_id` from the overview to read a specific thread.\n")
+			b.WriteString("- `meperstudio chat history --output json` — the channel overview: recent top-level messages, each thread tagged with a `thread_id` and `reply_count`. It does NOT expand thread contents.\n")
+			b.WriteString("- `meperstudio chat thread [<thread_id>] --output json` — read one thread's messages; omit the id to read the thread you are in, or pass a `thread_id` from the overview to read a specific thread.\n")
 			if agentRun.ChatInThread {
-				b.WriteString("You were @mentioned inside a thread: start with `silieco chat thread` to read it; if you need the wider channel, run `silieco chat history` and open a specific thread with `silieco chat thread <thread_id>`.\n")
+				b.WriteString("You were @mentioned inside a thread: start with `meperstudio chat thread` to read it; if you need the wider channel, run `meperstudio chat history` and open a specific thread with `meperstudio chat thread <thread_id>`.\n")
 			} else {
-				b.WriteString("You were @mentioned at the channel top level: start with `silieco chat history` to see the channel, then read a specific thread's contents with `silieco chat thread <thread_id>`.\n")
+				b.WriteString("You were @mentioned at the channel top level: start with `meperstudio chat history` to see the channel, then read a specific thread's contents with `meperstudio chat thread <thread_id>`.\n")
 			}
 			// These reads are the agent's private context-gathering; narrating them
 			// into a chat reply reads as noise (the user reported every reply being
@@ -515,7 +515,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 	// the CLI. We deliberately do NOT inline the URL: chat attachments
 	// live behind a signed CDN with a short TTL, so by the time the agent
 	// has finished thinking the URL embedded in the markdown body may
-	// have expired. `silieco attachment download <id>` re-signs at click
+	// have expired. `meperstudio attachment download <id>` re-signs at click
 	// time and is the only reliable path.
 	if len(agentRun.ChatMessageAttachments) > 0 {
 		b.WriteString("\nAttachments on this message:\n")
@@ -526,8 +526,8 @@ func buildChatPrompt(agentRun AgentRun) string {
 				fmt.Fprintf(&b, "- id=%s filename=%q\n", a.ID, a.Filename)
 			}
 		}
-		b.WriteString("Use `silieco attachment download <id>` to fetch each file locally before referring to it.\n")
-		b.WriteString("When creating an task that should preserve one of these attachments, pass `--attachment-id <id>` to `silieco task create` in addition to keeping the attachment markdown inline.\n")
+		b.WriteString("Use `meperstudio attachment download <id>` to fetch each file locally before referring to it.\n")
+		b.WriteString("When creating an task that should preserve one of these attachments, pass `--attachment-id <id>` to `meperstudio task create` in addition to keeping the attachment markdown inline.\n")
 	}
 	// Outbound attachments: how the agent puts an image/file INTO its reply.
 	// Web/mobile chat only — for IM-channel chats the reply is delivered to
@@ -537,9 +537,9 @@ func buildChatPrompt(agentRun AgentRun) string {
 	// two layers must not be collapsed into one condition (SILI-4899). The brief's
 	// `## Output` section states the same policy for every surface.
 	if agentRun.ChatChannelType == "" {
-		b.WriteString("\nTo include a file or image you produced in your reply, run `silieco attachment upload <local-path>`. The file binds to your reply automatically and appears as an attachment card below it even if you paste nothing. The command also returns a `markdown` snippet you may paste on its own line to place the item where you want it (files render as a card, images inline).\n")
+		b.WriteString("\nTo include a file or image you produced in your reply, run `meperstudio attachment upload <local-path>`. The file binds to your reply automatically and appears as an attachment card below it even if you paste nothing. The command also returns a `markdown` snippet you may paste on its own line to place the item where you want it (files render as a card, images inline).\n")
 	} else {
-		fmt.Fprintf(&b, "\nThis reply is delivered to %s as text. You cannot attach a file to it: `silieco attachment upload` binds to a MEPERStudio chat reply, which this is not. If you produce a file, describe it in words — never write its local path as a link, and never upload it and then write as though it arrived.\n", channelDisplayName(agentRun.ChatChannelType))
+		fmt.Fprintf(&b, "\nThis reply is delivered to %s as text. You cannot attach a file to it: `meperstudio attachment upload` binds to a MEPERStudio chat reply, which this is not. If you produce a file, describe it in words — never write its local path as a link, and never upload it and then write as though it arrived.\n", channelDisplayName(agentRun.ChatChannelType))
 	}
 	return b.String()
 }
@@ -579,10 +579,10 @@ func buildAutopilotPrompt(agentRun AgentRun) string {
 		b.WriteString("No additional autopilot instructions were provided. Inspect the autopilot configuration before proceeding.\n\n")
 	}
 	if agentRun.AutopilotID != "" {
-		fmt.Fprintf(&b, "Start by running `silieco autopilot get %s --output json` if you need the full autopilot configuration, then complete the instructions above.\n", agentRun.AutopilotID)
+		fmt.Fprintf(&b, "Start by running `meperstudio autopilot get %s --output json` if you need the full autopilot configuration, then complete the instructions above.\n", agentRun.AutopilotID)
 	} else {
 		b.WriteString("Complete the instructions above.\n")
 	}
-	b.WriteString("Do not run `silieco task get`; this run does not have an task ID.\n")
+	b.WriteString("Do not run `meperstudio task get`; this run does not have an task ID.\n")
 	return b.String()
 }

@@ -8,14 +8,14 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/taskguard"
-	"github.com/silieco-ai/silieco/core/internal/taskposition"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/taskguard"
+	"github.com/auenger/MEPERECO/core/internal/taskposition"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // TaskService is the single service-layer entry point for creating tasks.

@@ -26,8 +26,8 @@ import (
 type CloudFrontSigner struct {
 	keyPairID    string
 	privateKey   *rsa.PrivateKey
-	domain       string // CDN domain, e.g. "static.silieco.ai"
-	cookieDomain string // cookie scope, e.g. ".silieco.ai"
+	domain       string // CDN domain, e.g. "static.studio.meper.cn"
+	cookieDomain string // cookie scope, e.g. ".studio.meper.cn"
 }
 
 // NewCloudFrontSignerFromEnv creates a signer from environment variables.
@@ -39,8 +39,8 @@ type CloudFrontSigner struct {
 //
 // Other required environment variables:
 //   - CLOUDFRONT_KEY_PAIR_ID
-//   - CLOUDFRONT_DOMAIN       (e.g. "static.silieco.ai")
-//   - COOKIE_DOMAIN           (e.g. ".silieco.ai")
+//   - CLOUDFRONT_DOMAIN       (e.g. "static.studio.meper.cn")
+//   - COOKIE_DOMAIN           (e.g. ".studio.meper.cn")
 func NewCloudFrontSignerFromEnv() *CloudFrontSigner {
 	keyPairID := os.Getenv("CLOUDFRONT_KEY_PAIR_ID")
 	if keyPairID == "" {

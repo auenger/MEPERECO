@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/silieco-ai/silieco/core/internal/agentconfig"
+	"github.com/auenger/MEPERECO/core/internal/agentconfig"
 )
 
 func validateAgentMaxConcurrentRuns(value int32) error {

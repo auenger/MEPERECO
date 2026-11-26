@@ -20,7 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // channelTypeFeishu is the channel_type discriminator for every row this

@@ -66,7 +66,7 @@ function Step({ n, label, cmd }: { n: number; label: string; cmd: string }) {
 export function CliInstallInstructions() {
   const serverUrl = useConfigStore(s => s.daemonServerUrl);
   const appUrl = useConfigStore(s => s.daemonAppUrl);
-  const { installCmd, setupCmd } = cliCommands(serverUrl, appUrl);
+  const { installCmd, setupCmd, windowsInstallCmd } = cliCommands(serverUrl, appUrl);
   const { t } = useT("onboarding");
   return (
     <Card className="w-full">
@@ -74,7 +74,8 @@ export function CliInstallInstructions() {
         <p className="text-caption leading-[1.55] text-muted-foreground">
           {t(($) => $.cli_install.intro)}
         </p>
-        <Step n={1} label={t(($) => $.cli_install.step1_label)} cmd={installCmd} />
+        <Step n={1} label={`${t(($) => $.cli_install.step1_label)} (macOS / Linux)`} cmd={installCmd} />
+        <Step n={1} label={`${t(($) => $.cli_install.step1_label)} (Windows PowerShell)`} cmd={windowsInstallCmd} />
         <Step n={2} label={t(($) => $.cli_install.step2_label)} cmd={setupCmd} />
       </CardContent>
     </Card>

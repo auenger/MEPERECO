@@ -122,6 +122,7 @@ export const RUNTIME_PROFILE_PROTOCOL_FAMILIES = [
   "traecli",
   "grok",
   "qwen",
+  "zcode",
 ] as const;
 
 export type RuntimeProtocolFamily =
@@ -743,7 +744,7 @@ export interface UpdateAgentEnvRequest {
  * `GET /api/agents/:id/skills`). The full SKILL.md `content` is intentionally
  * omitted — bodies routinely run 50–200KB each and shipping them in list
  * payloads tripped CLI timeouts on high-latency links (GH
- * silieco-ai/silieco#2174). Use `Skill` from a detail endpoint when you need
+ * historical upstream issue #2174). Use `Skill` from a detail endpoint when you need
  * the body. For skills embedded in an `Agent` payload see `AgentSkillSummary`.
  */
 export interface SkillSummary {

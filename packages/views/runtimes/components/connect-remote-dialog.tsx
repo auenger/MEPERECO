@@ -32,8 +32,8 @@ import { useT } from "../../i18n";
 type Step = "instructions" | "success";
 
 
-const CLOUD_SERVER_URL = "https://api.silieco.ai";
-const CLOUD_APP_URL = "https://silieco.ai";
+const CLOUD_SERVER_URL = "https://studio.meper.cn";
+const CLOUD_APP_URL = "https://studio.meper.cn";
 
 function normalizeCommandURL(url: string | undefined) {
   return url?.trim().replace(/\/+$/, "") ?? "";
@@ -44,20 +44,20 @@ function daemonCommands(serverUrl: string | undefined, appUrl: string | undefine
   const normalizedAppUrl = normalizeCommandURL(appUrl);
   if (normalizedServerUrl && normalizedAppUrl) {
     return {
-      setupCmd: `silieco setup self-host --server-url ${normalizedServerUrl} --app-url ${normalizedAppUrl}`,
-      tokenCmd: `silieco config set server_url ${normalizedServerUrl}
-silieco config set app_url ${normalizedAppUrl}
-silieco login --token <YOUR_TOKEN>
-silieco daemon start`,
+      setupCmd: `meperstudio setup self-host --server-url ${normalizedServerUrl} --app-url ${normalizedAppUrl}`,
+      tokenCmd: `meperstudio config set server_url ${normalizedServerUrl}
+meperstudio config set app_url ${normalizedAppUrl}
+meperstudio login --token <YOUR_TOKEN>
+meperstudio daemon start`,
     };
   }
 
   return {
-    setupCmd: "silieco setup",
-    tokenCmd: `silieco config set server_url ${CLOUD_SERVER_URL}
-silieco config set app_url ${CLOUD_APP_URL}
-silieco login --token <YOUR_TOKEN>
-silieco daemon start`,
+    setupCmd: "meperstudio setup",
+    tokenCmd: `meperstudio config set server_url ${CLOUD_SERVER_URL}
+meperstudio config set app_url ${CLOUD_APP_URL}
+meperstudio login --token <YOUR_TOKEN>
+meperstudio daemon start`,
   };
 }
 
@@ -70,7 +70,7 @@ export function ConnectRemoteDialog({ onClose }: { onClose: () => void }) {
   const shouldReduceMotion = useReducedMotion() ?? false;
   const newRuntimeIdRef = useRef<string | null>(null);
 
-  // `silieco setup` is one blocking command that handles config + login
+  // `meperstudio setup` is one blocking command that handles config + login
   // + daemon start; the dialog passively listens for the resulting
   // `daemon:register` WS event and auto-advances to success.
   const handleDaemonRegister = useCallback(
@@ -235,7 +235,7 @@ function InstructionsStep({ onClose }: { onClose: () => void }) {
   const daemonServerUrl = useConfigStore((s) => s.daemonServerUrl);
   const daemonAppUrl = useConfigStore((s) => s.daemonAppUrl);
   const { tokenCmd } = daemonCommands(daemonServerUrl, daemonAppUrl);
-  const { setupCmd, installCmd } = cliCommands(daemonServerUrl, daemonAppUrl);
+  const { setupCmd, installCmd, windowsInstallCmd } = cliCommands(daemonServerUrl, daemonAppUrl);
   return (
     <>
       <DialogHeader className="px-6 pt-6 pb-2">
@@ -251,8 +251,15 @@ function InstructionsStep({ onClose }: { onClose: () => void }) {
         <div className="space-y-4">
           <CommandStep
             n={1}
-            label={t(($) => $.connect.step1_label)}
+            label={`${t(($) => $.connect.step1_label)} (macOS / Linux)`}
             cmd={installCmd}
+            copyAria={t(($) => $.connect.copy_aria)}
+          />
+
+          <CommandStep
+            n={1}
+            label={`${t(($) => $.connect.step1_label)} (Windows PowerShell)`}
+            cmd={windowsInstallCmd}
             copyAria={t(($) => $.connect.copy_aria)}
           />
 
@@ -319,7 +326,7 @@ function TroubleshootingDetails({ tokenCmd }: { tokenCmd: string }) {
                 CODE_LIGATURE_CLASS,
               )}
             >
-              {"silieco daemon status"}
+              {"meperstudio daemon status"}
             </code>
           </li>
           <li className="flex items-center gap-1.5">
@@ -331,7 +338,7 @@ function TroubleshootingDetails({ tokenCmd }: { tokenCmd: string }) {
                 CODE_LIGATURE_CLASS,
               )}
             >
-              {"silieco daemon logs -f"}
+              {"meperstudio daemon logs -f"}
             </code>
           </li>
         </ul>

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${SILIECO_DOWNLOAD_BASE_URL:-}"
-[ -n "$BASE_URL" ] || { printf "Set SILIECO_DOWNLOAD_BASE_URL to this deployment\'s /cli URL.\n" >&2; exit 1; }
+BASE_URL="${MEPERSTUDIO_DOWNLOAD_BASE_URL:-${SILIECO_DOWNLOAD_BASE_URL:-https://studio.meper.cn/cli}}"
 BASE_URL="${BASE_URL%/}"
-APP_URL="${SILIECO_APP_URL:-${BASE_URL%/cli}}"
-SERVER_URL="${SILIECO_SERVER_URL:-$APP_URL}"
+APP_URL="${MEPERSTUDIO_APP_URL:-${SILIECO_APP_URL:-${BASE_URL%/cli}}}"
+SERVER_URL="${MEPERSTUDIO_SERVER_URL:-${SILIECO_SERVER_URL:-$APP_URL}}"
 
 info() { printf '==> %s\n' "$*"; }
 fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
@@ -14,7 +13,7 @@ case "$(uname -s)" in
   Darwin) os="darwin" ;;
   Linux) os="linux" ;;
   MINGW*|MSYS*|CYGWIN*)
-    fail "Windows 请使用 PowerShell 安装命令：irm ${BASE_URL}/install.ps1 | iex"
+    fail "Windows 请使用 PowerShell 安装命令：\$env:MEPERSTUDIO_DOWNLOAD_BASE_URL='${BASE_URL}'; irm ${BASE_URL}/install.ps1 | iex"
     ;;
   *) fail "不支持的操作系统：$(uname -s)" ;;
 esac
@@ -25,13 +24,16 @@ case "$(uname -m)" in
   *) fail "不支持的处理器架构：$(uname -m)" ;;
 esac
 
-archive="silieco-${os}-${arch}.tar.gz"
+archive="meperstudio-${os}-${arch}.tar.gz"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
-info "正在从 ${BASE_URL} 下载 Silieco CLI (${os}/${arch})..."
-curl -fsSL "${BASE_URL}/${archive}" -o "${tmp_dir}/${archive}"
+info "正在从 ${BASE_URL} 下载 MEPERStudio CLI (${os}/${arch})..."
 curl -fsSL "${BASE_URL}/checksums.txt" -o "${tmp_dir}/checksums.txt"
+if ! awk -v file="$archive" '$2 == file { found=1 } END { exit !found }' "${tmp_dir}/checksums.txt"; then
+  archive="silieco-${os}-${arch}.tar.gz"
+fi
+curl -fsSL "${BASE_URL}/${archive}" -o "${tmp_dir}/${archive}"
 
 expected="$(awk -v file="$archive" '$2 == file { print $1 }' "${tmp_dir}/checksums.txt")"
 [ -n "$expected" ] || fail "校验文件中没有 ${archive}"
@@ -45,23 +47,25 @@ else
 fi
 [ "$actual" = "$expected" ] || fail "下载文件校验失败"
 
-tar -xzf "${tmp_dir}/${archive}" -C "$tmp_dir" silieco
-chmod +x "${tmp_dir}/silieco"
+binary=meperstudio
+if [[ "$archive" == silieco-* ]]; then binary=silieco; fi
+tar -xzf "${tmp_dir}/${archive}" -C "$tmp_dir" "$binary"
+chmod +x "${tmp_dir}/${binary}"
 
-bin_dir="${SILIECO_BIN_DIR:-$HOME/.local/bin}"
+bin_dir="${MEPERSTUDIO_BIN_DIR:-${SILIECO_BIN_DIR:-$HOME/.local/bin}}"
 mkdir -p "$bin_dir"
 [ -w "$bin_dir" ] || fail "安装目录不可写：$bin_dir"
-mv "${tmp_dir}/silieco" "${bin_dir}/silieco"
+mv "${tmp_dir}/${binary}" "${bin_dir}/meperstudio"
 case ":$PATH:" in
   *":${bin_dir}:"*) ;;
   *)
     shell_rc="$HOME/.profile"
     case "${SHELL:-}" in */zsh) shell_rc="$HOME/.zprofile" ;; */bash) shell_rc="$HOME/.bash_profile" ;; esac
-    printf '\n# Added by Silieco CLI installer\nexport PATH="%s:$PATH"\n' "$bin_dir" >> "$shell_rc"
+    printf '\n# Added by MEPERStudio CLI installer\nexport PATH="%s:$PATH"\n' "$bin_dir" >> "$shell_rc"
     export PATH="$bin_dir:$PATH"
     info "已更新 ${shell_rc}；当前终端可运行：export PATH=\"$bin_dir:\$PATH\""
     ;;
 esac
-info "Silieco CLI 已安装到 ${bin_dir}/silieco"
-"${bin_dir}/silieco" --version
-printf '\n下一步：\n  silieco setup self-host --server-url %s --app-url %s\n' "$SERVER_URL" "$APP_URL"
+info "MEPERStudio CLI 已安装到 ${bin_dir}/meperstudio"
+"${bin_dir}/meperstudio" --version
+printf '\n下一步：\n  meperstudio setup self-host --server-url %s --app-url %s\n' "$SERVER_URL" "$APP_URL"

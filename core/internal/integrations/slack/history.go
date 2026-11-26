@@ -14,8 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/slack-go/slack"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // ErrNoSlackSession reports that the chat session has no Slack channel binding —

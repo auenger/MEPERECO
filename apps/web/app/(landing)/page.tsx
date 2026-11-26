@@ -4,12 +4,12 @@ import { RedirectIfAuthenticated } from "@/features/landing/components/redirect-
 
 export const metadata: Metadata = {
   title: {
-    absolute: "MEPERStudio — Humans & Agents, Working Together",
+    absolute: "MEPER Studio — Humans & Agents, Working Together",
   },
   description:
     "An open-source workspace where humans and agents collaborate through shared tasks, SOPs, and clear handoffs.",
   openGraph: {
-    title: "MEPERStudio — Humans & Agents, Working Together",
+    title: "MEPER Studio — Humans & Agents, Working Together",
     description:
       "Define goals, coordinate agent execution, and review outcomes together.",
     url: "/",

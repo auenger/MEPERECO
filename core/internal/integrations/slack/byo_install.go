@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/slack-go/slack"
 
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // ErrInvalidBotToken / ErrInvalidAppToken are returned by RegisterBYO when a

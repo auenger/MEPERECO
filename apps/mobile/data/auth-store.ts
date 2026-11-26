@@ -11,7 +11,7 @@
  */
 import { create } from "zustand";
 import type { User } from "@silieco/core/types";
-import { api, ApiError } from "./api";
+import { api, ApiError, type LoginResponse } from "./api";
 import { clearToken, getToken, setToken } from "./secure-storage";
 import { useWorkspaceStore } from "./workspace-store";
 
@@ -21,13 +21,14 @@ interface AuthState {
   initialize: () => Promise<void>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<User>;
+  acceptLogin: (response: LoginResponse) => Promise<User>;
   logout: () => Promise<void>;
   /** Overwrite the in-memory user — call after PATCH /api/me so name/avatar
    *  edits land without a refetch. Server response is the source of truth. */
   setUser: (user: User) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
 
@@ -61,11 +62,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     await api.sendCode(email);
   },
 
-  verifyCode: async (email, code) => {
-    const { token, user } = await api.verifyCode(email, code);
+  verifyCode: async (email, code) => get().acceptLogin(await api.verifyCode(email, code)),
+
+  acceptLogin: async ({ token, user }) => {
     await setToken(token);
     api.setToken(token);
-    set({ user });
+    set({ user, isLoading: false });
     return user;
   },
 

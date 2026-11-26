@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/agentconfig"
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/agentconfig"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 // agentCopyCmd forks an existing agent's portable configuration into a brand-new

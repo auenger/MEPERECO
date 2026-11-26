@@ -1,9 +1,23 @@
-# ZCode（智谱官方 CLI）集成调研 — 记录
+# ZCode（智谱官方 CLI）Runtime 集成
 
-> **【决策 2026-11-24】不推进 ZCode 集成。** 原因：ZCode 专属 1.5× 额度加成是限时活动且已结束，失去核心吸引力；资源集中投入 pi 自动化（见 `docs/runtime-pi-analysis.md`）。本文保留作历史调研记录。
+> **【历史决策 2026-11-24】暂不推进 ZCode 集成。** 原因：ZCode 专属 1.5× 额度加成是限时活动且已结束，失去核心吸引力；资源集中投入 pi 自动化（见 `docs/runtime-pi-analysis.md`）。本文保留作历史调研记录。
 >
 > 调研日期：2026-11-24 · 当时结论：可集成。登录官方账号 ✅、Coding Plan 套餐额度 ✅（注意：ZCode 专属 1.5× 加成已结束）、daemon headless 驱动 ✅（stream-json 一等支持）
 > 关联文档：`docs/runtime-pi-analysis.md`（pi 默认运行时推进，两者分发/网关策略并轨）
+
+> **【更新 2026-11-26】恢复 ZCode 集成，优先复用用户已有本机生态。** 不分发第三方安装包，不复制或迁移登录凭据，不修改用户 `~/.zcode` 配置与会话数据。
+
+### 首版实现
+
+- PATH / `SILIECO_ZCODE_PATH` 自动识别；macOS 可识别官方桌面包内可执行的 CLI kernel。有 CLI 版本探测，不注册损坏的安装。
+- 使用官方 headless stream-json 协议，显式 guarded 权限模式，workflow onDemand，支持按 sessionId 恢复会话；不使用默认会话防止并发串话。
+- 继承已有 ZCode 账号、模型、用户技能、子 Agent、命令及工作流。MEPERStudio 的任务级 `AGENTS.md` 与 `.zcode/skills` 写在任务工作目录内；本机技能可从 `~/.zcode/skills` 或用户配置的数据基目录加载。
+- **模型配置归属：ZCode 或 Magpie（可选）**。MEPERStudio 仅驱动 CLI，不读取、复制或改写用户的 provider 配置，不生成临时模型配置，Agent 模型字段显示「由运行时管理」。旧显式模型覆盖应清除（后端在启动前拒绝，避免误以为已指定模型）；使用 CLI 实际报告的模型进行用量统计。不自动授权 Hook，也不接管 ZCode 自己的 MCP 配置。
+- 官方桌面 CLI 包的内置 provider 配置路径不匹配时，在启动进程环境中补上已安装的官方资源文件路径，不改用户数据。
+- macOS 后台执行：优先使用官方安装包中带 `LSUIElement=true` 的 `ZCode Helper.app` 以 Node 模式执行 CLI，避免每次对话拉起主 GUI 宿主而出现 Dock 临时进程图标。沿用原生凭据模块与系统钥匙串授权；实际 Coding Plan GLM-5.4 冒烟通过。
+- 本机实测 CLI 0.18.0：可读 119 个 Skill 与 8 个命令。官方桌面包的 terminal kernel 原生凭据模块解析失败，通过官方 Electron Node host 加载原包内的钥匙串模块后，已完成 BigModel Coding Plan 终端 OAuth 授权。实际 MEPERStudio Go Runtime 指定原生模型 GLM-5.4 冒烟通过（包含 session ID、流式回复和用量）；GLM-5.3-Flash 的临时配置实测回退至 GLM-5.3，不能视为指定成功，因此当前官方账号只使用原生选定模型。同日用户在官方桌面会话中切换至 GLM-5.3-Flash，已从原生 model_usage 记录确认该 Coding Plan 账号实际调用了 Flash；但切换只改变桌面会话的模型，终端全局默认仍为 GLM-5.4。再次用独立配置指定 Flash，终端仍回退 GLM-5.3，Runtime 已中止该次运行；这属于终端模型选择链路限制，并非套餐没有 Flash。改为完全由运行时管理模型后，未指定 Agent 模型的真实 CLI 冒烟再次通过（会话、响应、用量齐全）。真实会话续跑及 Windows 上的实际模型调用仍待实测。
+- 以本机 ZCode 原生生态复用为目标；不把原生 Agent / workflow 自动创建为 MEPERStudio 的同名数据库对象，不上传本地凭据、会话或配置。
+- 官方 [CLI 参数文档](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/docs/usage/02-cli-reference.md) 明确目前没有 `--model`，官方反馈仓库的 [#1044](https://github.com/zai-org/feedback/issues/1044) 记录过无头模式无法指定订阅模型及静默回退的同类现象。MEPERStudio 在选择 ZCode Runtime、编辑 Agent、连接运行时及运行时详情时展示非阻断提示：直接使用官方订阅时先完成终端授权；由 ZCode 或可选的 [Magpie](https://usemagpie.ai/) 管理模型，桌面会话模型切换不保证同步，最终以 CLI 实际调用为准。Magpie 的 [官方配置参考](https://github.com/yetone/magpie/blob/main/docs/reference.md) 已列出 ZCode provider 支持；本项目不集成或代替 Magpie，不要求安装，也不承诺其对特定订阅模型的配置必然在 headless 中生效。
 
 ---
 
@@ -32,7 +46,7 @@
    - 凭据存本地**加密**凭据文件（密钥从本机环境派生）→ 跨机迁移脆弱（未证实可行）；但 daemon 与用户同机，直接复用本机登录态即可，无需注入。
 2. **API Key（daemon 静默注入路径）**：写 `~/.zcode/v2/provider_config.json`（明文 apiKey，官方文档有完整格式），可经 `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE` 指定路径、`ZCODE_DATA_BASE_DIR` / `HOME` / `USERPROFILE` 隔离整个数据域（`apps/zcode-cli/docs/usage/03-config.md`、`13-automation.md`）。
 
-**模型指定没有 `--model` 旗标**（官方禁止）→ 只能经 provider 配置文件 `defaultModelSelection.providerId/modelId`（如 `glm-5.4`）。daemon 每任务预写配置即可（与 pi 的 models.json 预写同模式）。
+**模型指定没有 `--model` 旗标** → provider 配置文件提供 `defaultModelSelection.providerId/modelId`。2026-11-26 实测独立配置对官方 OAuth 账号可能导致模型回退；采用原生配置驱动模式：官方账号和自定义 provider 均由 ZCode / Magpie 配置，MEPERStudio 不生成临时配置。
 
 **网关 override**：`api.type` 支持 `anthropic-messages` / `openai-chat-completions` / `openai-responses` + 自定义 `api.baseUrl`。注意 `ZCODE_BASE_URL` 是产品服务端点不是模型 API 地址；旧 `ZCODE_MODEL` / `ZCODE_API_KEY` 环境变量已不是通用覆盖入口。
 
@@ -71,9 +85,9 @@
 
 | # | 改动点 | 位置 | 说明 |
 | --- | --- | --- | --- |
-| 1 | 探测注册 `SILIECO_ZCODE_PATH`（默认命令 `zcode`）+ `SILIECO_ZCODE_MODEL` | `core/internal/daemon/agents_probe.go`、`config.go` | 极小 |
+| 1 | 探测注册 `SILIECO_ZCODE_PATH`（默认命令 `zcode`；模型由外部配置） | `core/internal/daemon/agents_probe.go`、`config.go` | 极小 |
 | 2 | **zcodeBackend**：`--prompt --output-format stream-json --resume` NDJSON 解析（仿 claude stream-json 后端） | `core/pkg/agent/zcode.go`（新建）+ `agent.go` 工厂 + `launch.go` blocked args | 主体工作 |
-| 3 | 每任务 provider_config.json 预写（`defaultModelSelection` + 网关/baseUrl + apiKey） | daemon execenv（仿 pi models.json 模式） | 中 |
+| 3 | 模型配置交给 ZCode / Magpie，MEPERStudio 不生成临时配置或修改 provider | daemon execenv（仿 pi models.json 模式） | 中 |
 | 4 | 数据域隔离：`ZCODE_DATA_BASE_DIR` / `ZCODE_SESSION_DB_PATH` / `ZCODE_PERSONAL_PROVIDER_CONFIG_FILE` | daemon execenv | 小 |
 | 5 | Skills 目录映射（zcode 原生位置待探明 —— 集成时实测） | `execenv/context.go`、`local_skills.go` | 小 |
 | 6 | 模型定价：GLM 价格表前端已有（`packages/views/runtimes/utils.ts`），provider="zcode" 接入用量统计 | `pkg/agent/models.go` + views | 小 |

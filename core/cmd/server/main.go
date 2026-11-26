@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,23 +12,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/handler"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/scheduler"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/featureflag"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/handler"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/realtime"
-	"github.com/silieco-ai/silieco/core/internal/scheduler"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/featureflag"
 )
 
 var (
-	version = "dev"
+	version = "1.0.0"
 	commit  = "unknown"
 )
 
@@ -173,6 +174,7 @@ func envBool(name string, def bool) bool {
 }
 
 func main() {
+	branding.ApplyEnvAliases()
 	logger.Init()
 
 	// Warn about missing configuration
@@ -180,7 +182,11 @@ func main() {
 		slog.Warn("JWT_SECRET is not set — using insecure default. Set JWT_SECRET for production use.")
 	}
 	if os.Getenv("RESEND_API_KEY") == "" && strings.TrimSpace(os.Getenv("SMTP_HOST")) == "" {
-		slog.Warn("no email backend configured (RESEND_API_KEY and SMTP_HOST both empty) — verification codes will be printed to the log instead of emailed.")
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {
+			slog.Warn("no email backend configured — email verification is unavailable; set SMTP_HOST or RESEND_API_KEY")
+		} else {
+			slog.Warn("no email backend configured — development verification codes will be printed to the log instead of emailed")
+		}
 	}
 	if os.Getenv("SILIECO_DEV_VERIFICATION_CODE") != "" {
 		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "production") {

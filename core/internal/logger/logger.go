@@ -10,7 +10,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/lmittmann/tint"
 
-	"github.com/silieco-ai/silieco/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
 )
 
 // isTerminal reports whether the given file descriptor is connected to a

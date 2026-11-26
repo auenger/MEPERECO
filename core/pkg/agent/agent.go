@@ -274,7 +274,7 @@ type Config struct {
 	CLIVersion     string            // detected version paired with ExecutablePath; observation only, never used to choose behavior
 	Env            map[string]string // extra environment variables
 	Logger         *slog.Logger
-	RunID         string
+	RunID          string
 	RuntimeID      string
 	DaemonVersion  string
 	CodexVersion   string
@@ -315,6 +315,7 @@ var SupportedTypes = []string{
 	"traecli",
 	"grok",
 	"qwen",
+	"zcode",
 }
 
 // IsSupportedType reports whether agentType is in the SupportedTypes whitelist.
@@ -397,6 +398,8 @@ func New(agentType string, cfg Config) (Backend, error) {
 		return &grokBackend{cfg: cfg}, nil
 	case "qwen":
 		return &qwenBackend{cfg: cfg}, nil
+	case "zcode":
+		return &zcodeBackend{cfg: cfg}, nil
 	default:
 		return nil, fmt.Errorf("unknown agent type: %q (supported: claude, codebuddy, codex, copilot, opencode, deveco, openclaw, hermes, pi, cursor, kimi, kiro, antigravity, qoder, traecli, grok, qwen)", agentType)
 	}
@@ -431,6 +434,7 @@ var launchHeaders = map[string]string{
 	"traecli":     "traecli acp serve",
 	"grok":        "grok agent stdio",
 	"qwen":        "qwen -p (stream-json)",
+	"zcode":       "zcode --prompt (stream-json)",
 }
 
 // LaunchHeader returns the user-visible launch skeleton for agentType, or an

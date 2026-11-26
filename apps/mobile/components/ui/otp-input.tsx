@@ -8,7 +8,7 @@
  * Numeric input enforced via `inputMode="numeric"` (library default).
  */
 import { forwardRef } from "react";
-import { Text, View } from "react-native";
+import { Text, useWindowDimensions, View } from "react-native";
 import {
   OTPInput,
   type OTPInputProps,
@@ -26,6 +26,8 @@ export interface OtpInputProps
 
 export const OtpInput = forwardRef<OTPInputRef, OtpInputProps>(
   ({ numberOfDigits = 6, ...rest }, ref) => {
+    const { width } = useWindowDimensions();
+    const slotWidth = Math.min(48, (width - 48 - 8 * (numberOfDigits - 1)) / numberOfDigits);
     return (
       <OTPInput
         ref={ref}
@@ -34,7 +36,7 @@ export const OtpInput = forwardRef<OTPInputRef, OtpInputProps>(
         render={({ slots }) => (
           <>
             {slots.map((slot, idx) => (
-              <Slot key={idx} slot={slot} />
+              <Slot key={idx} slot={slot} width={slotWidth} />
             ))}
           </>
         )}
@@ -45,11 +47,12 @@ export const OtpInput = forwardRef<OTPInputRef, OtpInputProps>(
 );
 OtpInput.displayName = "OtpInput";
 
-function Slot({ slot }: { slot: SlotProps }) {
+function Slot({ slot, width }: { slot: SlotProps; width: number }) {
   return (
     <View
+      style={{ width }}
       className={cn(
-        "w-12 h-14 rounded-md items-center justify-center bg-secondary/50",
+        "h-14 rounded-md items-center justify-center bg-secondary/50",
         slot.isActive && "border-2 border-primary",
       )}
     >

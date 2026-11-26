@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/util"
 )
 
 var taskMoveFields = map[string]struct{}{

@@ -17,10 +17,6 @@ import { workspaceListOptions } from "@silieco/core/workspace/queries";
 import type { AgentRuntime, Workspace } from "@silieco/core/types";
 import { StepWelcome } from "./steps/step-welcome";
 import { StepWorkspace } from "./steps/step-workspace";
-import {
-  StepRuntimeDetection,
-  type RuntimeDetectionResult,
-} from "./steps/step-runtime-detection";
 import { StepWorkspaceDescription } from "./steps/step-workspace-description";
 import { useT } from "../i18n";
 import { useLogout } from "../auth";
@@ -40,7 +36,7 @@ import { useLogout } from "../auth";
  *     the install-runtime / create-agent guide tasks on landing.
  *   - Runtime-connected (runtime picked on Step 3): completeOnboarding
  *     marks onboarded; we push a {choice:"runtime", runtimeId} welcome
- *     signal and navigate. The welcome hook creates Sili Agent
+ *     signal and navigate. The welcome hook creates MEPER Agent
  *     agent on the picked runtime and shows the starter-card Modal.
  *
  * V3 contract: this file never touches createAgent / createTask. The
@@ -49,18 +45,12 @@ import { useLogout } from "../auth";
  */
 export function OnboardingFlow({
   onComplete,
-  runtimeInstructions,
-  onRuntimeProbe,
+  isWeb = false,
   onRuntimeRefresh,
 }: {
   onComplete: (workspace?: Workspace, taskId?: string) => void;
-  runtimeInstructions?: React.ReactNode;
-  /** Desktop probes installed local Agent tools before a workspace exists. */
-  onRuntimeProbe?: () => Promise<RuntimeDetectionResult>;
-  /** Desktop wires this to restart the bundled daemon so a freshly
-   *  installed agent CLI gets picked up on the runtime step. Web omits
-   *  it — its CLI install flow already runs on the user's machine and
-   *  the embedded picker reacts to daemon:register events. */
+  isWeb?: boolean;
+  /** Desktop refreshes its bundled daemon after creating the Space. */
   onRuntimeRefresh?: () => void | Promise<void>;
 }) {
   const { t } = useT("onboarding");
@@ -98,11 +88,6 @@ export function OnboardingFlow({
     }
   };
 
-  // The `runtimeInstructions` slot is only plumbed by the web shell
-  // (desktop bundles a daemon, so a CLI install card would be noise
-  // there). We reuse its presence as the web signal rather than
-  // introducing a redundant prop.
-  const isWeb = !!runtimeInstructions;
 
   // Derive "what comes after `from`" from ONBOARDING_STEP_ORDER so
   // inserting/reordering a persisted step only requires editing the
@@ -155,16 +140,9 @@ export function OnboardingFlow({
       // A newly-created workspace changes the daemon registration scope.
       // Restart in the background while the user writes the description so
       // a concrete runtime is normally available by the final submit.
-      void onRuntimeRefresh?.();
+      void Promise.resolve(onRuntimeRefresh?.()).catch(() => {});
     },
     [advanceFrom, onRuntimeRefresh],
-  );
-
-  const handleRuntimeDetected = useCallback(
-    (_result: RuntimeDetectionResult | null) => {
-      advanceFrom("runtime");
-    },
-    [advanceFrom],
   );
 
   const handleDescriptionComplete = useCallback(
@@ -179,20 +157,23 @@ export function OnboardingFlow({
 
         // The desktop daemon was restarted after workspace creation. Give its
         // workspace sync a short window to register the preflight-detected
-        // providers, then select the first online runtime for Sili Agent.
-        for (let attempt = 0; attempt < 6; attempt += 1) {
-          const runtimes = await api.listRuntimes({
-            workspace_id: workspace.id,
-            owner: "me",
-          });
-          rt =
-            runtimes.find((candidate) => candidate.status === "online") ??
-            runtimes[0] ??
-            null;
-          if (rt) break;
-          if (attempt < 5) {
-            await new Promise((resolve) => window.setTimeout(resolve, 750));
+        // providers, then select the first online runtime for MEPER Agent.
+        try {
+          for (let attempt = 0; attempt < (isWeb ? 1 : 6); attempt += 1) {
+            const runtimes = await api.listRuntimes({
+              workspace_id: workspace.id,
+              owner: "me",
+            });
+            rt =
+              runtimes.find((candidate) => candidate.status === "online") ??
+              null;
+            if (rt) break;
+            if (!isWeb && attempt < 5) {
+              await new Promise((resolve) => window.setTimeout(resolve, 750));
+            }
           }
+        } catch {
+          // Runtime discovery is optional and must not block a new Space.
         }
 
         await completeOnboarding(
@@ -205,20 +186,26 @@ export function OnboardingFlow({
         );
         return;
       }
-      useWelcomeStore.getState().set({
-        workspaceId: workspace.id,
-        choice: rt ? "runtime" : "skip",
-        ...(rt ? { runtimeId: rt.id } : {}),
-      });
+      if (rt) {
+        useWelcomeStore.getState().set({
+          workspaceId: workspace.id,
+          choice: "runtime",
+          runtimeId: rt.id,
+        });
+      } else {
+        // Land directly in the new Space; runtime connection is opt-in from
+        // Runtimes rather than an automatic installation dialog or task.
+        useWelcomeStore.getState().reset();
+      }
       onComplete(updatedWorkspace, undefined);
     },
-    [workspace, onComplete, t],
+    [workspace, onComplete, t, isWeb],
   );
 
   const handleBack = useCallback((from: OnboardingStep) => {
     const idx = ONBOARDING_STEP_ORDER.indexOf(from);
     if (idx <= 0) {
-      // Runtime detection (the first persisted step) returns to Welcome.
+      // The first Space setup step returns to Welcome.
       setStep("welcome");
       return;
     }
@@ -234,17 +221,6 @@ export function OnboardingFlow({
         onNext={handleWelcomeNext}
         onSkip={canSkipWelcome ? handleWelcomeSkip : undefined}
         isWeb={isWeb}
-      />
-    );
-  }
-
-  if (step === "runtime") {
-    return (
-      <StepRuntimeDetection
-        onProbe={onRuntimeProbe}
-        onNext={handleRuntimeDetected}
-        onBack={() => handleBack("runtime")}
-        installInstructions={runtimeInstructions}
       />
     );
   }

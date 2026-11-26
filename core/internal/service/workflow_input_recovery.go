@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // ResumeInputBlockedExecution revalidates current sources against the execution's

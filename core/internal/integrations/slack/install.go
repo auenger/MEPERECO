@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
-	"github.com/silieco-ai/silieco/core/internal/util/secretbox"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
+	"github.com/auenger/MEPERECO/core/internal/util/secretbox"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // This file is the Slack install backend (SILI-3666). Slack uses the

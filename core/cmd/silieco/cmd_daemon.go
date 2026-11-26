@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"io"
 	"log/slog"
 	"net/http"
@@ -19,11 +20,11 @@ import (
 	"github.com/spf13/cobra"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/internal/daemon"
-	logger_pkg "github.com/silieco-ai/silieco/core/internal/logger"
-	"github.com/silieco-ai/silieco/core/internal/selfexec"
-	"github.com/silieco-ai/silieco/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/daemon"
+	logger_pkg "github.com/auenger/MEPERECO/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/selfexec"
+	"github.com/auenger/MEPERECO/core/internal/util"
 )
 
 var daemonCmd = &cobra.Command{
@@ -88,17 +89,17 @@ var daemonDiskUsageCmd = &cobra.Command{
 func init() {
 	f := daemonStartCmd.Flags()
 	f.Bool("foreground", false, "Run in the foreground instead of background")
-	f.String("daemon-id", "", "Unique daemon identifier (env: SILIECO_DAEMON_ID)")
-	f.String("device-name", "", "Human-readable device name (env: SILIECO_DAEMON_DEVICE_NAME)")
-	f.String("runtime-name", "", "Runtime display name (env: SILIECO_AGENT_RUNTIME_NAME)")
-	f.Duration("poll-interval", 0, "Run poll interval (env: SILIECO_DAEMON_POLL_INTERVAL)")
-	f.Duration("heartbeat-interval", 0, "Heartbeat interval (env: SILIECO_DAEMON_HEARTBEAT_INTERVAL)")
-	f.Duration("agent-timeout", 0, "Absolute per-run wall-clock cap; 0 = no cap, rely on the watchdogs (env: SILIECO_AGENT_TIMEOUT)")
-	f.Duration("codex-semantic-inactivity-timeout", 0, "Codex semantic inactivity timeout (env: SILIECO_CODEX_SEMANTIC_INACTIVITY_TIMEOUT)")
-	f.Duration("codex-handshake-timeout", 0, "Codex app-server startup RPC timeout (env: SILIECO_CODEX_HANDSHAKE_TIMEOUT)")
-	f.Int("max-concurrent-runs", 0, "Maximum concurrent runs (env: SILIECO_DAEMON_MAX_CONCURRENT_RUNS)")
-	f.Bool("no-auto-update", false, "Disable periodic CLI self-update (env: SILIECO_DAEMON_AUTO_UPDATE=false)")
-	f.Duration("auto-update-interval", 0, "How often to poll GitHub for a newer release (env: SILIECO_DAEMON_AUTO_UPDATE_INTERVAL)")
+	f.String("daemon-id", "", "Unique daemon identifier (env: MEPERSTUDIO_DAEMON_ID)")
+	f.String("device-name", "", "Human-readable device name (env: MEPERSTUDIO_DAEMON_DEVICE_NAME)")
+	f.String("runtime-name", "", "Runtime display name (env: MEPERSTUDIO_AGENT_RUNTIME_NAME)")
+	f.Duration("poll-interval", 0, "Run poll interval (env: MEPERSTUDIO_DAEMON_POLL_INTERVAL)")
+	f.Duration("heartbeat-interval", 0, "Heartbeat interval (env: MEPERSTUDIO_DAEMON_HEARTBEAT_INTERVAL)")
+	f.Duration("agent-timeout", 0, "Absolute per-run wall-clock cap; 0 = no cap, rely on the watchdogs (env: MEPERSTUDIO_AGENT_TIMEOUT)")
+	f.Duration("codex-semantic-inactivity-timeout", 0, "Codex semantic inactivity timeout (env: MEPERSTUDIO_CODEX_SEMANTIC_INACTIVITY_TIMEOUT)")
+	f.Duration("codex-handshake-timeout", 0, "Codex app-server startup RPC timeout (env: MEPERSTUDIO_CODEX_HANDSHAKE_TIMEOUT)")
+	f.Int("max-concurrent-runs", 0, "Maximum concurrent runs (env: MEPERSTUDIO_DAEMON_MAX_CONCURRENT_RUNS)")
+	f.Bool("no-auto-update", false, "Disable periodic CLI self-update (env: MEPERSTUDIO_DAEMON_AUTO_UPDATE=false)")
+	f.Duration("auto-update-interval", 0, "How often to poll GitHub for a newer release (env: MEPERSTUDIO_DAEMON_AUTO_UPDATE_INTERVAL)")
 
 	daemonLogsCmd.Flags().BoolP("follow", "f", false, "Follow log output")
 	daemonLogsCmd.Flags().IntP("lines", "n", 50, "Number of lines to show")
@@ -108,17 +109,17 @@ func init() {
 	// restart shares all the same flags as start
 	rf := daemonRestartCmd.Flags()
 	rf.Bool("foreground", false, "Run in the foreground instead of background")
-	rf.String("daemon-id", "", "Unique daemon identifier (env: SILIECO_DAEMON_ID)")
-	rf.String("device-name", "", "Human-readable device name (env: SILIECO_DAEMON_DEVICE_NAME)")
-	rf.String("runtime-name", "", "Runtime display name (env: SILIECO_AGENT_RUNTIME_NAME)")
-	rf.Duration("poll-interval", 0, "Run poll interval (env: SILIECO_DAEMON_POLL_INTERVAL)")
-	rf.Duration("heartbeat-interval", 0, "Heartbeat interval (env: SILIECO_DAEMON_HEARTBEAT_INTERVAL)")
-	rf.Duration("agent-timeout", 0, "Absolute per-run wall-clock cap; 0 = no cap, rely on the watchdogs (env: SILIECO_AGENT_TIMEOUT)")
-	rf.Duration("codex-semantic-inactivity-timeout", 0, "Codex semantic inactivity timeout (env: SILIECO_CODEX_SEMANTIC_INACTIVITY_TIMEOUT)")
-	rf.Duration("codex-handshake-timeout", 0, "Codex app-server startup RPC timeout (env: SILIECO_CODEX_HANDSHAKE_TIMEOUT)")
-	rf.Int("max-concurrent-runs", 0, "Maximum concurrent runs (env: SILIECO_DAEMON_MAX_CONCURRENT_RUNS)")
-	rf.Bool("no-auto-update", false, "Disable periodic CLI self-update (env: SILIECO_DAEMON_AUTO_UPDATE=false)")
-	rf.Duration("auto-update-interval", 0, "How often to poll GitHub for a newer release (env: SILIECO_DAEMON_AUTO_UPDATE_INTERVAL)")
+	rf.String("daemon-id", "", "Unique daemon identifier (env: MEPERSTUDIO_DAEMON_ID)")
+	rf.String("device-name", "", "Human-readable device name (env: MEPERSTUDIO_DAEMON_DEVICE_NAME)")
+	rf.String("runtime-name", "", "Runtime display name (env: MEPERSTUDIO_AGENT_RUNTIME_NAME)")
+	rf.Duration("poll-interval", 0, "Run poll interval (env: MEPERSTUDIO_DAEMON_POLL_INTERVAL)")
+	rf.Duration("heartbeat-interval", 0, "Heartbeat interval (env: MEPERSTUDIO_DAEMON_HEARTBEAT_INTERVAL)")
+	rf.Duration("agent-timeout", 0, "Absolute per-run wall-clock cap; 0 = no cap, rely on the watchdogs (env: MEPERSTUDIO_AGENT_TIMEOUT)")
+	rf.Duration("codex-semantic-inactivity-timeout", 0, "Codex semantic inactivity timeout (env: MEPERSTUDIO_CODEX_SEMANTIC_INACTIVITY_TIMEOUT)")
+	rf.Duration("codex-handshake-timeout", 0, "Codex app-server startup RPC timeout (env: MEPERSTUDIO_CODEX_HANDSHAKE_TIMEOUT)")
+	rf.Int("max-concurrent-runs", 0, "Maximum concurrent runs (env: MEPERSTUDIO_DAEMON_MAX_CONCURRENT_RUNS)")
+	rf.Bool("no-auto-update", false, "Disable periodic CLI self-update (env: MEPERSTUDIO_DAEMON_AUTO_UPDATE=false)")
+	rf.Duration("auto-update-interval", 0, "How often to poll GitHub for a newer release (env: MEPERSTUDIO_DAEMON_AUTO_UPDATE_INTERVAL)")
 
 	df := daemonDiskUsageCmd.Flags()
 	df.Bool("by-workspace", false, "Aggregate output by workspace instead of by task")
@@ -279,7 +280,7 @@ func healthPortForProfile(profile string) int {
 // the test binary itself, which ignores the daemon args and re-runs the suite.
 var daemonExecutable = selfexec.Resolve
 
-// requireDaemonAuth fails fast when the user never ran `silieco login`. The
+// requireDaemonAuth fails fast when the user never ran `meperstudio login`. The
 // daemon child performs the same check (resolveAuth) and dies immediately,
 // but the background parent can't see that exit — it would poll the health
 // port for the full 45s readiness window and then print a vague "check logs"
@@ -292,9 +293,9 @@ func requireDaemonAuth(profile string) error {
 		return fmt.Errorf("load CLI config: %w", err)
 	}
 	if cfg.Token == "" {
-		loginHint := "silieco login"
+		loginHint := "meperstudio login"
 		if profile != "" {
-			loginHint = fmt.Sprintf("silieco login --profile %s", profile)
+			loginHint = fmt.Sprintf("meperstudio login --profile %s", profile)
 		}
 		return fmt.Errorf("you are not logged in. Run '%s' first, then start the daemon", loginHint)
 	}
@@ -501,7 +502,7 @@ func daemonStartupFailureError(logs daemonStartupLogs, waitErr error, profile, s
 	crashLines := readLogTailSince(logs.errLogPath, logs.errLogOffset, 40)
 	joined := strings.Join(append(append([]string{}, lines...), crashLines...), "\n")
 
-	loginHint := "silieco login"
+	loginHint := "meperstudio login"
 	if profile != "" {
 		loginHint += " --profile " + profile
 	}
@@ -510,7 +511,7 @@ func daemonStartupFailureError(logs daemonStartupLogs, waitErr error, profile, s
 	case strings.Contains(joined, "auth token rejected") ||
 		strings.Contains(joined, "returned 401") ||
 		strings.Contains(joined, "not authenticated"):
-		return fmt.Errorf("daemon failed to start: the server rejected your login token (it may have expired or been revoked).\nRun '%s' to sign in again, then rerun 'silieco daemon start'.\nFull log: %s", loginHint, logs.logPath)
+		return fmt.Errorf("daemon failed to start: the server rejected your login token (it may have expired or been revoked).\nRun '%s' to sign in again, then rerun 'meperstudio daemon start'.\nFull log: %s", loginHint, logs.logPath)
 	case strings.Contains(joined, "connection refused") ||
 		strings.Contains(joined, "no such host") ||
 		strings.Contains(joined, "i/o timeout") ||
@@ -519,7 +520,7 @@ func daemonStartupFailureError(logs daemonStartupLogs, waitErr error, profile, s
 		if serverURL != "" {
 			target += " at " + serverURL
 		}
-		return fmt.Errorf("daemon failed to start: cannot reach %s.\nMake sure the server is running and reachable, then rerun 'silieco daemon start'.\nFull log: %s", target, logs.logPath)
+		return fmt.Errorf("daemon failed to start: cannot reach %s.\nMake sure the server is running and reachable, then rerun 'meperstudio daemon start'.\nFull log: %s", target, logs.logPath)
 	}
 
 	var b strings.Builder
@@ -890,7 +891,7 @@ func runDaemonForeground(cmd *cobra.Command) error {
 // kills the working daemon in the stop phase, and then fails the replacement
 // child's preflight, leaving no daemon at all (#5165). So probe the server
 // the daemon will talk to with the stored token (same whoami call as
-// `silieco auth status`) and refuse to touch the running daemon on failure.
+// `meperstudio auth status`) and refuse to touch the running daemon on failure.
 func requireDaemonRestartPreflight(cmd *cobra.Command, profile string) error {
 	if err := requireDaemonAuth(profile); err != nil {
 		return err
@@ -909,7 +910,7 @@ func requireDaemonRestartPreflight(cmd *cobra.Command, profile string) error {
 		return fmt.Errorf("refusing to restart: invalid server URL %q: %w", rawURL, err)
 	}
 
-	loginHint := "silieco login"
+	loginHint := "meperstudio login"
 	if profile != "" {
 		loginHint += " --profile " + profile
 	}
@@ -920,11 +921,11 @@ func requireDaemonRestartPreflight(cmd *cobra.Command, profile string) error {
 		var httpErr *cli.HTTPError
 		if errors.As(err, &httpErr) {
 			if httpErr.StatusCode == http.StatusUnauthorized {
-				return fmt.Errorf("refusing to restart: the server rejected your login token (it may have expired or been revoked); the running daemon was left untouched.\nRun '%s' to sign in again, then rerun 'silieco daemon restart'", loginHint)
+				return fmt.Errorf("refusing to restart: the server rejected your login token (it may have expired or been revoked); the running daemon was left untouched.\nRun '%s' to sign in again, then rerun 'meperstudio daemon restart'", loginHint)
 			}
 			return fmt.Errorf("refusing to restart: preflight check against %s failed (%w); the running daemon was left untouched", baseURL, err)
 		}
-		return fmt.Errorf("refusing to restart: cannot reach the MEPERStudio server at %s (%w); the running daemon was left untouched.\nMake sure the server is running and reachable, then rerun 'silieco daemon restart'", baseURL, err)
+		return fmt.Errorf("refusing to restart: cannot reach the MEPERStudio server at %s (%w); the running daemon was left untouched.\nMake sure the server is running and reachable, then rerun 'meperstudio daemon restart'", baseURL, err)
 	}
 	return nil
 }
@@ -1565,7 +1566,7 @@ func printDiskUsageOtherRootsHint(w io.Writer, report daemon.DiskUsageReport, pr
 		fmt.Fprintf(w, "  %s  # %s (%d task%s)\n",
 			s.Command, s.Root, s.RunCount, pluralS(s.RunCount))
 	}
-	fmt.Fprintln(w, "Run 'silieco daemon disk-usage --all-profiles' for a combined total across all roots.")
+	fmt.Fprintln(w, "Run 'meperstudio daemon disk-usage --all-profiles' for a combined total across all roots.")
 }
 
 type diskUsageProfileSuggestion struct {
@@ -1582,7 +1583,7 @@ func diskUsageProfileSuggestions(currentProfile, currentRoot string) []diskUsage
 			if runCount := countDiskUsageRunDirs(root); runCount > 0 {
 				out = append(out, diskUsageProfileSuggestion{
 					Profile:  "",
-					Command:  "silieco daemon disk-usage",
+					Command:  "meperstudio daemon disk-usage",
 					Root:     root,
 					RunCount: runCount,
 				})
@@ -1616,7 +1617,7 @@ func diskUsageProfileSuggestions(currentProfile, currentRoot string) []diskUsage
 		}
 		out = append(out, diskUsageProfileSuggestion{
 			Profile:  profile,
-			Command:  "silieco --profile " + shellQuoteArg(profile) + " daemon disk-usage",
+			Command:  "meperstudio --profile " + shellQuoteArg(profile) + " daemon disk-usage",
 			Root:     root,
 			RunCount: runCount,
 		})
@@ -1677,7 +1678,7 @@ func profilesRootDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".silieco", "profiles"), nil
+	return filepath.Join(branding.StateDir(home), "profiles"), nil
 }
 
 func samePath(a, b string) bool {

@@ -13,7 +13,7 @@
 // skip the build and fall through to auto-install at runtime. A genuine
 // Go compile error is fatal — you want that to block dev, not hide.
 
-import { access, chmod, copyFile, mkdir, rm } from "node:fs/promises";
+import { access, chmod, copyFile, mkdir, rm, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { execFileSync, execSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
@@ -61,7 +61,7 @@ function normalizeRuntimeArch(arch) {
 }
 
 function binaryNameForPlatform(platform) {
-  return platform === "win32" ? "silieco.exe" : "silieco";
+  return platform === "win32" ? "meperstudio.exe" : "meperstudio";
 }
 
 const targetPlatform = normalizeRuntimePlatform(
@@ -94,7 +94,8 @@ async function exists(p) {
 }
 
 if (hasGo()) {
-  const version = process.env.SILIECO_BUILD_VERSION || "v0.4.15";
+  const packageVersion = JSON.parse(await readFile(join(repoRoot,"apps/desktop/package.json"),"utf8")).version;
+  const version = process.env.MEPERSTUDIO_BUILD_VERSION || process.env.SILIECO_BUILD_VERSION || `v${packageVersion}`;
   const commit = "source";
   const date = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const ldflags = `-X main.version=${version} -X main.commit=${commit} -X main.date=${date}`;

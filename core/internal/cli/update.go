@@ -8,7 +8,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/selfexec"
+	"github.com/auenger/MEPERECO/core/internal/selfexec"
 )
 
 // ChecksumManifestName is the asset name GoReleaser publishes for the
@@ -148,6 +147,9 @@ func releaseAssetCandidates(targetVersion, goos, goarch string) []string {
 	// Prefer the versioned name (current scheme); fall back to the legacy
 	// `silieco_{os}_{arch}` name for releases that still ship it.
 	return []string{
+		fmt.Sprintf("meperstudio-%s-%s.%s", goos, goarch, ext),
+		fmt.Sprintf("meperstudio-cli-%s-%s-%s.%s", version, goos, goarch, ext),
+		fmt.Sprintf("silieco-%s-%s.%s", goos, goarch, ext),
 		fmt.Sprintf("silieco-cli-%s-%s-%s.%s", version, goos, goarch, ext),
 		fmt.Sprintf("silieco_%s_%s.%s", goos, goarch, ext),
 	}
@@ -223,55 +225,46 @@ func verifyAssetSHA256(data []byte, expectedHex, assetName string) error {
 	return nil
 }
 
-func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/silieco-ai/silieco/releases/tags/"+tag, nil)
-	if err != nil {
-		return nil, err
+func cliReleaseBaseURL() string {
+	for _, key := range []string{"MEPERSTUDIO_CLI_DOWNLOAD_BASE_URL", "MEPERSTUDIO_DOWNLOAD_BASE_URL", "SILIECO_DOWNLOAD_BASE_URL"} {
+		if value := strings.TrimRight(strings.TrimSpace(os.Getenv(key)), "/"); value != "" {
+			return value
+		}
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
-	}
-
-	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
-	}
-	return &release, nil
+	return "https://studio.meper.cn/cli"
 }
 
-// FetchLatestRelease fetches the latest release tag from the silieco GitHub repo.
+func fetchReleaseByTag(tag string) (*GitHubRelease, error) {
+	release, err := FetchLatestRelease()
+	if err != nil {
+		return nil, err
+	}
+	if normalizeReleaseTag(release.TagName) != normalizeReleaseTag(tag) {
+		return nil, fmt.Errorf("requested CLI version %s is not currently published (available: %s)", tag, release.TagName)
+	}
+	return release, nil
+}
+
+// FetchLatestRelease reads the manifest from the same distribution as the installer.
 func FetchLatestRelease() (*GitHubRelease, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/silieco-ai/silieco/releases/latest", nil)
+	base := cliReleaseBaseURL()
+	raw, err := fetchURLBytes(base+"/version.txt", 10*time.Second)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
+	version := strings.TrimSpace(string(raw))
+	if !IsReleaseVersion(version) {
+		return nil, fmt.Errorf("invalid CLI release version %q", version)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned %d", resp.StatusCode)
+	release := &GitHubRelease{TagName: normalizeReleaseTag(version), HTMLURL: base}
+	for _, osName := range []string{"darwin", "linux", "windows"} {
+		for _, arch := range []string{"amd64", "arm64"} {
+			name := fmt.Sprintf("meperstudio-%s-%s.%s", osName, arch, releaseArchiveExtension(osName))
+			release.Assets = append(release.Assets, GitHubReleaseAsset{Name: name, BrowserDownloadURL: base + "/" + name})
+		}
 	}
-
-	var release GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, err
-	}
-	return &release, nil
+	release.Assets = append(release.Assets, GitHubReleaseAsset{Name: ChecksumManifestName, BrowserDownloadURL: base + "/" + ChecksumManifestName})
+	return release, nil
 }
 
 // knownBrewPrefixes lists the install roots Homebrew uses on each platform.
@@ -319,15 +312,10 @@ func GetBrewPrefix() string {
 	return strings.TrimSpace(string(out))
 }
 
-// UpdateViaBrew runs `brew upgrade silieco-ai/tap/silieco`.
-// Returns the combined output and any error.
+// UpdateViaBrew is retained for older installations, but the upstream tap
+// is not a MEPERStudio distribution channel. Do not upgrade from it.
 func UpdateViaBrew() (string, error) {
-	cmd := exec.Command("brew", "upgrade", "silieco-ai/tap/silieco")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return string(out), fmt.Errorf("brew upgrade failed: %w", err)
-	}
-	return string(out), nil
+	return "", fmt.Errorf("Homebrew distribution is not configured; install the MEPERStudio CLI from https://studio.meper.cn/cli")
 }
 
 func updateDownloadTimeoutOrDefault(timeout time.Duration) time.Duration {
@@ -421,9 +409,12 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 	}
 
 	// Extract the binary from the archive.
-	binaryName := "silieco"
+	binaryName := "meperstudio"
+	if strings.HasPrefix(assetName, "silieco") {
+		binaryName = "silieco"
+	}
 	if runtime.GOOS == "windows" {
-		binaryName = "silieco.exe"
+		binaryName += ".exe"
 	}
 	var binaryData []byte
 	if runtime.GOOS == "windows" {
@@ -437,7 +428,7 @@ func UpdateViaDownloadWithTimeout(targetVersion string, downloadTimeout time.Dur
 
 	// Atomic replace: write to temp file, then rename over the original.
 	dir := filepath.Dir(exePath)
-	tmpFile, err := os.CreateTemp(dir, "silieco-update-*")
+	tmpFile, err := os.CreateTemp(dir, "meperstudio-update-*")
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
 )
 
 func (h *Handler) DaemonWebSocket(w http.ResponseWriter, r *http.Request) {

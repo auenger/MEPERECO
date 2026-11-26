@@ -5,7 +5,7 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
-	"github.com/silieco-ai/silieco/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
 )
 
 // RelayNotifier sends daemon wakeup hints to the local daemon hub and, when

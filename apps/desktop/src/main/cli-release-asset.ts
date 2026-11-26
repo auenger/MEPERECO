@@ -34,6 +34,11 @@ export function selectPlatformReleaseAssetName(
     arch,
   );
   const names = [...assetNames];
+  // The self-hosted Studio distribution uses a stable platform filename.
+  const selfHostedName = `meperstudio-${os}-${mappedArch}.${ext}`;
+  if (names.includes(selfHostedName)) return selfHostedName;
+  const legacyStableName = `silieco-${os}-${mappedArch}.${ext}`;
+  if (names.includes(legacyStableName)) return legacyStableName;
 
   // Prefer the versioned `silieco-cli-<v>-<os>-<arch>.<ext>` name; fall
   // back to the legacy `silieco_<os>_<arch>.<ext>` so older releases that
@@ -41,7 +46,7 @@ export function selectPlatformReleaseAssetName(
   const suffix = `-${os}-${mappedArch}.${ext}`;
   const matches = names.filter(
     (name) =>
-      name.startsWith(RELEASE_ARCHIVE_PREFIX) && name.endsWith(suffix),
+      (name.startsWith("meperstudio-cli-") || name.startsWith(RELEASE_ARCHIVE_PREFIX)) && name.endsWith(suffix),
   );
 
   if (matches.length === 1) {

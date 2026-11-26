@@ -33,6 +33,7 @@ import {
   type ModelCatalog,
 } from "./inspector/model-change-cleanup";
 import { RuntimePicker } from "./inspector/runtime-picker";
+import { ZCodeCliNotice } from "../../runtimes/components/zcode-cli-notice";
 import { ThinkingSettingField } from "./inspector/thinking-prop-row";
 import { ServiceTierSettingField } from "./inspector/service-tier-setting-field";
 
@@ -272,6 +273,9 @@ export function AgentDetailInspector({
               }
             />
           </SettingsRow>
+          {runtime?.provider === "zcode" && (
+            <ZCodeCliNotice provider={runtime.provider} className="mx-4 my-2" />
+          )}
           <SettingsRow
             label={t(($) => $.inspector.prop_model)}
             size="select-wide"
@@ -280,6 +284,7 @@ export function AgentDetailInspector({
               variant="field"
               showLabel={false}
               runtimeId={agent.runtime_id}
+              runtimeProvider={runtime?.provider}
               runtimeOnline={!!isOnline}
               value={agent.model ?? ""}
               canEdit={canEdit}

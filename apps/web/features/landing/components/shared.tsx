@@ -1,7 +1,6 @@
 import { cn } from "@silieco/ui/lib/utils";
 
-export const githubUrl = "https://github.com/silieco-ai/silieco";
-export const twitterUrl = "https://x.com/SiliecoAI";
+export const githubUrl = "https://github.com/auenger/MEPERECO";
 
 export function GitHubMark({ className }: { className?: string }) {
   return (

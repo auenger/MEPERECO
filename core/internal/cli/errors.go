@@ -284,8 +284,8 @@ func DetectLanguage() Language {
 // kindMessages holds the {English, Chinese} user-facing message for each kind.
 var kindMessages = map[ErrorKind][2]string{
 	KindNetworkTimeout: {
-		"Request timed out: the server did not respond in time. Check your network connection or try again later. You can raise the limit with SILIECO_HTTP_TIMEOUT.",
-		"请求超时：服务器未在规定时间内响应。请检查网络连接或稍后重试。可通过 SILIECO_HTTP_TIMEOUT 调高超时时间。",
+		"Request timed out: the server did not respond in time. Check your network connection or try again later. You can raise the limit with MEPERSTUDIO_HTTP_TIMEOUT.",
+		"请求超时：服务器未在规定时间内响应。请检查网络连接或稍后重试。可通过 MEPERSTUDIO_HTTP_TIMEOUT 调高超时时间。",
 	},
 	KindNetworkDNS: {
 		"Could not resolve the MEPERStudio server address. Check your network connection or the --server-url setting.",
@@ -304,8 +304,8 @@ var kindMessages = map[ErrorKind][2]string{
 		"无法访问 MEPERStudio 服务器。请检查网络连接。",
 	},
 	KindAuthRequired: {
-		"Your session has expired or you are not signed in. Run `silieco login` to sign in again. On a self-hosted or non-OAuth setup, ask your administrator for valid credentials.",
-		"登录已过期或尚未登录。请运行 `silieco login` 重新登录。自托管或非 OAuth 场景请联系管理员获取有效凭证。",
+		"Your session has expired or you are not signed in. Run `meperstudio login` to sign in again. On a self-hosted or non-OAuth setup, ask your administrator for valid credentials.",
+		"登录已过期或尚未登录。请运行 `meperstudio login` 重新登录。自托管或非 OAuth 场景请联系管理员获取有效凭证。",
 	},
 	KindForbidden: {
 		"You do not have permission to access this resource. Check that you are in the right workspace, or ask an administrator to grant access.",

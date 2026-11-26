@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 // tryResolveAppURL returns the app URL if configured, or "" if not available.
@@ -41,7 +41,7 @@ var loginCmd = &cobra.Command{
 
 // tokenPromptSentinel is the value pflag assigns to `--token` when the flag
 // is supplied without an explicit value. runAuthLoginToken treats it as
-// "prompt me interactively", preserving the legacy `silieco login --token`
+// "prompt me interactively", preserving the legacy `meperstudio login --token`
 // no-value form alongside the documented `--token sili_...` / `--token mcn_...`
 // value form.
 //
@@ -72,11 +72,11 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Auto-discover and watch all workspaces.
 	if err := autoWatchWorkspaces(cmd); err != nil {
 		fmt.Fprintf(os.Stderr, "\nCould not auto-configure workspaces: %v\n", err)
-		fmt.Fprintf(os.Stderr, "Run 'silieco workspace list' and 'silieco workspace watch <id>' to set up manually.\n")
+		fmt.Fprintf(os.Stderr, "Run 'meperstudio workspace list' and 'meperstudio workspace watch <id>' to set up manually.\n")
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "\n→ Run 'silieco daemon start' to start your local agent runtime.\n")
+	fmt.Fprintf(os.Stderr, "\n→ Run 'meperstudio daemon start' to start your local agent runtime.\n")
 	return nil
 }
 
@@ -135,7 +135,7 @@ func autoWatchWorkspaces(cmd *cobra.Command) error {
 		fmt.Fprintf(os.Stderr, "%s%s (%s)\n", marker, ws.Name, ws.ID)
 	}
 	if len(workspaces) > 1 {
-		fmt.Fprintln(os.Stderr, "\nUse 'silieco workspace switch <id|slug>' to change the default workspace.")
+		fmt.Fprintln(os.Stderr, "\nUse 'meperstudio workspace switch <id|slug>' to change the default workspace.")
 	}
 
 	return nil
@@ -152,7 +152,7 @@ func waitForWorkspaceCreation(cmd *cobra.Command, client *cli.APIClient) ([]stru
 		// No app URL available (e.g. token login without prior setup).
 		// Can't open the browser — tell the user to create a workspace manually.
 		fmt.Fprintln(os.Stderr, "\nNo workspaces found.")
-		fmt.Fprintln(os.Stderr, "Create a workspace in the web dashboard, then run 'silieco login' again.")
+		fmt.Fprintln(os.Stderr, "Create a workspace in the web dashboard, then run 'meperstudio login' again.")
 		return nil, nil
 	}
 

@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // requestError is returned by postJSON/getJSON when the server responds with an error status.

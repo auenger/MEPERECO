@@ -8,8 +8,8 @@
     "headline_line2": "让 SOP 走到",
     "headline_emphasis": "真实执行。",
     "lede": "把目标组织成 Workflow，用 Stage 推进工作，把 Task 分配给人或 Agent。MEPERStudio 让所有协作者围绕同一份上下文持续行动。",
-    "lede_web": "先在浏览器创建 Space，也可以安装桌面端连接本机运行时，让 Agent 执行 Workflow 中的 Task。",
-    "lede_desktop": "识别运行时、创建 Space、描述目标。进入后可以直接创建 Task，也可以把团队 SOP 配置成 Workflow。",
+    "lede_web": "现在直接创建 Space。准备好后，可以在空间设置中连接 Agent 运行时。",
+    "lede_desktop": "创建 Space、描述目标。桌面端会自动连接可用的本地运行时。进入后可以直接创建 Task，也可以把团队 SOP 配置成 Workflow。",
     "download_desktop": "下载桌面端",
     "continue_on_web": "在 web 端继续",
     "start_exploring": "开始探索",
@@ -32,7 +32,7 @@
       "human_task": "确认发布范围",
       "human_assignee": "分配给林然",
       "agent_task": "整理发布说明",
-      "agent_assignee": "分配给 Sili Agent",
+      "agent_assignee": "分配给 MEPER Agent",
       "people_collaboration": "人与人共同决策",
       "agent_collaboration": "人与 Agent 接力执行",
       "context_continuity": "上下文持续共享"
@@ -153,7 +153,7 @@
   },
   "cloud_waitlist": {
     "intro_main": "云运行时尚未上线。留下邮箱，上线时通过邮件通知你。",
-    "intro_warning": "提示：没有运行时，智能体无法执行 task —— 如果现在跳过，工作区会是只读状态，直到你回来安装一个。",
+    "intro_warning": "提示：没有运行时，智能体无法执行 task —— 如果现在跳过，仍可正常使用工作区，智能体连接运行时后才能执行任务。",
     "email_label": "邮箱",
     "email_placeholder": "you@work.com",
     "reason_label": "为什么选择云？",
@@ -165,7 +165,7 @@
     "failed_toast": "加入候补名单失败"
   },
   "welcome_after_onboarding": {
-    "loading_helper": "正在准备 Sili Agent……",
+    "loading_helper": "正在准备 MEPER Agent……",
     "error_title": "准备失败",
     "error_generic": "出了点问题，请重试。",
     "retry": "重试",
@@ -262,7 +262,7 @@
     "perk_invite": "邀请同事 —— 他们只会看到这个工作区",
     "perk_switch": "随时从左上角切换到其他工作区",
     "next_runtime": "连接一台电脑，给智能体一个跑的地方",
-    "next_agent": "通过已连接的运行时让 Sili Agent 上线",
+    "next_agent": "通过已连接的运行时让 MEPER Agent 上线",
     "next_starter": "打开一个上手引导 task，继续下一步",
     "preview": {
       "inbox_label": "收件箱",
@@ -307,7 +307,7 @@
     "empty_lede_prefix": "agent 运行时是我们接管的 AI 编程工具，比如 ",
     "empty_lede_suffix": "。装好其中之一后点刷新，或在下面挑一条路。",
     "empty_skip_title": "暂时跳过",
-    "empty_skip_subtitle": "进入工作区（只读模式）。在这台电脑上连接 agent 运行时之前，智能体无法执行 task —— 但你仍可以浏览、规划、邀请同事。",
+    "empty_skip_subtitle": "进入工作区。在这台电脑上连接 agent 运行时之前，智能体无法执行 task —— 但你仍可以浏览、规划、邀请同事。",
     "empty_skip_action": "跳过",
     "empty_waitlist_title": "改用云电脑",
     "empty_waitlist_subtitle": "我们会在云上为你运行一台电脑。尚未上线。",

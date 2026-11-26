@@ -73,23 +73,25 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "MEPERStudio — Project Management for Human + Agent Teams",
-    template: "%s | MEPERStudio",
+    default: "MEPER Studio — Project Management for Human + Agent Teams",
+    template: "%s | MEPER Studio",
   },
   description:
     "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
   icons: {
     icon: [
+      { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16 24x24 32x32 48x48 64x64 128x128 256x256" },
       { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/brand/favicon-16.png", sizes: "16x16", type: "image/png" },
       { url: "/brand/favicon-24.png", sizes: "24x24", type: "image/png" },
       { url: "/brand/favicon-32.png", sizes: "32x32", type: "image/png" },
     ],
-    shortcut: ["/favicon.svg"],
+    shortcut: ["/favicon.ico"],
+    apple: [{ url: "/brand/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",
-    siteName: "MEPERStudio",
+    siteName: "MEPER Studio",
     locale: "en_US",
   },
   twitter: { card: "summary_large_image" },

@@ -2,6 +2,9 @@ package daemon
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -130,6 +133,22 @@ var probeAgentCLIs = func() map[string]AgentEntry {
 				Model:   strings.TrimSpace(os.Getenv(modelEnv)),
 			}, true
 		}
+		if defaultCmd == "zcode" && cmd == defaultCmd && runtime.GOOS == "darwin" {
+			// Official desktop installation ships an executable Node bundle.
+			// Only offer it when node is also usable in the daemon environment;
+			// the normal version probe will still reject a broken install.
+			if _, err := exec.LookPath("node"); err == nil {
+				paths := []string{"/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"}
+				if home, err := os.UserHomeDir(); err == nil {
+					paths = append(paths, filepath.Join(home, "Applications", "ZCode.app", "Contents", "Resources", "glm", "zcode.cjs"))
+				}
+				for _, path := range paths {
+					if resolved, err := resolveAgentExecutablePath(path); err == nil {
+						return AgentEntry{Path: resolved, Command: path}, true
+					}
+				}
+			}
+		}
 		if defaultCmd == "codex" && cmd == defaultCmd {
 			// Codex Desktop bundles its CLI inside the macOS app instead of
 			// installing it onto PATH.
@@ -164,6 +183,9 @@ var probeAgentCLIs = func() map[string]AgentEntry {
 	}
 	if e, ok := probe("SILIECO_HERMES_PATH", "hermes", "SILIECO_HERMES_MODEL"); ok {
 		agents["hermes"] = e
+	}
+	if e, ok := probe("SILIECO_ZCODE_PATH", "zcode", ""); ok {
+		agents["zcode"] = e
 	}
 	if e, ok := probe("SILIECO_PI_PATH", "pi", "SILIECO_PI_MODEL"); ok {
 		agents["pi"] = e

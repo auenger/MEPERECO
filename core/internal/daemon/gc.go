@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
 )
 
 // gcLoop periodically scans local workspace directories and removes those

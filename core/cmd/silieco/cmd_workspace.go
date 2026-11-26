@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 var workspaceCmd = &cobra.Command{
@@ -31,9 +31,9 @@ var workspaceCreateCmd = &cobra.Command{
 		"--slug are required; the slug is permanent (lowercase letters, digits, " +
 		"and hyphens) and cannot be changed after creation.\n\n" +
 		"Creating a workspace does NOT change the current default workspace for " +
-		"this profile — run 'silieco workspace switch <slug>' afterward if you " +
+		"this profile — run 'meperstudio workspace switch <slug>' afterward if you " +
 		"want subsequent commands to target the new workspace.",
-	Example: "  silieco workspace create --name \"Support Team\" --slug support-team --task-prefix SUP",
+	Example: "  meperstudio workspace create --name \"Support Team\" --slug support-team --task-prefix SUP",
 	Args:    cobra.NoArgs,
 	RunE:    runWorkspaceCreate,
 }
@@ -92,7 +92,7 @@ var workspaceSwitchCmd = &cobra.Command{
 		"this workspace.\n\n" +
 		"Resolution priority (highest to lowest): --workspace-id flag, " +
 		"SILIECO_WORKSPACE_ID env, profile default (set by this command).\n\n" +
-		"For low-level use, 'silieco config set workspace_id <id>' writes the " +
+		"For low-level use, 'meperstudio config set workspace_id <id>' writes the " +
 		"same setting without verification.",
 	Args: exactArgs(1),
 	RunE: runWorkspaceSwitch,
@@ -148,7 +148,7 @@ func fetchWorkspaces(ctx context.Context, cmd *cobra.Command) ([]workspaceSummar
 	serverURL := resolveServerURL(cmd)
 	token := resolveToken(cmd)
 	if token == "" {
-		return nil, fmt.Errorf("not authenticated: run 'silieco login' first")
+		return nil, fmt.Errorf("not authenticated: run 'meperstudio login' first")
 	}
 
 	client := cli.NewAPIClient(serverURL, "", token)
@@ -193,9 +193,9 @@ func runWorkspaceList(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if currentID != "" {
-		fmt.Fprintln(os.Stderr, "\n* = current default workspace (use 'silieco workspace switch <id|slug|prefix>' to change)")
+		fmt.Fprintln(os.Stderr, "\n* = current default workspace (use 'meperstudio workspace switch <id|slug|prefix>' to change)")
 	} else {
-		fmt.Fprintln(os.Stderr, "\nNo default workspace set. Use 'silieco workspace switch <id|slug|prefix>' to pick one.")
+		fmt.Fprintln(os.Stderr, "\nNo default workspace set. Use 'meperstudio workspace switch <id|slug|prefix>' to pick one.")
 	}
 	fmt.Fprintln(os.Stderr, "Tip: pass the ID column, SLUG, or full UUID (--full-id) to 'workspace get/update/switch'.")
 	return nil
@@ -319,7 +319,7 @@ func resolveWorkspaceByIDOrSlug(workspaces []workspaceSummary, target string) (w
 		}
 	}
 
-	return workspaceSummary{}, fmt.Errorf("workspace %q not found or you do not have access; run 'silieco workspace list' to see options", target)
+	return workspaceSummary{}, fmt.Errorf("workspace %q not found or you do not have access; run 'meperstudio workspace list' to see options", target)
 }
 
 func ambiguousWorkspacePrefixError(input string, matches []workspaceSummary) error {

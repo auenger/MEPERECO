@@ -51,7 +51,7 @@ func (q *Queries) DeleteExpiredVerificationCodes(ctx context.Context) error {
 const getLatestCodeByEmail = `-- name: GetLatestCodeByEmail :one
 SELECT id, email, code, expires_at, used, created_at, attempts FROM verification_code
 WHERE email = $1
-ORDER BY created_at DESC
+ORDER BY created_at DESC, id DESC
 LIMIT 1
 `
 
@@ -72,12 +72,13 @@ func (q *Queries) GetLatestCodeByEmail(ctx context.Context, email string) (Verif
 
 const getLatestVerificationCode = `-- name: GetLatestVerificationCode :one
 SELECT id, email, code, expires_at, used, created_at, attempts FROM verification_code
-WHERE email = $1
+WHERE id = (
+    SELECT id FROM verification_code WHERE email = $1
+    ORDER BY created_at DESC, id DESC LIMIT 1
+)
   AND used = FALSE
   AND expires_at > now()
   AND attempts < 5
-ORDER BY created_at DESC
-LIMIT 1
 `
 
 func (q *Queries) GetLatestVerificationCode(ctx context.Context, email string) (VerificationCode, error) {
@@ -106,13 +107,19 @@ func (q *Queries) IncrementVerificationCodeAttempts(ctx context.Context, id pgty
 	return err
 }
 
-const markVerificationCodeUsed = `-- name: MarkVerificationCodeUsed :exec
+const markVerificationCodeUsed = `-- name: MarkVerificationCodeUsed :execrows
 UPDATE verification_code
 SET used = TRUE
-WHERE id = $1
+WHERE id = $1 AND used = FALSE AND expires_at > now() AND attempts < 5
+  AND id = (SELECT newest.id FROM verification_code AS newest
+            WHERE newest.email = verification_code.email
+            ORDER BY newest.created_at DESC, newest.id DESC LIMIT 1)
 `
 
-func (q *Queries) MarkVerificationCodeUsed(ctx context.Context, id pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, markVerificationCodeUsed, id)
-	return err
+func (q *Queries) MarkVerificationCodeUsed(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markVerificationCodeUsed, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

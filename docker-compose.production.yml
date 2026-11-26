@@ -1,0 +1,32 @@
+# Overlay for a server receiving HTTP traffic from the studio.meper.cn TLS gateway.
+# docker compose -f docker-compose.selfhost.yml -f docker-compose.selfhost.build.yml -f docker-compose.production.yml up -d --build
+services:
+  gateway:
+    image: nginx:alpine
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/production/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      default:
+        ipv4_address: 172.30.79.10
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+  backend:
+    depends_on:
+      redis:
+        condition: service_started
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MEPERSTUDIO_TRUSTED_PROXIES: 172.30.79.10/32
+      RATE_LIMIT_TRUSTED_PROXIES: 172.30.79.10/32
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.79.0/24

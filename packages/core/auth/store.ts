@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { User, StorageAdapter } from "../types";
 import { identify as identifyAnalytics, resetAnalytics } from "../analytics";
-import { ApiError, type ApiClient } from "../api/client";
+import { ApiError, type ApiClient, type LoginResponse } from "../api/client";
 import { setCurrentWorkspace } from "../platform/workspace-storage";
 
 export interface AuthStoreOptions {
@@ -20,12 +20,7 @@ export interface AuthState {
   initialize: () => Promise<void>;
   sendCode: (email: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<User>;
-  passwordAuth: (
-    mode: "login" | "register",
-    email: string,
-    password: string,
-  ) => Promise<User>;
-  loginWithGoogle: (code: string, redirectUri: string) => Promise<User>;
+  acceptLogin: (response: LoginResponse) => User;
   loginWithToken: (token: string) => Promise<User>;
   logout: () => void;
   setUser: (user: User) => void;
@@ -35,7 +30,7 @@ export interface AuthState {
 export function createAuthStore(options: AuthStoreOptions) {
   const { api, storage, onLogin, onLogout, cookieAuth } = options;
 
-  return create<AuthState>((set) => ({
+  return create<AuthState>((set, get) => ({
     user: null,
     isLoading: true,
 
@@ -83,40 +78,16 @@ export function createAuthStore(options: AuthStoreOptions) {
       await api.sendCode(email);
     },
 
-    verifyCode: async (email: string, code: string) => {
-      const { token, user } = await api.verifyCode(email, code);
-      if (!cookieAuth) {
-        // Token mode: persist for Electron / legacy.
-        storage.setItem("silieco_tr1_token", token);
-        api.setToken(token);
-      }
-      onLogin?.();
-      identifyAnalytics(user.id, { email: user.email, name: user.name });
-      set({ user });
-      return user;
-    },
+    verifyCode: async (email: string, code: string) => get().acceptLogin(await api.verifyCode(email, code)),
 
-    passwordAuth: async (mode, email, password) => {
-      const { token, user } = await api.passwordAuth(mode, email, password);
+    acceptLogin: ({ token, user }) => {
       if (!cookieAuth) {
         storage.setItem("silieco_tr1_token", token);
         api.setToken(token);
       }
       onLogin?.();
       identifyAnalytics(user.id, { email: user.email, name: user.name });
-      set({ user });
-      return user;
-    },
-
-    loginWithGoogle: async (code: string, redirectUri: string) => {
-      const { token, user } = await api.googleLogin(code, redirectUri);
-      if (!cookieAuth) {
-        storage.setItem("silieco_tr1_token", token);
-        api.setToken(token);
-      }
-      onLogin?.();
-      identifyAnalytics(user.id, { email: user.email, name: user.name });
-      set({ user });
+      set({ user, isLoading: false });
       return user;
     },
 

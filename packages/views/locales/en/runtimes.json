@@ -1,4 +1,10 @@
 {
+  "zcode_cli": {
+    "title": "Using ZCode CLI",
+    "login": "For direct use of an official subscription, run zcode login bigmodel (or zcode login zai for a global Z.ai account) on the runtime machine.",
+    "model": "ZCode or Magpie manages the model. MEPERStudio only drives the CLI without changing model configuration. Desktop session changes may not update the CLI; check the model actually used.",
+    "magpie": "Manage models with Magpie"
+  },
   "page": {
     "title": "Runtimes",
     "tagline": "Machines and cloud workers running CLI sessions for your agents.",

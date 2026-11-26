@@ -1,0 +1,18 @@
+{
+  "name": "meper-studio-product-film",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node scripts/render-headless.mjs render src/index.tsx MEPERStudioCollaboration out/v3/MEPER-Studio-\u4eba\u673a\u534f\u4f5c\u5ba3\u4f20\u7247.mp4 --codec=h264 --crf=17 --pixel-format=yuv420p --audio-codec=aac --concurrency=1 --gl=angle --chrome-mode=chrome-for-testing --image-format=png",
+    "music": "node scripts/soundtrack-v3.mjs",
+    "captions": "python3 scripts/delivery-v3.py",
+    "check": "python3 scripts/check-video.py out/v3/MEPER-Studio-\u4eba\u673a\u534f\u4f5c\u5ba3\u4f20\u7247.mp4 --expected-frames 2280"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.538",
+    "@remotion/media": "4.0.538",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.538"
+  }
+}

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/internal/featureflags"
-	composio "github.com/silieco-ai/silieco/core/internal/integrations/composio"
+	"github.com/auenger/MEPERECO/core/internal/featureflags"
+	composio "github.com/auenger/MEPERECO/core/internal/integrations/composio"
 )
 
 // Composio integration handlers (SILI-3720, Stage 2 MVP). A Composio connection

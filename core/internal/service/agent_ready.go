@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // AgentReadiness reports whether an agent can accept new work right now.

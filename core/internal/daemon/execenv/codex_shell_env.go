@@ -3,6 +3,7 @@ package execenv
 import (
 	"bytes"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"log/slog"
 	"os"
 	"regexp"
@@ -67,7 +68,7 @@ func CodexShellEnvAllowlist(inherited []string, explicit map[string]string, auth
 			return
 		}
 		upper := strings.ToUpper(key)
-		if strings.HasPrefix(upper, "SILIECO_") {
+		if branding.IsManagedEnvKey(upper) {
 			if !isExplicit {
 				return
 			}

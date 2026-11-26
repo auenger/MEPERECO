@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/silieco-ai/silieco/core/internal/selfexec"
+	"github.com/auenger/MEPERECO/core/internal/selfexec"
 )
 
 // oldBinarySuffix is appended to the previous executable while a new one is

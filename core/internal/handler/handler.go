@@ -16,26 +16,26 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	"github.com/silieco-ai/silieco/core/internal/cloudruntime"
-	"github.com/silieco-ai/silieco/core/internal/daemonws"
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/integrations/channel/engine"
-	composio "github.com/silieco-ai/silieco/core/internal/integrations/composio"
-	"github.com/silieco-ai/silieco/core/internal/integrations/ghsnapshot"
-	"github.com/silieco-ai/silieco/core/internal/integrations/lark"
-	"github.com/silieco-ai/silieco/core/internal/integrations/slack"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	"github.com/silieco-ai/silieco/core/internal/realtime"
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/internal/storage"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	"github.com/silieco-ai/silieco/core/internal/util/secretbox"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/featureflag"
-	"github.com/silieco-ai/silieco/core/pkg/llm"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/cloudruntime"
+	"github.com/auenger/MEPERECO/core/internal/daemonws"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/integrations/channel/engine"
+	composio "github.com/auenger/MEPERECO/core/internal/integrations/composio"
+	"github.com/auenger/MEPERECO/core/internal/integrations/ghsnapshot"
+	"github.com/auenger/MEPERECO/core/internal/integrations/lark"
+	"github.com/auenger/MEPERECO/core/internal/integrations/slack"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/storage"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	"github.com/auenger/MEPERECO/core/internal/util/secretbox"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/featureflag"
+	"github.com/auenger/MEPERECO/core/pkg/llm"
 )
 
 // randomID returns a random 16-byte hex string used as a request ID for
@@ -78,7 +78,7 @@ type Config struct {
 	// SILIECO_VCS_INTEGRATION_ENABLED; the self-host compose defaults it on.
 	VCSIntegrationEnabled bool
 	// PublicURL is the absolute base URL the API is reachable at from the
-	// public internet, with no trailing slash (e.g. "https://silieco.ai").
+	// public internet, with no trailing slash (e.g. "https://studio.meper.cn").
 	// Used only to build webhook_url responses for autopilot webhook triggers
 	// — never for auth, routing, or workspace resolution. Empty when unset,
 	// in which case clients fall back to webhook_path + their own origin.

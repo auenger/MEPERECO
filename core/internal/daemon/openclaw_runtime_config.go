@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
 )
 
 // openclawRuntimeConfig is the schema the daemon expects under an openclaw

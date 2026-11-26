@@ -611,22 +611,24 @@ export class ApiClient {
     });
   }
 
-  async passwordAuth(
-    mode: "login" | "register",
-    email: string,
-    password: string,
-  ): Promise<LoginResponse> {
-    return this.fetch(`/auth/password/${mode}`, {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
+  async loginPassword(email: string, password: string): Promise<LoginResponse> {
+    return this.fetch("/auth/password/login", { method: "POST", body: JSON.stringify({ email, password }) });
   }
 
-  async googleLogin(code: string, redirectUri: string): Promise<LoginResponse> {
-    return this.fetch("/auth/google", {
-      method: "POST",
-      body: JSON.stringify({ code, redirect_uri: redirectUri }),
-    });
+  async sendPasswordCode(email: string, purpose: "register" | "reset"): Promise<void> {
+    await this.fetch("/auth/password/send-code", { method: "POST", body: JSON.stringify({ email, purpose }) });
+  }
+
+  async verifyPasswordCode(email: string, code: string, purpose: "register" | "reset"): Promise<{ token: string }> {
+    return this.fetch("/auth/password/verify-code", { method: "POST", body: JSON.stringify({ email, code, purpose }) });
+  }
+
+  async completePassword(token: string, password: string): Promise<LoginResponse> {
+    return this.fetch("/auth/password/complete", { method: "POST", body: JSON.stringify({ token, password }) });
+  }
+
+  async changePassword(currentPassword: string, password: string): Promise<void> {
+    await this.fetch("/api/me/password", { method: "POST", body: JSON.stringify({ current_password: currentPassword, password }) });
   }
 
   async logout(): Promise<void> {

@@ -5,9 +5,9 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/silieco-ai/silieco/core/internal/service"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
-	"github.com/silieco-ai/silieco/core/pkg/workflowcontract"
+	"github.com/auenger/MEPERECO/core/internal/service"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/pkg/workflowcontract"
 )
 
 // CorrectWorkflowExecutionInputs is a member action with explicit old/new input

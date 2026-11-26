@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/internal/service"
+	"github.com/auenger/MEPERECO/core/internal/service"
 )
 
 func TestBuiltinSkillCatalogRead(t *testing.T) {

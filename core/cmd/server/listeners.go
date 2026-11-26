@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/silieco-ai/silieco/core/internal/events"
-	"github.com/silieco-ai/silieco/core/internal/handler"
-	"github.com/silieco-ai/silieco/core/internal/realtime"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/events"
+	"github.com/auenger/MEPERECO/core/internal/handler"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // registerListeners wires up event bus listeners for WS broadcasting.

@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/silieco-ai/silieco/core/pkg/runfailure"
+	"github.com/auenger/MEPERECO/core/pkg/runfailure"
 )
 
 var runDurationBuckets = []float64{1, 2.5, 5, 10, 30, 60, 120, 300, 600, 1200, 3600, 7200}

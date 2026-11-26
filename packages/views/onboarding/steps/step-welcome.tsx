@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Bot,
   Check,
-  Download,
   GitBranch,
   Layers3,
   Loader2,
@@ -13,7 +12,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Button, buttonVariants } from "@silieco/ui/components/ui/button";
+import { Button } from "@silieco/ui/components/ui/button";
 import { SiliecoIcon } from "@silieco/ui/components/common/silieco-icon";
 import { cn } from "@silieco/ui/lib/utils";
 import { DragStrip } from "@silieco/views/platform";
@@ -36,11 +35,8 @@ import { useT } from "../../i18n";
  * their existing workspace. OnboardingFlow only passes it when the
  * user has ≥ 1 workspace — without that, skipping lands in limbo.
  *
- * `isWeb` flips two things when true: the subheading acknowledges
- * that web users have an extra runtime step (so "3 minutes" stops
- * being a lie), and a "Download Desktop" secondary CTA surfaces
- * before the user has invested in questionnaire / workspace. Desktop
- * bundles a daemon, so the same prompt would be noise there.
+ * `isWeb` selects browser-specific copy. Both platforms create a Space before
+ * any optional runtime setup.
  */
 export function StepWelcome({
   onNext,
@@ -113,25 +109,8 @@ export function StepWelcome({
             <div className="flex flex-wrap items-center gap-3">
               {isWeb ? (
                 <>
-                  {/* `<a>` rather than `<Button onClick={window.open}>`
-                      so middle-click / cmd-click / "Copy link" all
-                      behave and screen readers announce it as a link
-                      (it navigates; `Continue on web` is the button
-                      that mutates flow state). New tab preserves this
-                      onboarding tab in case the desktop install
-                      stalls and the user falls back here. */}
-                  <a
-                    href="/download"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonVariants({ size: "lg" })}
-                  >
-                    <Download className="h-4 w-4" />
-                    {t(($) => $.welcome.download_desktop)}
-                  </a>
                   <Button
                     size="lg"
-                    variant="outline"
                     onClick={handleNext}
                     disabled={pending !== null}
                   >

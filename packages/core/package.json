@@ -10,6 +10,7 @@
   "exports": {
     ".": "./index.ts",
     "./markdown": "./markdown/index.ts",
+    "./brand/blue-satin.webp": "./brand/blue-satin.webp",
     "./brand-assets": "./brand-assets.ts",
     "./git": "./git/queries.ts",
     "./types": "./types/index.ts",
@@ -20,6 +21,7 @@
     "./api/schemas": "./api/schemas.ts",
     "./api/ws-client": "./api/ws-client.ts",
     "./config": "./config/index.ts",
+    "./auth/agent-art": "./auth/agent-art.ts",
     "./auth": "./auth/index.ts",
     "./workspace": "./workspace/index.ts",
     "./workspace/queries": "./workspace/queries.ts",

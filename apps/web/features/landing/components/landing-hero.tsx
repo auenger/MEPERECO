@@ -69,7 +69,7 @@ export function LandingHero() {
             <div className="border border-white/12 bg-black/18 p-5 backdrop-blur-md sm:p-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <span className="font-mono text-micro font-semibold tracking-[0.15em] text-white/42">
-                  SILIECO SYSTEM
+                  MEPER STUDIO SYSTEM
                 </span>
                 <span className="flex items-center gap-2 text-micro text-[#8db4ff]">
                   <span className="size-1.5 rounded-full bg-[#3978f6] shadow-[0_0_12px_#3978f6]" />
@@ -162,8 +162,8 @@ const PREVIEW_COLUMNS = [
     count: 4,
     accent: "bg-[#45c486]",
     tasks: [
-      ["SILI-08", "Create the MEPERStudio workspace"],
-      ["SILI-16", "Register Sili Agent"],
+      ["SILI-08", "Create the MEPER Studio workspace"],
+      ["SILI-16", "Register Studio Agent"],
     ],
   },
 ] as const;
@@ -183,7 +183,7 @@ function ProductImage({ alt }: { alt: string }) {
                 <span className="bg-[#3978f6]" />
               </span>
               <span className="text-caption font-semibold sm:text-body">
-                MEPERStudio Workspace
+                MEPER Studio Workspace
               </span>
               <span className="hidden font-mono text-micro text-black/38 sm:inline">
                 / OPERATIONS
@@ -191,7 +191,7 @@ function ProductImage({ alt }: { alt: string }) {
             </div>
             <div className="flex items-center gap-2">
               <span className="hidden rounded-full border border-black/10 px-2.5 py-1 text-micro text-black/55 sm:inline">
-                Sili Agent online
+                Studio Agent online
               </span>
               <span className="grid size-7 place-items-center rounded-full bg-[#3978f6] text-micro font-bold text-white">
                 SA

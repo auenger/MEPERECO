@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // The workspace property catalog is capped at 20 active definitions. Six

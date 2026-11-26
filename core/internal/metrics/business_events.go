@@ -2,7 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/silieco-ai/silieco/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
 )
 
 // PR3: funnel / commercial / community counters paired with PostHog events.

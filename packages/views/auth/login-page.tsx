@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Eye, EyeOff } from "lucide-react";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
 } from "@silieco/ui/components/ui/card";
 import { Input } from "@silieco/ui/components/ui/input";
 import { Button } from "@silieco/ui/components/ui/button";
@@ -21,19 +21,16 @@ import {
 import { useAuthStore } from "@silieco/core/auth";
 import { workspaceKeys } from "@silieco/core/workspace/queries";
 import { api } from "@silieco/core/api";
+import type { LoginResponse } from "@silieco/core/api/client";
 import type { User } from "@silieco/core/types";
 import { useT } from "../i18n";
+import { SilkBackground } from "@silieco/ui/components/common/silk-background";
+import { DutyAgents } from "./duty-agents";
+import "./login.css";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface GoogleAuthConfig {
-  clientId: string;
-  redirectUri: string;
-  /** Opaque state passed through Google OAuth (e.g. "platform:desktop"). */
-  state?: string;
-}
 
 interface CliCallbackConfig {
   /** Validated localhost callback URL */
@@ -48,21 +45,12 @@ interface LoginPageProps {
   /** Called after successful login. The workspace list is seeded into React
    *  Query before this fires, so the caller can compute a destination URL. */
   onSuccess: () => void;
-  /** Google OAuth config. Omit to disable Google login. */
-  google?: GoogleAuthConfig;
   /** CLI callback config for authorizing CLI tools. */
   cliCallback?: CliCallbackConfig;
   /** Called after a token is obtained (e.g. to set cookies). */
   onTokenObtained?: () => void;
-  /** Override Google login handler (e.g. desktop opens browser externally). When provided, renders the Google button even if `google` config is omitted. */
-  onGoogleLogin?: () => void;
-  /** Slot rendered at the bottom of the sign-in card, below the
-   *  Google button. The web shell uses it for a "Prefer the desktop
-   *  app?" prompt; desktop omits it (a download prompt inside the app
-   *  would be absurd). */
+  /** Optional content below the sign-in button. */
   extra?: ReactNode;
-  /** Use direct email/password registration and login instead of email codes. */
-  passwordAuth?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -104,19 +92,22 @@ export function validateCliCallback(cliCallback: string): boolean {
 export function LoginPage({
   logo,
   onSuccess,
-  google,
   cliCallback,
   onTokenObtained,
-  onGoogleLogin,
   extra,
-  passwordAuth = false,
 }: LoginPageProps) {
   const { t } = useT("auth");
+  const { t: layoutText } = useT("layout");
   const qc = useQueryClient();
-  const [step, setStep] = useState<"email" | "code" | "cli_confirm">("email");
-  const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"email" | "code" | "set_password" | "cli_confirm">("email");
+  const [mode, setMode] = useState<"password" | "code" | "register" | "reset">("password");
   const [password, setPassword] = useState("");
-  const [passwordMode, setPasswordMode] = useState<"login" | "register">("login");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordToken, setPasswordToken] = useState("");
+  const [email, setEmail] = useState("");
+  const registering = mode === "register";
+  const [focusedField, setFocusedField] = useState<"email" | "code" | "password" | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -169,113 +160,80 @@ export function LoginPage({
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  const handleSendCode = useCallback(
-    async (e?: React.FormEvent) => {
-      e?.preventDefault();
-      if (!email) {
-        setError(t(($) => $.common.email_required));
-        return;
-      }
-      setLoading(true);
-      setError("");
-      try {
-        await useAuthStore.getState().sendCode(email);
-        setStep("code");
-        setCode("");
-        setCooldown(60);
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : `${t(($) => $.errors.send_failed)} ${t(($) => $.errors.server_unreachable)}`,
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [email, t],
-  );
-
-  const handleVerify = useCallback(
-    async (value: string) => {
-      if (value.length !== 6) return;
-      setLoading(true);
-      setError("");
-      try {
-        if (cliCallback) {
-          // CLI path: get token directly for the redirect URL
-          const { token } = await api.verifyCode(email, value);
-          localStorage.setItem("silieco_token", token);
-          api.setToken(token);
-          onTokenObtained?.();
-          redirectToCliCallback(cliCallback.url, token, cliCallback.state);
-          return;
-        }
-
-        // Normal path: seed the workspace list into the Query cache so the
-        // caller's onSuccess can read it synchronously to compute a destination
-        // URL (first workspace's slug, or /workspaces/new for zero-workspace
-        // users).
-        await useAuthStore.getState().verifyCode(email, value);
-        const wsList = await api.listWorkspaces();
-        qc.setQueryData(workspaceKeys.list(), wsList);
-        onTokenObtained?.();
-        onSuccess();
-      } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : t(($) => $.errors.code_invalid),
-        );
-        setCode("");
-        setLoading(false);
-      }
-    },
-    [email, onSuccess, cliCallback, onTokenObtained, qc, t],
-  );
-
-  const handleResend = async () => {
-    if (cooldown > 0) return;
-    setError("");
-    try {
-      await useAuthStore.getState().sendCode(email);
-      setCooldown(60);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t(($) => $.errors.resend_failed),
-      );
-    }
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || password.length < 6) {
-      setError(t(($) => $.errors.password_invalid));
+  const finishLogin = useCallback(async (response: LoginResponse) => {
+    if (cliCallback) {
+      const { token } = response;
+      localStorage.setItem("silieco_token", token);
+      api.setToken(token);
+      onTokenObtained?.();
+      redirectToCliCallback(cliCallback.url, token, cliCallback.state);
       return;
     }
-    setLoading(true);
-    setError("");
+    useAuthStore.getState().acceptLogin(response);
+    const wsList = await api.listWorkspaces();
+    qc.setQueryData(workspaceKeys.list(), wsList);
+    onTokenObtained?.();
+    onSuccess();
+  }, [cliCallback, onTokenObtained, onSuccess, qc]);
+
+  const switchMode = (next: typeof mode) => {
+    setMode(next); setStep("email"); setPassword(""); setConfirmPassword("");
+    setPasswordToken(""); setCode(""); setError(""); setFocusedField(null);
+    setShowPassword(false);
+  };
+
+  const requestCode = async () => {
+    if (mode === "register" || mode === "reset") await api.sendPasswordCode(email, mode);
+    else await api.sendCode(email);
+  };
+
+  const handleSendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!email.trim() || loading) return;
+    setLoading(true); setError("");
     try {
-      if (cliCallback) {
-        const { token } = await api.passwordAuth(passwordMode, email, password);
-        localStorage.setItem("silieco_token", token);
-        api.setToken(token);
-        onTokenObtained?.();
-        redirectToCliCallback(cliCallback.url, token, cliCallback.state);
+      if (mode === "password") {
+        await finishLogin(await api.loginPassword(email, password));
         return;
       }
-      await useAuthStore.getState().passwordAuth(passwordMode, email, password);
-      const wsList = await api.listWorkspaces();
-      qc.setQueryData(workspaceKeys.list(), wsList);
-      onTokenObtained?.();
-      onSuccess();
+      await requestCode(); setStep("code"); setCode(""); setCooldown(60);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : t(($) => $.errors.password_failed),
-      );
-    } finally {
-      setLoading(false);
-    }
+      setError(err instanceof Error ? err.message : t(($) => $.errors.send_failed));
+    } finally { setLoading(false); }
+  };
+
+  const handleVerify = async (value: string) => {
+    if (value.length !== 6 || loading) return;
+    setLoading(true); setError("");
+    try {
+      if (mode === "register" || mode === "reset") {
+        const { token } = await api.verifyPasswordCode(email, value, mode);
+        setPasswordToken(token); setStep("set_password"); setCode("");
+        return;
+      }
+      await finishLogin(await api.verifyCode(email, value));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t(($) => $.errors.code_invalid)); setCode("");
+    } finally { setLoading(false); }
+  };
+
+  const handleCompletePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loading) return;
+    if (password !== confirmPassword) { setError(t(($) => $.errors.password_mismatch)); return; }
+    if (Array.from(password).length < 12 || new TextEncoder().encode(password).length > 72) { setError(t(($) => $.errors.password_invalid)); return; }
+    setLoading(true); setError("");
+    try { await finishLogin(await api.completePassword(passwordToken, password)); setPasswordToken(""); }
+    catch (err) { setError(err instanceof Error ? err.message : t(($) => $.errors.password_failed)); }
+    finally { setLoading(false); }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0 || loading) return;
+    setLoading(true); setError("");
+    try { await requestCode(); setCooldown(60); setCode(""); }
+    catch (err) { setError(err instanceof Error ? err.message : t(($) => $.errors.resend_failed)); }
+    finally { setLoading(false); }
   };
 
   const handleCliAuthorize = async () => {
@@ -304,24 +262,6 @@ export function LoginPage({
       setStep("email");
       setLoading(false);
     }
-  };
-
-  const handleGoogleLogin = () => {
-    if (onGoogleLogin) {
-      onGoogleLogin();
-      return;
-    }
-    if (!google) return;
-    const params = new URLSearchParams({
-      client_id: google.clientId,
-      redirect_uri: google.redirectUri,
-      response_type: "code",
-      scope: "openid email profile",
-      access_type: "offline",
-      prompt: "select_account",
-    });
-    if (google.state) params.set("state", google.state);
-    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
   };
 
   // -------------------------------------------------------------------------
@@ -368,204 +308,122 @@ export function LoginPage({
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Code verification step
-  // -------------------------------------------------------------------------
-
-  if (step === "code") {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
-            {logo && <div className="mx-auto mb-4">{logo}</div>}
-            <CardTitle className="text-display-sm">
-              {t(($) => $.verify.title)}
-            </CardTitle>
-            <CardDescription>
-              {t(($) => $.verify.description, { email })}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <InputOTP
-              autoFocus
-              maxLength={6}
-              value={code}
-              onChange={(value) => {
-                setCode(value);
-                if (value.length === 6) handleVerify(value);
-              }}
-              disabled={loading}
-            >
-              <InputOTPGroup>
-                <InputOTPSlot index={0} />
-                <InputOTPSlot index={1} />
-                <InputOTPSlot index={2} />
-                <InputOTPSlot index={3} />
-                <InputOTPSlot index={4} />
-                <InputOTPSlot index={5} />
-              </InputOTPGroup>
-            </InputOTP>
-            {error && (
-              <p className="text-body text-destructive">{error}</p>
-            )}
-            <div className="flex items-center gap-2 text-body text-muted-foreground">
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={cooldown > 0}
-                className="text-primary underline-offset-4 hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
-              >
-                {cooldown > 0
-                  ? t(($) => $.verify.resend_cooldown, { seconds: cooldown })
-                  : t(($) => $.verify.resend)}
-              </button>
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setStep("email");
-                setCode("");
-                setError("");
-              }}
-            >
-              {t(($) => $.common.back)}
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Email step
-  // -------------------------------------------------------------------------
-
+  const verifying = step === "code";
+  const creatingPassword = step === "set_password";
   return (
-    <div className="flex min-h-svh items-center justify-center">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          {logo && <div className="mx-auto mb-4">{logo}</div>}
-          <CardTitle className="text-display-sm">
-            {t(($) => $.signin.title)}
-          </CardTitle>
-          <CardDescription>
-            {t(($) => $.signin.description)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            id="login-form"
-            onSubmit={passwordAuth ? handlePasswordSubmit : handleSendCode}
-            className="space-y-4"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="login-email">{t(($) => $.common.email)}</Label>
-              <Input
-                id="login-email"
-                type="email"
-                placeholder={t(($) => $.common.email_placeholder)}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+    <div className="duty-page">
+      <SilkBackground className="duty-backdrop" />
+      <div className="duty-brand">{logo}<span>{layoutText(($) => $.sidebar.brand_name)}</span></div>
+      <section className="duty-card" aria-labelledby="duty-title">
+        <DutyAgents
+          looking={!verifying && focusedField === "email"}
+          privateEntry={focusedField === "code" || focusedField === "password"}
+          registering={registering}
+          verifying={verifying || creatingPassword}
+        />
+        <div className="duty-content">
+          <header>
+            <h1 id="duty-title">
+              {verifying ? t(($) => $.verify.title) : creatingPassword ? t(($) => $.password.title) : registering ? t(($) => $.signin.create) : mode === "reset" ? t(($) => $.password.reset) : t(($) => $.signin.welcome)}
+            </h1>
+            <p className="duty-description">
+              {verifying ? t(($) => $.verify.description, { email }) : creatingPassword ? t(($) => $.password.description) : mode === "password" ? t(($) => $.password.login_description) : t(($) => $.signin.description)}
+            </p>
+          </header>
+          {verifying ? (
+            <>
+              <InputOTP
                 autoFocus
-                required
-              />
-            </div>
-            {passwordAuth && (
-              <div className="space-y-2">
-                <Label htmlFor="login-password">
-                  {t(($) => $.common.password)}
-                </Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  placeholder={t(($) => $.common.password_placeholder)}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={
-                    passwordMode === "register"
-                      ? "new-password"
-                      : "current-password"
-                  }
-                  minLength={6}
-                  required
-                />
+                aria-label={t(($) => $.verify.label)}
+                aria-invalid={!!error}
+                aria-describedby={error ? "duty-error" : undefined}
+                onFocus={() => setFocusedField("code")}
+                onBlur={() => setFocusedField(null)}
+                maxLength={6}
+                value={code}
+                onChange={(value) => {
+                  setCode(value);
+                  if (value.length === 6) void handleVerify(value);
+                }}
+                disabled={loading}
+              >
+                <InputOTPGroup className="gap-2">
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <InputOTPSlot key={index} index={index} className="h-11 w-9 rounded-lg border sm:w-11" />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+              {error && <p id="duty-error" role="alert" className="text-body text-destructive">{error}</p>}
+              <div className="duty-actions">
+                <button type="button" className="duty-switch" disabled={loading} onClick={() => {
+                  setStep("email");
+                  setCode("");
+                  setError("");
+                  setFocusedField(null);
+                }}>{t(($) => $.verify.change_email)}</button>
+                <button type="button" className="duty-switch" disabled={cooldown > 0 || loading} onClick={handleResend}>
+                  {cooldown > 0 ? t(($) => $.verify.resend_cooldown, { seconds: cooldown }) : t(($) => $.verify.resend)}
+                </button>
               </div>
-            )}
-            {error && (
-              <p className="text-body text-destructive">{error}</p>
-            )}
-          </form>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button
-            type="submit"
-            form="login-form"
-            className="w-full"
-            size="lg"
-            disabled={!email || loading || (passwordAuth && password.length < 6)}
-          >
-            {loading
-              ? t(($) => $.signin.sending)
-              : passwordAuth
-                ? passwordMode === "register"
-                  ? t(($) => $.signin.register)
-                  : t(($) => $.signin.login)
-                : t(($) => $.signin.continue)}
-          </Button>
-          {passwordAuth && (
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setPasswordMode((mode) =>
-                  mode === "login" ? "register" : "login",
-                );
-                setError("");
-              }}
-            >
-              {passwordMode === "login"
-                ? t(($) => $.signin.switch_to_register)
-                : t(($) => $.signin.switch_to_login)}
-            </Button>
+            </>
+          ) : creatingPassword ? (
+            <form className="duty-form" onSubmit={handleCompletePassword}>
+              <Label htmlFor="new-password">{t(($) => $.password.new)}</Label>
+              <div className="relative">
+                <Input id="new-password" type={showPassword ? "text" : "password"} autoComplete="new-password" required value={password} onChange={e => setPassword(e.target.value)} onFocus={() => setFocusedField("password")} onBlur={() => setFocusedField(null)} className="pr-11" />
+                <button type="button" className="absolute inset-y-0 right-2 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? t(($) => $.password.hide) : t(($) => $.password.show)} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+              </div>
+              <Label htmlFor="confirm-password">{t(($) => $.password.confirm)}</Label>
+              <Input id="confirm-password" type={showPassword ? "text" : "password"} autoComplete="new-password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} onFocus={() => setFocusedField("password")} onBlur={() => setFocusedField(null)} />
+              {error && <p role="alert" className="text-body text-destructive">{error}</p>}
+              <Button type="submit" variant="brand" disabled={loading || !password || !confirmPassword}>{loading ? t(($) => $.signin.sending) : t(($) => $.password.complete)}</Button>
+              <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode(mode)}>{t(($) => $.verify.change_email)}</button>
+            </form>
+          ) : (
+            <>
+              <form className="duty-form" onSubmit={handleSendCode}>
+                <Label htmlFor="login-email">{t(($) => $.common.email)}</Label>
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  readOnly={loading}
+                  aria-invalid={!!error}
+                  aria-describedby={error ? "duty-error" : undefined}
+                  placeholder={t(($) => $.common.email_placeholder)}
+                  value={email}
+                  onFocus={() => setFocusedField("email")}
+                  onBlur={() => setFocusedField(null)}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                {mode === "password" && <>
+                  <Label htmlFor="login-password">{t(($) => $.password.label)}</Label>
+                  <div className="relative">
+                    <Input id="login-password" type={showPassword ? "text" : "password"} autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} readOnly={loading} onFocus={() => setFocusedField("password")} onBlur={() => setFocusedField(null)} className="pr-11" />
+                    <button type="button" className="absolute inset-y-0 right-2 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label={showPassword ? t(($) => $.password.hide) : t(($) => $.password.show)} aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+                  </div>
+                </>}
+                {error && <p id="duty-error" role="alert" className="text-body text-destructive">{error}</p>}
+                <Button type="submit" variant="brand" disabled={!email.trim() || loading || (mode === "password" && !password)}>
+                  {loading ? t(($) => $.signin.sending) : mode === "password" ? t(($) => $.password.login) : t(($) => $.signin.continue)}
+                </Button>
+              </form>
+              <div className="duty-actions">
+                {mode === "password" ? <>
+                  <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode("code")}>{t(($) => $.password.code_login)}</button>
+                  <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode("reset")}>{t(($) => $.password.reset)}</button>
+                  <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode("register")}>{t(($) => $.signin.create)}</button>
+                </> : <>
+                  <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode("password")}>{t(($) => $.password.login)}</button>
+                  {mode === "code" && <button type="button" className="duty-switch" disabled={loading} onClick={() => switchMode("register")}>{t(($) => $.signin.create)}</button>}
+                </>}
+              </div>
+            </>
           )}
-          {(google || onGoogleLogin) && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              size="lg"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-            >
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
-              </svg>
-              {t(($) => $.signin.google)}
-            </Button>
-          )}
-          {extra && <div className="w-full pt-1 text-center">{extra}</div>}
-        </CardFooter>
-      </Card>
+        </div>
+      </section>
+      {extra}
     </div>
   );
 }

@@ -30,13 +30,13 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/silieco-ai/silieco/core/internal/analytics"
-	"github.com/silieco-ai/silieco/core/internal/logger"
-	obsmetrics "github.com/silieco-ai/silieco/core/internal/metrics"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	"github.com/silieco-ai/silieco/core/internal/taskguard"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
+	"github.com/auenger/MEPERECO/core/internal/analytics"
+	"github.com/auenger/MEPERECO/core/internal/logger"
+	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	"github.com/auenger/MEPERECO/core/internal/taskguard"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 )
 
 // Runtime bootstrap is just workspace_id + runtime_id, but keep a separate
@@ -50,8 +50,8 @@ const runtimeBootstrapBodyLimit = 8 * 1024
 const maxStarterPromptLen = 2 * 1024
 
 const (
-	onboardingAssistantName = "Sili Agent"
-	onboardingTaskTitle     = "Start here: learn MEPERStudio with Sili Agent"
+	onboardingAssistantName = "MEPER Agent"
+	onboardingTaskTitle     = "Start here: learn MEPERStudio with MEPER Agent"
 	onboardingAgentTemplate = "silieco_helper"
 
 	// noRuntimeTaskTitle MUST match the pre-v3 service constant so
@@ -64,28 +64,28 @@ const onboardingAssistantDescription = "Your built-in MEPERStudio agent for prod
 const onboardingAssistantAvatarURL = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%20width%3D%22256%22%20height%3D%22256%22%20role%3D%22img%22%3E%3Ctitle%3EMEPER%20Studio%20meper-studio-app%3C%2Ftitle%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22m-left%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%2307A8CE%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230879DC%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22m-right%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%231886EC%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231246C8%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22tile%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%23248DF2%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23123DAE%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%22256%22%20height%3D%22256%22%20rx%3D%2258.112%22%20fill%3D%22url%28%23tile%29%22%20%2F%3E%3Cg%20transform%3D%22translate%2835.84%2032.256%29%20scale%281.7715199999999998%29%22%20opacity%3D%221%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M7%2086V24L20%2017L46%2043L34%2055L27%2048V86Z%22%2F%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M41%2061L83%2017L96%2024V86H76V49L55%2075Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
 
 // onboardingAssistantInstructions is the system prompt persisted on every
-// Sili Agent created by this shim. Pre-v3 desktop submits a
+// MEPER Agent created by this shim. Pre-v3 desktop submits a
 // starter prompt from the workspace OnboardingHelperModal; that prompt
 // becomes the task body, while this constant becomes the agent's identity
 // block in CLAUDE.md / AGENTS.md / GEMINI.md. v3 frontend has its own
 // in-views copy of this string (`packages/views/onboarding/templates/
 // helper-instructions.ts`) — these two must stay in sync until the shim
 // is removed.
-const onboardingAssistantInstructions = `You are Sili Agent, the built-in AI assistant for this MEPERStudio workspace. Your role is to help any member use MEPERStudio better — answer questions, give advice, and execute workspace operations on their behalf.
+const onboardingAssistantInstructions = `You are MEPER Agent, the built-in AI assistant for this MEPERStudio workspace. Your role is to help any member use MEPERStudio better — answer questions, give advice, and execute workspace operations on their behalf.
 
 ## What MEPERStudio is
 
-MEPERStudio is an open-source, AI-native team workspace (source: https://github.com/silieco-ai/silieco). The core idea: AI agents are treated as real teammates — they get assigned tasks on a kanban-style board, comment in threads, change status, and run code, exactly like human members. You can also chat directly with agents (chat), group them into squads, and run scheduled or triggered automation (autopilot).
+MEPERStudio is an open-source, AI-native team workspace (source: https://github.com/auenger/MEPERECO). The core idea: AI agents are treated as real teammates — they get assigned tasks on a kanban-style board, comment in threads, change status, and run code, exactly like human members. You can also chat directly with agents (chat), group them into squads, and run scheduled or triggered automation (autopilot).
 
-For concept details (workspace / task / project / agent / runtime / skill / squad / autopilot / inbox / chat session): fetch https://silieco.ai/docs via WebFetch — that's authoritative. For the "why" or implementation, fetch the GitHub repo above. Never paraphrase concepts from memory.
+For concept details (workspace / task / project / agent / runtime / skill / squad / autopilot / inbox / chat session): fetch https://studio.meper.cn/docs via WebFetch — that's authoritative. For the "why" or implementation, fetch the GitHub repo above. Never paraphrase concepts from memory.
 
-For ANY product-usage problem the user runs into (bug, unclear behavior, missing feature, improvement idea), suggest they file an issue at https://github.com/silieco-ai/silieco/issues — that's the official feedback channel.
+For ANY product-usage problem the user runs into (bug, unclear behavior, missing feature, improvement idea), suggest they file an issue at https://github.com/auenger/MEPERECO/issues — that's the official feedback channel.
 
 ## What you can do
 
-Your toolbox is the ` + "`silieco`" + ` CLI. It's already on your PATH and authenticated as the workspace owner.
+Your toolbox is the ` + "`meperstudio`" + ` CLI. It's already on your PATH and authenticated as the workspace owner.
 
-Your full capability surface = whatever ` + "`silieco --help`" + ` shows. Run ` + "`silieco --help`" + ` first, then ` + "`silieco <command> --help`" + ` for any subcommand; use ` + "`--output json`" + ` for structured data. The CLI is your manifest — never invent commands or flags.
+Your full capability surface = whatever ` + "`meperstudio --help`" + ` shows. Run ` + "`meperstudio --help`" + ` first, then ` + "`meperstudio <command> --help`" + ` for any subcommand; use ` + "`--output json`" + ` for structured data. The CLI is your manifest — never invent commands or flags.
 
 A few things you can actually do (non-exhaustive — ` + "`--help`" + ` is the source of truth):
 - Create tasks, post comments
@@ -98,11 +98,11 @@ Be concise and direct, like a colleague. Respond in the user's language (Chinese
 
 const onboardingTaskDescription = `Welcome to MEPERStudio.
 
-This is your guided first run. Sili Agent is assigned to this task and will help you try the core workflow:
+This is your guided first run. MEPER Agent is assigned to this task and will help you try the core workflow:
 
-1. Read Sili Agent's first comment.
+1. Read MEPER Agent's first comment.
 2. Reply with something you want to build, fix, write, or plan.
-3. @mention Sili Agent when you want it to continue.
+3. @mention MEPER Agent when you want it to continue.
 4. Open Agents and Runtimes later when you want to customize the teammate or the computer it runs on.
 
 You can close this task when the workflow makes sense.`
@@ -130,7 +130,7 @@ type bootstrapOnboardingNoRuntimeResponse struct {
 
 // BootstrapOnboardingRuntime — DEPRECATED, kept for desktop < v3.
 //
-// Creates or reuses one "Sili Agent" on the supplied runtime,
+// Creates or reuses one "MEPER Agent" on the supplied runtime,
 // creates or reuses one onboarding task assigned to it, then marks the
 // user onboarded. Single transaction.
 func (h *Handler) BootstrapOnboardingRuntime(w http.ResponseWriter, r *http.Request) {
@@ -207,7 +207,7 @@ func (h *Handler) BootstrapOnboardingRuntime(w http.ResponseWriter, r *http.Requ
 	var assistant db.Agent
 	assistantCreated := false
 	for _, existing := range agents {
-		if existing.Name == onboardingAssistantName && existing.Visibility == "workspace" {
+		if (existing.Name == onboardingAssistantName || existing.Name == "Sili Agent") && existing.Visibility == "workspace" {
 			assistant = existing
 			break
 		}
@@ -249,9 +249,12 @@ func (h *Handler) BootstrapOnboardingRuntime(w http.ResponseWriter, r *http.Requ
 	}
 	// The product rename must not create a second onboarding task for an
 	// existing workspace that already has the old titled task.
-	if !foundTask {
+	for _, legacyTitle := range []string{"Start here: learn MEPERStudio with Sili Agent", "Start here: learn Silieco with Sili Agent"} {
+		if foundTask {
+			break
+		}
 		task, foundTask, err = taskguard.LockAndFindActiveDuplicate(
-			r.Context(), qtx, wsUUID, emptyUUID, emptyUUID, "Start here: learn Silieco with Sili Agent", false,
+			r.Context(), qtx, wsUUID, emptyUUID, emptyUUID, legacyTitle, false,
 		)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to check existing onboarding task")
@@ -523,7 +526,7 @@ func enNoRuntimeTaskDescription() string {
 		"",
 		"## Install your first agent runtime",
 		"",
-		"Full guide: https://silieco.ai/docs/install-agent-runtime",
+		"Full guide: https://studio.meper.cn/docs/install-agent-runtime",
 		"",
 		"For English users, the fastest first path is Codex:",
 		"",
@@ -536,14 +539,14 @@ func enNoRuntimeTaskDescription() string {
 		"   which codex",
 		"   codex --version",
 		"5. Restart the MEPERStudio daemon:",
-		"   silieco daemon restart",
+		"   meperstudio daemon restart",
 		"   If you use the desktop app, restarting the app is enough.",
 		"6. Return to Runtimes and refresh. You should see a Codex runtime online.",
 		"7. Create your first agent from that runtime, then assign an task to the agent and set status to todo.",
 		"",
 		"Codex reference: https://developers.openai.com/codex/cli",
 		"",
-		"When the runtime is connected, you can create Sili Agent for a guided first run.",
+		"When the runtime is connected, you can create MEPER Agent for a guided first run.",
 	}, "\n")
 }
 
@@ -566,7 +569,7 @@ func zhNoRuntimeTaskDescription() string {
 		"",
 		"## 安装第一个 Agent 运行时",
 		"",
-		"完整文档：https://silieco.ai/docs/install-agent-runtime",
+		"完整文档：https://studio.meper.cn/docs/install-agent-runtime",
 		"",
 		"中文用户建议先装 Kimi CLI：",
 		"",
@@ -580,14 +583,14 @@ func zhNoRuntimeTaskDescription() string {
 		"   kimi",
 		"4. 首次启动后输入 /login，按提示完成 Kimi Code 或 API key 配置。",
 		"5. 重启 MEPERStudio 守护进程：",
-		"   silieco daemon restart",
+		"   meperstudio daemon restart",
 		"   如果你用桌面端，重启 app 即可。",
 		"6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。",
 		"7. 用这个运行时创建第一个智能体，再把一个 task 分配给它，并把状态切到 todo。",
 		"",
 		"Kimi CLI 官方文档：https://moonshotai.github.io/kimi-cli/zh/guides/getting-started.html",
 		"",
-		"运行时连上后，你就可以创建 Sili Agent，开始一次有智能体参与的上手引导。",
+		"运行时连上后，你就可以创建 MEPER Agent，开始一次有智能体参与的上手引导。",
 	}, "\n")
 }
 

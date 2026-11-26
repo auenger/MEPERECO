@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/silieco-ai/silieco/core/internal/agentconfig"
+	"github.com/auenger/MEPERECO/core/internal/agentconfig"
 )
 
 func validateAgentMaxConcurrentRunsFlag(value int32) error {

@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/branding"
 	"log/slog"
 	"os"
 	"runtime"
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
 )
 
 var (
-	version = "dev"
+	version = "1.0.0"
 	commit  = "unknown"
 	date    = "unknown"
 )
@@ -24,7 +25,7 @@ var (
 var debugFlag bool
 
 var rootCmd = &cobra.Command{
-	Use:           "silieco",
+	Use:           "meperstudio",
 	Short:         "MEPERStudio CLI — local agent runtime and management tool",
 	Long:          "Work seamlessly with MEPERStudio from the command line.",
 	SilenceUsage:  true,
@@ -33,16 +34,16 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)\ngo: %s, os/arch: %s/%s", version, commit, date, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-	rootCmd.SetVersionTemplate("silieco {{.Version}}\n")
+	rootCmd.SetVersionTemplate(rootCmd.Name() + " {{.Version}}\n")
 
 	// Tag every CLI HTTP request with this binary's build version so the
 	// server can split logs/metrics by client version.
 	cli.ClientVersion = version
 
-	rootCmd.PersistentFlags().String("server-url", "", "MEPERStudio server URL (env: SILIECO_SERVER_URL)")
-	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: SILIECO_WORKSPACE_ID)")
+	rootCmd.PersistentFlags().String("server-url", "", "MEPERStudio server URL (env: MEPERSTUDIO_SERVER_URL)")
+	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: MEPERSTUDIO_WORKSPACE_ID)")
 	rootCmd.PersistentFlags().String("profile", "", "Configuration profile name (e.g. dev) — isolates config, daemon state, and workspaces")
-	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print full error details on failure (env: SILIECO_DEBUG)")
+	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print full error details on failure (env: MEPERSTUDIO_DEBUG)")
 
 	// Core commands
 	taskCmd.GroupID = groupCore
@@ -98,6 +99,7 @@ func init() {
 }
 
 func main() {
+	branding.ApplyEnvAliases()
 	if len(os.Args) == 2 && os.Args[1] == execenv.PreparationHelperArg {
 		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 		if err := execenv.RunPreparationHelper(os.Stdin, os.Stdout, logger); err != nil {
@@ -109,7 +111,7 @@ func main() {
 	cli.CleanupStaleUpdateArtifacts()
 	if err := rootCmd.Execute(); err != nil {
 		if err != errSilent {
-			fmt.Fprintln(os.Stderr, cli.FormatError(err, debugFlag))
+			fmt.Fprintln(os.Stderr, cli.BrandCLIText(cli.FormatError(err, debugFlag)))
 		}
 		os.Exit(cli.ExitCodeFor(err))
 	}

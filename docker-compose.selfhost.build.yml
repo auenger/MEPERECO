@@ -3,19 +3,19 @@
 
 services:
   backend:
-    image: silieco-backend:dev
+    image: ${MEPERSTUDIO_BACKEND_IMAGE:-${SILIECO_BACKEND_IMAGE:-meperstudio-backend}}:${MEPERSTUDIO_IMAGE_TAG:-${SILIECO_IMAGE_TAG:-1.0.0}}
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        VERSION: ${VERSION:-dev}
+        VERSION: ${VERSION:-1.0.0}
         COMMIT: ${COMMIT:-unknown}
         DATE: ${DATE:-unknown}
 
   frontend:
-    image: silieco-web:dev
+    image: ${MEPERSTUDIO_WEB_IMAGE:-${SILIECO_WEB_IMAGE:-meperstudio-web}}:${MEPERSTUDIO_IMAGE_TAG:-${SILIECO_IMAGE_TAG:-1.0.0}}
     build:
       context: .
       dockerfile: Dockerfile.web
       args:
-        NEXT_PUBLIC_APP_VERSION: dev
+        NEXT_PUBLIC_APP_VERSION: ${VERSION:-1.0.0}

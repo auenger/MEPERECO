@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/silieco-ai/silieco/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/auth"
 )
 
 // Attachment download capabilities — SILI-5292.

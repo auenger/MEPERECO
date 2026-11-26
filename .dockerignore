@@ -6,6 +6,8 @@ node_modules
 # Build outputs
 .next
 **/.next
+**/source.generated.ts
+**/*.tsbuildinfo
 **/out
 dist
 core/bin
@@ -44,3 +46,9 @@ apps/desktop
 apps/mobile
 apps/docs
 apps/web/public/downloads
+
+# Built in the web image CLI distribution stage
+apps/web/public/cli/*.tar.gz
+apps/web/public/cli/*.zip
+apps/web/public/cli/checksums.txt
+apps/web/public/cli/version.txt

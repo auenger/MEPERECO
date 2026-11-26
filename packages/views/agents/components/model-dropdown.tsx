@@ -19,17 +19,18 @@ import { useT } from "../../i18n";
 // daemon enumerates models on demand via heartbeat piggyback. Providers
 // whose runtime ignores per-agent model selection return supported=false,
 // and the dropdown renders disabled with an explanation instead of silently
-// accepting a value the backend would ignore. No built-in provider does so
-// today — Antigravity gained `--model` in agy 1.0.6 — but the path stays for
-// any future model-less runtime.
+// accepting a value the backend would ignore. ZCode owns its model selection
+// on the runtime machine, including providers configured via Magpie.
 export function ModelDropdown({
   runtimeId,
+  runtimeProvider,
   runtimeOnline,
   value,
   onChange,
   disabled,
 }: {
   runtimeId: string | null;
+  runtimeProvider?: string | null;
   runtimeOnline: boolean;
   value: string;
   onChange: (value: string) => void;
@@ -40,10 +41,10 @@ export function ModelDropdown({
   const [search, setSearch] = useState("");
 
   const modelsQuery = useQuery(
-    runtimeModelsOptions(runtimeOnline ? runtimeId : null),
+    runtimeModelsOptions(runtimeOnline && runtimeProvider !== "zcode" ? runtimeId : null),
   );
 
-  const supported = modelsQuery.data?.supported ?? true;
+  const supported = runtimeProvider !== "zcode" && (modelsQuery.data?.supported ?? true);
   // Stable reference for the model list — `?? []` would mint a fresh
   // array each render and force every downstream useMemo to invalidate.
   const models = useMemo(
@@ -107,7 +108,9 @@ export function ModelDropdown({
           <div className="min-w-0">
             <div>{t(($) => $.model_dropdown.managed_by_runtime_title)}</div>
             <div className="mt-0.5 text-caption">
-              {t(($) => $.model_dropdown.managed_by_runtime_hint)}
+              {runtimeProvider === "zcode"
+                ? t(($) => $.model_dropdown.zcode_managed_hint)
+                : t(($) => $.model_dropdown.managed_by_runtime_hint)}
             </div>
           </div>
         </div>

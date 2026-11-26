@@ -3,7 +3,7 @@ package metrics
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/silieco-ai/silieco/core/internal/realtime"
+	"github.com/auenger/MEPERECO/core/internal/realtime"
 )
 
 type RealtimeCollector struct {

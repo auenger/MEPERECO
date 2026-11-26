@@ -3,13 +3,13 @@
 // deliberately omits `daemon_app_url` for the managed cloud (and for any
 // self-hosted server that has not set SILIECO_APP_URL / FRONTEND_ORIGIN), so
 // this literal must remain the ultimate fallback.
-const BRAND_WORKSPACE_HOST = "silieco.ai";
+const BRAND_WORKSPACE_HOST = "studio.meper.cn";
 
 /**
  * Host rendered as the `<host>/<slug>` workspace URL prefix in the
  * create-workspace and onboarding UI. Derived from the deployment's app URL
  * (`daemon_app_url` from `/api/config`, surfaced through the config store) so
- * self-hosted instances show their own domain instead of `silieco.ai`. Falls
+ * self-hosted instances show their own domain instead of `studio.meper.cn`. Falls
  * back to the brand host when no app URL is configured.
  */
 export function workspaceUrlHost(

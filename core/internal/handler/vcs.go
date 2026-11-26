@@ -10,13 +10,13 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/auenger/MEPERECO/core/internal/integrations/vcs"
+	"github.com/auenger/MEPERECO/core/internal/middleware"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/pkg/protocol"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/integrations/vcs"
-	"github.com/silieco-ai/silieco/core/internal/middleware"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
-	"github.com/silieco-ai/silieco/core/pkg/protocol"
 )
 
 // ── Response shapes ─────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ func (h *Handler) ConnectVCS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.isVCSConfigured() {
-		writeError(w, http.StatusServiceUnavailable, "vcs integration not configured (SILIECO_VCS_SECRET_KEY unset)")
+		writeError(w, http.StatusServiceUnavailable, "vcs integration not configured (MEPERSTUDIO_VCS_SECRET_KEY unset)")
 		return
 	}
 
@@ -311,7 +311,7 @@ func (h *Handler) RotateVCSConnectionWebhook(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if !h.isVCSConfigured() {
-		writeError(w, http.StatusServiceUnavailable, "vcs integration not configured (SILIECO_VCS_SECRET_KEY unset)")
+		writeError(w, http.StatusServiceUnavailable, "vcs integration not configured (MEPERSTUDIO_VCS_SECRET_KEY unset)")
 		return
 	}
 

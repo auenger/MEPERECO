@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/cli"
 )
 
 // buildMetadataFilterQueryParam converts repeated `--metadata key=value`
@@ -54,7 +54,7 @@ func buildMetadataFilterQueryParam(pairs []string) (string, error) {
 	return string(buf), nil
 }
 
-// silieco task metadata {list|get|set|delete} — KV map attached to each task
+// meperstudio task metadata {list|get|set|delete} — KV map attached to each task
 // for agent pipeline state. See core/internal/handler/task_metadata.go for
 // the constraints (key regex, 50-key cap, primitive-only values, 8KB blob).
 

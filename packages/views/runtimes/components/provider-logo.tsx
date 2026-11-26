@@ -335,6 +335,8 @@ export function ProviderLogo({
       return <TraeLogo className={className} />;
     case "grok":
       return <GrokLogo className={className} />;
+    case "zcode":
+      return <svg viewBox="0 0 24 24" className={className} aria-hidden><rect x="1" y="1" width="22" height="22" rx="5" fill="currentColor" opacity=".12"/><path d="M6 7h12L6 17h12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
     case "qwen":
       return <QwenLogo className={className} />;
     default:

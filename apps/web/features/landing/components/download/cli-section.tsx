@@ -5,9 +5,9 @@ import { Check, Copy, Terminal } from "lucide-react";
 import { copyText } from "@silieco/ui/lib/clipboard";
 import { useLocale } from "../../i18n";
 
-const INSTALL_CMD =
-  "curl -fsSL https://raw.githubusercontent.com/silieco-ai/silieco/main/scripts/install.sh | bash";
-const SETUP_CMD = "silieco setup";
+import { cliCommands } from "@silieco/views/common/cli-commands";
+
+const { installCmd: INSTALL_CMD, setupCmd: SETUP_CMD, windowsInstallCmd: WINDOWS_INSTALL_CMD } = cliCommands();
 
 /**
  * Scenario-first CLI section. Copy leans into servers / remote dev
@@ -30,8 +30,14 @@ export function CliSection() {
 
         <div className="mt-10 flex flex-col gap-5">
           <CommandBlock
-            label={d.installLabel}
+            label={`${d.installLabel} (macOS / Linux)`}
             cmd={INSTALL_CMD}
+            copyLabel={d.copyLabel}
+            copiedLabel={d.copiedLabel}
+          />
+          <CommandBlock
+            label={`${d.installLabel} (Windows PowerShell)`}
+            cmd={WINDOWS_INSTALL_CMD}
             copyLabel={d.copyLabel}
             copiedLabel={d.copiedLabel}
           />

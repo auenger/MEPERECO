@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	sdk "github.com/silieco-ai/silieco/core/pkg/composio"
+	sdk "github.com/auenger/MEPERECO/core/pkg/composio"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/silieco-ai/silieco/core/internal/util"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // Service-level errors surfaced to the handler layer.
@@ -97,11 +97,11 @@ type Config struct {
 	// StateSecret signs the connect-state HMAC. Required (non-empty).
 	StateSecret []byte
 	// CallbackBaseURL is the absolute, public base URL of THIS API, with no
-	// trailing slash (e.g. "https://silieco.ai"). The Composio callback
+	// trailing slash (e.g. "https://studio.meper.cn"). The Composio callback
 	// URL is built as CallbackBaseURL + CallbackPath. Required.
 	CallbackBaseURL string
 	// FrontendBaseURL is the web app base used to build the post-callback
-	// browser redirect (e.g. "https://silieco.ai"). May be empty, in which
+	// browser redirect (e.g. "https://studio.meper.cn"). May be empty, in which
 	// case CallbackRedirect returns a site-relative path.
 	FrontendBaseURL string
 	// StateTTL overrides the default connect-state lifetime. Zero uses

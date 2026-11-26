@@ -13,9 +13,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/silieco-ai/silieco/core/internal/cli"
-	"github.com/silieco-ai/silieco/core/internal/daemon"
-	"github.com/silieco-ai/silieco/core/internal/daemon/execenv"
+	"github.com/auenger/MEPERECO/core/internal/cli"
+	"github.com/auenger/MEPERECO/core/internal/daemon"
+	"github.com/auenger/MEPERECO/core/internal/daemon/execenv"
 )
 
 var agentCmd = &cobra.Command{
@@ -86,7 +86,7 @@ var agentSkillsCmd = &cobra.Command{
 
 // Agent env subcommands. Live behind a dedicated `agent env` group because
 // they're the ONLY post-creation path for reading or writing
-// custom_env values — `silieco agent list / get / update` no longer
+// custom_env values — `meperstudio agent list / get / update` no longer
 // expose env on the wire. Each call hits the audited
 // `/api/agents/{id}/env` endpoint. See SILI-2600.
 
@@ -190,7 +190,7 @@ func init() {
 	agentUpdateCmd.Flags().String("service-tier", "", "New Codex execution service tier from the selected model's runtime catalog. Pass an empty string to clear and inherit local Codex configuration.")
 	agentUpdateCmd.Flags().String("custom-args", "", "New custom CLI arguments as JSON array. For model selection prefer --model; some providers (codex app-server, openclaw) reject --model in custom_args.")
 	// custom_env is intentionally NOT part of `agent update`. Use
-	// `silieco agent env set <id>` — that path admits the agent owner or a
+	// `meperstudio agent env set <id>` — that path admits the agent owner or a
 	// workspace owner/admin, denies agent actors, and writes a persisted
 	// audit trail.
 	//
@@ -257,7 +257,7 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 	token := resolveToken(cmd)
 
 	if serverURL == "" {
-		return nil, fmt.Errorf("server URL not set: use --server-url flag, SILIECO_SERVER_URL env, or 'silieco config set server_url <url>'")
+		return nil, fmt.Errorf("server URL not set: use --server-url flag, SILIECO_SERVER_URL env, or 'meperstudio config set server_url <url>'")
 	}
 	if inDaemonManagedExecutionContext() && !strings.HasPrefix(token, "mat_") {
 		// When the ONLY daemon signal is a workdir marker (no SILIECO_AGENT_ID /
@@ -285,8 +285,8 @@ func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
 }
 
 const (
-	defaultCloudServerURL = "https://api.silieco.ai"
-	defaultCloudAppURL    = "https://silieco.ai"
+	defaultCloudServerURL = "https://studio.meper.cn"
+	defaultCloudAppURL    = "https://studio.meper.cn"
 )
 
 func tryResolveServerURL(cmd *cobra.Command) string {
@@ -306,7 +306,7 @@ func resolveServerURL(cmd *cobra.Command) string {
 	if val := tryResolveServerURL(cmd); val != "" {
 		return val
 	}
-	fmt.Fprintln(os.Stderr, "No server configured. Run 'silieco setup' first.")
+	fmt.Fprintln(os.Stderr, "No server configured. Run 'meperstudio setup' first.")
 	os.Exit(1)
 	return "" // unreachable
 }
@@ -405,7 +405,7 @@ func requireWorkspaceID(cmd *cobra.Command) (string, error) {
 		if inDaemonManagedExecutionContext() {
 			return "", fmt.Errorf("workspace_id is required: SILIECO_WORKSPACE_ID must be set by the daemon in agent execution context (no fallback to user config)")
 		}
-		return "", fmt.Errorf("workspace_id is required: use --workspace-id flag, set SILIECO_WORKSPACE_ID env, or run 'silieco config set workspace_id <id>'")
+		return "", fmt.Errorf("workspace_id is required: use --workspace-id flag, set SILIECO_WORKSPACE_ID env, or run 'meperstudio config set workspace_id <id>'")
 	}
 	return id, nil
 }
@@ -705,7 +705,7 @@ func runAgentUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(body) == 0 {
-		return fmt.Errorf("no fields to update; use --name, --description, --instructions, --runtime-id, --runtime-config, --model, --thinking-level, --service-tier, --custom-args, --mcp-config, --visibility, --status, or --max-concurrent-runs (env vars now live behind `silieco agent env set <id>`)")
+		return fmt.Errorf("no fields to update; use --name, --description, --instructions, --runtime-id, --runtime-config, --model, --thinking-level, --service-tier, --custom-args, --mcp-config, --visibility, --status, or --max-concurrent-runs (env vars now live behind `meperstudio agent env set <id>`)")
 	}
 
 	ctx, cancel := cli.APIContext(context.Background())

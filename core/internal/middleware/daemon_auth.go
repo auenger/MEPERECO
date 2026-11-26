@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/silieco-ai/silieco/core/internal/auth"
-	db "github.com/silieco-ai/silieco/core/pkg/db/generated"
+	"github.com/auenger/MEPERECO/core/internal/auth"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // Daemon context keys.

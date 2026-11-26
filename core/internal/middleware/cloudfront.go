@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/silieco-ai/silieco/core/internal/auth"
+	"github.com/auenger/MEPERECO/core/internal/auth"
 )
 
 // RefreshCloudFrontCookies is middleware that refreshes CloudFront signed cookies

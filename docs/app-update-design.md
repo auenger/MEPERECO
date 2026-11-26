@@ -1,6 +1,6 @@
-# APP 更新方案设计 — 归档
+# MEPERStudio 桌面端更新方案
 
-> 日期：2026-11-24 · 状态：客户端已实现（feed 推导 + setFeedURL）；服务端部署待做；服务地址切换器待实现（本文 §4）
+> 更新：2026-11-26 · 发布基线：1.0.0 · 客户端、打包配置、服务端文件服务均已实现；正式部署与安装包发布待完成
 > 决策方向：**不依赖 GitHub / 公网 CDN，更新完全走部署自己的服务器；服务地址在 App 内可切换，更新跟随当前服务地址**
 
 ---
@@ -9,8 +9,8 @@
 
 | 问题 | 现状 |
 | --- | --- |
-| 自动更新空转 | electron-updater 全套逻辑/UI 在（`src/main/updater.ts`），但 `electron-builder.yml` 里 `publish: null`，无 app-update.yml，检查必然失败。原设计指向 GitHub Releases（`scripts/package.mjs` 注释可证），但 GitHub 在部署网络不可达 |
-| 外部依赖不可用 | silieco.ai 完全不可达（实测连接失败）；GitHub releases 下载 ECONNRESET |
+| 自动更新空转 | 原先只有客户端逻辑；现已补齐 generic provider、安装包更新元数据和自托管文件服务 |
+| 外部依赖不可用 | 原 GitHub 下载不稳定；正式域名确定为 studio.meper.cn，发布前需验证 HTTPS 与反向代理 |
 | 网络环境 | 目标用户网络直连 GitHub/公网 CDN 不稳定，自有服务器（yilia.me:6688）可达且已承载 API |
 
 **决策**：更新源从 runtime config（部署的 API 服务器）推导，与 API/WS 同源。放弃 GitHub Releases、放弃公网 CDN。
@@ -22,7 +22,7 @@
 `apps/desktop/src/main/index.ts`（app.whenReady 内，runtime config 加载后）：
 
 ```
-feedUrl = <apiUrl>/updates/desktop        （例：http://yilia.me:6688/updates/desktop）
+feedUrl = <apiUrl>/updates/desktop        （正式：https://studio.meper.cn/updates/desktop）
 setupAutoUpdater(() => mainWindow, feedUrl)
 ```
 
@@ -32,7 +32,7 @@ setupAutoUpdater(() => mainWindow, feedUrl)
 autoUpdater.setFeedURL({ provider: "generic", url: feedUrl })
 ```
 
-- `apiUrl` 未配置时（理论不发生，DEFAULT_RUNTIME_CONFIG 有默认值）不设置 feed，行为等同旧状态（静默失败）。
+- `apiUrl` 未配置时（理论不发生，DEFAULT_RUNTIME_CONFIG 有默认值）使用安装包内的默认 generic feed。
 - 服务端未部署该路径时：检查 404，错误被现有 handler 吞掉（console.error），不影响使用；部署后即刻生效，无需改客户端。
 
 ### 2.2 既有行为（未改动，沿用）
@@ -52,41 +52,51 @@ autoUpdater.setFeedURL({ provider: "generic", url: feedUrl })
 | Windows arm64 | latest-arm64（`updater.ts` 设置） | `latest-arm64.yml` |
 | macOS Apple Silicon | latest（mac 默认） | `latest-mac.yml` |
 | macOS Intel | latest-x64（`configureMacX64UpdateChannel`） | `latest-x64-mac.yml` |
-| Linux | latest | `latest-linux.yml` |
+| Linux x64 | latest | `latest-linux.yml` |
+| Linux arm64 | latest | `latest-linux-arm64.yml` |
 
-## 3. 服务端契约（待部署）
+## 3. 服务端与发布契约（已实现，待部署）
 
-在 API 服务器（当前 yilia.me:6688，Go 后端）增加静态文件服务，路径前缀：
+Go 后端提供公开 GET / HEAD 文件服务，Web 同源代理转发此路径。Docker 将宿主机目录（默认 `./data/updates/desktop`，可通过 `MEPERSTUDIO_DESKTOP_UPDATE_HOST_DIR` 修改）只读挂载至容器；独立运行时使用 `MEPERSTUDIO_DESKTOP_UPDATE_DIR` 配置目录。
 
-```
-/updates/desktop/
-├── latest.yml                # electron-builder 生成，含 version/path/sha512
+```text
+https://studio.meper.cn/updates/desktop/
+├── latest.yml
 ├── latest-arm64.yml
 ├── latest-mac.yml
 ├── latest-x64-mac.yml
 ├── latest-linux.yml
-└── <安装包产物>               # yml 的 path 字段引用，如 silieco-desktop-4.0.0-win-x64.exe
+├── latest-linux-arm64.yml
+└── meperstudio-desktop-1.0.0-<platform>-<arch>.<ext>
 ```
 
-- 文件由 `electron-builder` 构建时本地生成（publish: null 不上传）；**发布 = 把构建产物 + 对应 yml 上传到该路径**（手动或 CI）。
-- yml 内 sha512 由 electron-updater 自动校验，防损坏/防篡改（传输层建议后续上 HTTPS / 反向代理）。
-- Go 后端实现建议：一个 `GET /updates/desktop/*` 静态文件 handler（或 nginx alias），Content-Type: application/xml（yml）/ 对应安装包类型；无需鉴权（electron-updater 不带凭证）。
-- 版本号比较由 electron-updater 按 semver 处理（`version-decision.ts` 现有的降级/灰度决策逻辑继续生效）。
+- `electron-builder.yml` 配置 generic provider，生成 `app-update.yml` 和对应平台的元数据文件。打包脚本默认 `--publish never`，不会上传到 GitHub。
+- 服务端支持 Range / HEAD / 206、元数据不缓存、安装包缓存及文件名白名单，不列目录。
+- SHA-512 用于验证安装包完整性；正式发布使用 HTTPS，macOS 更新需有效签名和公证，Windows 发布也应使用签名。
+- 按 SemVer 判断新版本，架构专用 channel 不允许降级。1.0.0 是正式发布基线，后续版本从 1.0.1 递增。
+- Linux 自动更新主要适用于 AppImage；deb/rpm 安装方式需根据实际包管理流程验证。
 
-## 4. 服务地址切换器（待实现，设计定稿）
+### 3.1 发布步骤
+
+1. 在仓库根目录确认版本号，运行 `pnpm --filter @silieco/desktop package:all`（macOS 签名、公证及跨平台构建环境需准备好），或按平台/架构分别执行 `pnpm --filter @silieco/desktop package --mac --arm64` 等命令。每次打包会清理本地 dist，所以分批构建时先将已完成产物转存到发布暂存目录。
+2. 从 `apps/desktop/dist/` 收集各架构的安装包、blockmap（若生成）以及对应的 latest*.yml，保持元数据中引用的文件名不变。macOS 需同时保留 ZIP（自动更新）和 DMG（首次安装）。
+3. 先上传全部安装包及 blockmap，再替换各 channel 元数据，避免客户端在发布过程中下载到缺失的安装包。保留旧安装包以支持已有客户端的增量下载。Web 下载页也读取该目录，通过 `MEPERSTUDIO_DESKTOP_VERSION`（默认等于构建 VERSION）选择首次安装的版本；无需复制一份安装包到 Web 静态目录。
+4. 确认正式域名下每个元数据文件可返回 200、引用的安装包存在并支持 Range，并从上一正式版本进行一次真实升级验证。1.0.0 首次发布后，可用 1.0.1 验证完整升级链路。
+
+## 4. 服务地址切换器（已实现）
 
 目标：App 内可切换部署环境（如 yilia.me ↔ 其它自托管实例），**API / WS / 更新源全部跟随切换**，无需重装。
 
-### 4.1 数据层（已存在，缺 UI）
+### 4.1 数据层（已实现）
 
-- 持久化文件：`~/.silieco/desktop.json`（`runtime-config-loader.ts:desktopConfigPath`），schema：
+- 持久化文件：`~/.meperstudio/desktop.json`（旧目录存在时继续使用 `~/.silieco/desktop.json`）（`runtime-config-loader.ts:desktopConfigPath`），schema：
 
 ```json
 { "schemaVersion": 1, "apiUrl": "http://yilia.me:6688" }
 ```
 
 - `parseRuntimeConfig` 已支持：apiUrl 必填，wsUrl/appUrl 缺省自动推导（`deriveWsUrl` / `deriveAppUrl`）。
-- 打包模式（非 dev）已读取该文件 —— 缺的只是 **App 内编辑入口 + 生效流程**。
+- 打包模式（非 dev）读取该文件，App 内编辑入口与重启生效流程已实现。
 
 ### 4.2 UI 设计（已实现：两处入口）
 
@@ -128,7 +138,7 @@ autoUpdater.setFeedURL({ provider: "generic", url: feedUrl })
 
 ```
 ☑ IPC: desktop-config:read / desktop-config:write / desktop-config:restart
-  （main，读写 ~/.silieco/desktop.json，复用 parseRuntimeConfig 校验；清理旧会话后重启）
+  （main，读写当前用户配置目录内的 desktop.json，复用 parseRuntimeConfig 校验；清理旧会话后重启）
 ☑ 登录页服务地址显示/切换（保存并重启，登录 URL 跟随新地址）
 ☑ Settings → Daemon → Server 区（已登录态切换入口，保存后退出旧会话并重启）
 □ （可选）连接状态探针：保存前 GET <apiUrl>/api/config 探活，失败给确认弹窗
@@ -140,10 +150,10 @@ autoUpdater.setFeedURL({ provider: "generic", url: feedUrl })
 | 项 | 状态 |
 | --- | --- |
 | 客户端 feed 推导 + setFeedURL | ✅ 已实现（`index.ts` / `updater.ts`，注释含完整契约） |
-| 服务端静态更新路径 | ⬜ 部署动作（Go handler 或 nginx，§3） |
-| 发布流程（构建 → 上传） | ⬜ 团队流程约定（可后续 CI 化） |
+| 服务端静态更新路径 | ✅ Go handler、Docker 挂载与 Web 同源代理已实现，待部署 |
+| 发布流程（构建 → 上传） | ✅ 打包生成元数据；实际安装包构建与上传待执行 |
 | 服务地址切换器（登录页 + Settings，写后退出旧会话并重启） | ✅ 已实现（§4） |
-| HTTPS / 反代 | ⬜ 运维项（当前 http，sha512 已兜底完整性） |
+| HTTPS / 反代 | ⬜ 正式域名 HTTPS / 反代连通性待验证 |
 
 ## 6. 关联文件索引
 
@@ -157,3 +167,13 @@ autoUpdater.setFeedURL({ provider: "generic", url: feedUrl })
 | `apps/desktop/src/renderer/src/components/updates-settings-tab.tsx` | 手动检查 / 自动更新开关 |
 | `apps/desktop/scripts/package.mjs` | 打包与 channel 命名（latest-arm64.yml 等的对端） |
 | `docs/runtime-pi-analysis.md` | pi 默认运行时（更新方案与之并行） |
+
+## 7. 1.0.0 首次部署记录（2026-11-26）
+
+- 正式入口：https://studio.meper.cn/；服务器 119.119.118.86 的 80 端口由 nginx 容器接收上游 HTTPS 网关转发。
+- 服务部署目录：`/home/ags/meperstudio/source`；Compose 项目名 `meperstudio`。使用 `docker-compose.selfhost.yml`、`docker-compose.selfhost.build.yml`、`docker-compose.production.yml` 三份配置；PostgreSQL、Redis、Go API、Web 和 nginx 已启动，数据库与 Redis 未暴露宿主机端口。
+- 服务器无法直连 Docker Hub 与 Go 代理，此次在开发机交叉构建 amd64 Go 服务镜像和 Web 镜像，再通过 SSH 导入。服务器上的生产 `.env` 独立保存，不随源码同步。
+- 发布目录：`/home/ags/meperstudio/releases/desktop`。当前包含 Windows x64 NSIS EXE、Apple Silicon DMG/ZIP、对应 blockmap 及 `latest.yml`、`latest-mac.yml`。先传安装包，再更新元数据。
+- 已验证正式 HTTPS 首页、登录页、下载页、API 和更新元数据（HTTP 200），安装包 HEAD 与 Range（206），以及上传后的 SHA-512。
+- 当前安装包用于内测：Mac 为 ad-hoc 签名、未公证，Windows 无 Authenticode 发布者签名。真实安装与跨版本自动更新仍需在目标系统验证；正式分发前配置相应签名证书。
+- Apple Silicon 本机构建 Windows 时，旧版 Wine 与内置 x86 macOS NSIS 工具不可运行。本次使用原生 JS PE 资源编辑保留 MEPERStudio 图标和版本信息，配合本机 ARM64 `makensis` 构建 NSIS。签名正式版本优先在受支持的 Windows 构建环境生成。

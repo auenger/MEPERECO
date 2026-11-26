@@ -31,7 +31,6 @@ import type { OnboardingStep } from "./types";
  * `packages/views/workspace/welcome-after-onboarding.tsx`.
  */
 export const ONBOARDING_STEP_ORDER: readonly OnboardingStep[] = [
-  "runtime",
   "workspace",
   "workspace_description",
 ] as const;

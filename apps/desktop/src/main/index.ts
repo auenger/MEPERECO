@@ -126,7 +126,8 @@ if (process.platform !== "win32") {
   process.env.PATH = `${fallbackPaths.join(":")}:${process.env.PATH ?? ""}`;
 }
 
-const PROTOCOL = "silieco";
+const PROTOCOLS = ["meperstudio", "silieco"] as const;
+const isDeepLink = (arg: string) => PROTOCOLS.some((protocol) => arg.startsWith(`${protocol}://`));
 const devLog = is.dev ? createBestEffortDevLog() : undefined;
 
 // Where the main process parks a freeze/crash breadcrumb until the next
@@ -222,7 +223,7 @@ function dispatchToMainRenderer(
 function handleDeepLink(url: string): void {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== `${PROTOCOL}:`) return;
+    if (!PROTOCOLS.some((protocol) => parsed.protocol === `${protocol}:`)) return;
 
     // silieco://auth/callback?token=<jwt>
     if (parsed.hostname === "auth" && parsed.pathname === "/callback") {
@@ -629,7 +630,7 @@ function createTaskWindow(context: TaskWindowContext): void {
 }
 
 // --- Dev / production isolation -------------------------------------------
-// Give dev mode a separate app name and userData path so it gets its own
+// Give dev mode a separate userData path so it gets its own
 // single-instance lock file and doesn't conflict with the packaged production
 // app. Must run BEFORE requestSingleInstanceLock() because the lock location
 // is derived from the userData path. (Same approach VS Code uses for
@@ -638,24 +639,25 @@ function createTaskWindow(context: TaskWindowContext): void {
 // Keep existing Electron user data (session, settings and window state) when
 // changing the visible product name. Existing worktree suffixes stay isolated.
 const appSuffix = process.env.DESKTOP_APP_SUFFIX ? ` ${process.env.DESKTOP_APP_SUFFIX}` : "";
-const DEV_APP_NAME = `MEPERStudio Canary${appSuffix}`;
+const DEV_APP_NAME = `MEPERStudio${appSuffix}`;
+// Preserve the historical dev profile name internally; only display branding changes.
+const DEV_DATA_NAME = `MEPERStudio Canary${appSuffix}`;
 const dataRoot = app.getPath("appData");
 const legacyNames = is.dev ? [`Silieco Canary${appSuffix}`] : ["Silieco", "MEPER Studio"];
 const visibleName = is.dev ? DEV_APP_NAME : "MEPERStudio";
-const preferredDataPath = join(dataRoot, visibleName);
+const preferredDataPath = join(dataRoot, is.dev ? DEV_DATA_NAME : visibleName);
 const existingLegacyPath = legacyNames.map((name) => join(dataRoot, name)).find((path) => existsSync(path));
 app.setName(visibleName);
 app.setPath("userData", existingLegacyPath ?? preferredDataPath);
 
 // --- Protocol registration -----------------------------------------------
 
-if (process.defaultApp) {
-  // In dev, register with the path to the electron binary + app path
-  app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [
-    app.getAppPath(),
-  ]);
-} else {
-  app.setAsDefaultProtocolClient(PROTOCOL);
+for (const protocol of PROTOCOLS) {
+  if (process.defaultApp) {
+    app.setAsDefaultProtocolClient(protocol, process.execPath, [app.getAppPath()]);
+  } else {
+    app.setAsDefaultProtocolClient(protocol);
+  }
 }
 
 // --- Single instance lock ------------------------------------------------
@@ -679,16 +681,14 @@ if (!gotTheLock) {
     if (window) focusMainWindow(window);
 
     // On Windows the deep link URL is the last argv entry
-    const deepLinkUrl = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`));
+    const deepLinkUrl = argv.find(isDeepLink);
     if (deepLinkUrl) handleDeepLink(deepLinkUrl);
   });
 
   // Windows/Linux cold-start deep links are safe to parse now. Delivery is
   // queued because desktopInitialized remains false until runtime config and
   // IPC handlers are ready.
-  const coldStartDeepLink = process.argv.find((arg) =>
-    arg.startsWith(`${PROTOCOL}://`),
-  );
+  const coldStartDeepLink = process.argv.find(isDeepLink);
   if (coldStartDeepLink) handleDeepLink(coldStartDeepLink);
 
   app.whenReady().then(async () => {
@@ -715,7 +715,7 @@ if (!gotTheLock) {
     );
 
     // macOS: replace the default Electron dock icon with the bundled logo
-    // so the Canary dev build is visually distinct from a stock Electron
+    // so the dev build is visually distinct from a stock Electron
     // run. `app.dock` is macOS-only — guard the call.
     if (is.dev && process.platform === "darwin" && app.dock) {
       const icon = nativeImage.createFromPath(BUNDLED_ICON_PATH);

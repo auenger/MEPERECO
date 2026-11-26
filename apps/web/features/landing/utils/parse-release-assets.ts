@@ -5,9 +5,9 @@
  * installer artifacts are relevant on the /download page.
  *
  * Desktop artifact naming (see apps/desktop/electron-builder.yml):
- *   silieco-desktop-{version}-mac-{arch}.{dmg|zip}
- *   silieco-desktop-{version}-windows-{arch}.exe
- *   silieco-desktop-{version}-linux-{arch}.{AppImage|deb|rpm}
+ *   meperstudio-desktop-{version}-mac-{arch}.{dmg|zip}
+ *   meperstudio-desktop-{version}-windows-{arch}.exe
+ *   meperstudio-desktop-{version}-linux-{arch}.{AppImage|deb|rpm}
  *
  * Linux arch appears as amd64 / x86_64 / arm64 / aarch64 depending
  * on the format; we normalize to amd64 and arm64.
@@ -35,11 +35,11 @@ export interface DownloadAssets {
 }
 
 const DESKTOP_ARTIFACT_RE =
-  /^silieco-desktop-[^-]+-(mac|windows|linux)-([a-z0-9_]+)\.(dmg|zip|exe|AppImage|deb|rpm)$/i;
+  /^(?:meperstudio|silieco)-desktop-[^-]+-(mac|windows|linux)-([a-z0-9_]+)\.(dmg|zip|exe|AppImage|deb|rpm)$/i;
 
 function normalizeLinuxArch(arch: string): "amd64" | "arm64" | null {
   const a = arch.toLowerCase();
-  if (a === "amd64" || a === "x86_64") return "amd64";
+  if (a === "amd64" || a === "x86_64" || a === "x64") return "amd64";
   if (a === "arm64" || a === "aarch64") return "arm64";
   return null;
 }

@@ -22,12 +22,11 @@ import { useT } from "../../../i18n";
  *
  * Providers whose runtime ignores per-agent model selection report
  * `supported=false` and render an inert italic "Managed by runtime" label
- * instead of a clickable picker. No built-in provider sets this today
- * (Antigravity gained `--model` in agy 1.0.6), but the branch stays for any
- * future model-less runtime.
+ * instead of a clickable picker (currently ZCode).
  */
 export function ModelPicker({
   runtimeId,
+  runtimeProvider,
   runtimeOnline,
   value,
   canEdit = true,
@@ -36,6 +35,7 @@ export function ModelPicker({
   onChange,
 }: {
   runtimeId: string | null;
+  runtimeProvider?: string | null;
   runtimeOnline: boolean;
   value: string;
   /** When false, render a static read-only display and skip the popover. */
@@ -49,9 +49,9 @@ export function ModelPicker({
   const [search, setSearch] = useState("");
 
   const modelsQuery = useQuery(
-    runtimeModelsOptions(runtimeOnline ? runtimeId : null),
+    runtimeModelsOptions(runtimeOnline && runtimeProvider !== "zcode" ? runtimeId : null),
   );
-  const supported = modelsQuery.data?.supported ?? true;
+  const supported = runtimeProvider !== "zcode" && (modelsQuery.data?.supported ?? true);
   // Memoise the model list so every downstream useMemo gets a stable
   // reference; `?? []` would mint a fresh array on every render and
   // invalidate filters needlessly.
@@ -92,6 +92,15 @@ export function ModelPicker({
           <span className="truncate italic">
             {t(($) => $.pickers.model_managed_by_runtime)}
           </span>
+          {runtimeProvider === "zcode" && value && canEdit && (
+            <button
+              type="button"
+              className="ml-auto shrink-0 text-caption text-primary hover:underline"
+              onClick={() => void select("")}
+            >
+              {t(($) => $.pickers.clear_model_override)}
+            </button>
+          )}
         </div>
       );
       if (!showLabel) return control;

@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/silieco-ai/silieco/core/internal/migrations"
+	"github.com/auenger/MEPERECO/core/internal/migrations"
 )
 
 // readinessQuery counts how many of the binary's required migration versions

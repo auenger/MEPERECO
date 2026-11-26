@@ -49,15 +49,15 @@ import {
  * Two sub-templates driven by `signal.choice`:
  *
  *   "runtime":
- *     1. Full-screen loading veil ("Preparing Sili Agent…")
- *     2. Find-or-create the "Sili Agent" on the picked runtime
+ *     1. Full-screen loading veil ("Preparing MEPER Agent…")
+ *     2. Find-or-create the "MEPER Agent" on the picked runtime
  *        — `listAgents` first to dedupe against re-entries, then
  *        `createAgent` with the localized instructions from
  *        `onboarding/templates/helper-instructions.ts`.
  *     3. Blocking Dialog (no close button, no Escape, no outside-click).
  *        Renders the agent's name + description and 3 starter cards.
  *     4. User picks a card → `createTask` with the card's prompt as
- *        body, assigned to Sili Agent → `dismiss()` → navigate.
+ *        body, assigned to MEPER Agent → `dismiss()` → navigate.
  *     5. Failure surfaces a Retry UI; the modal stays put.
  *
  *   "skip":
@@ -74,8 +74,8 @@ import {
  * twice. A consume-on-init pattern would empty the store on the first
  * mount, then render null on the second. Subscribing + recording
  * dismissal in the store sidesteps both mounts seeing the same state.
- * Async work (Sili Agent setup, skip-path seed tasks) is deduped at
- * module level via `findOrCreateSiliAgent` / `seedTaskDeduped` so the
+ * Async work (MEPER Agent setup, skip-path seed tasks) is deduped at
+ * module level via `findOrCreateMeperAgent` / `seedTaskDeduped` so the
  * double-mount can't race two API calls for the same workspace.
  */
 export function WelcomeAfterOnboarding() {
@@ -89,7 +89,7 @@ export function WelcomeAfterOnboarding() {
   // component mounts inside a workspace-scoped layout. If the user is
   // currently viewing ws-B while signal points at ws-A (back/forward,
   // deep-link, desktop multi-tab where stores are shared across tabs in
-  // one renderer), DON'T fire here — would create Sili Agent /
+  // one renderer), DON'T fire here — would create MEPER Agent /
   // seed tasks in ws-A while the user looks at ws-B, then navigate them
   // away. Render null until the user lands back in the workspace the
   // signal was parked for.
@@ -131,18 +131,18 @@ export function WelcomeAfterOnboarding() {
 // Runtime sub-template
 // ---------------------------------------------------------------------------
 
-const SILI_AGENT_NAME = "Sili Agent";
-const LEGACY_HELPER_AGENT_NAME = "MEPERStudio Helper";
+const MEPER_AGENT_NAME = "MEPER Agent";
+const LEGACY_HELPER_AGENT_NAMES = ["Sili Agent", "MEPERStudio Helper"];
 
 // Use the canonical MEPERStudio app artwork for built-in assistant avatars.
-const SILI_AGENT_AVATAR_URL = MEPER_APP_ICON_DATA_URL;
+const MEPER_AGENT_AVATAR_URL = MEPER_APP_ICON_DATA_URL;
 
 /**
- * Module-level dedupe for in-flight Sili Agent setup. Keyed on
+ * Module-level dedupe for in-flight MEPER Agent setup. Keyed on
  * workspaceId+runtimeId so unrelated welcome flows (different workspaces /
  * runtimes) don't collide, but React 18+ StrictMode dev-mode double-mount
  * of the same flow shares one promise — both mounts await the same
- * listAgents/createAgent round-trip, so we never race-create two Sili Agents
+ * listAgents/createAgent round-trip, so we never race-create two MEPER Agents
  * (server-side UNIQUE (workspace_id, name) would 409 the second attempt
  * anyway, but the rejected promise would surface a misleading "agent
  * already exists" error UI in dev).
@@ -150,15 +150,15 @@ const SILI_AGENT_AVATAR_URL = MEPER_APP_ICON_DATA_URL;
  * `useRef` cannot solve this because each StrictMode mount gets a fresh
  * React component instance — and therefore a fresh ref.
  */
-const pendingSiliAgentSetup = new Map<string, Promise<Agent>>();
+const pendingMeperAgentSetup = new Map<string, Promise<Agent>>();
 
-async function findOrCreateSiliAgent(
+async function findOrCreateMeperAgent(
   workspaceId: string,
   runtimeId: string,
   language: string | null,
 ): Promise<Agent> {
   const key = `${workspaceId}:${runtimeId}`;
-  const existing = pendingSiliAgentSetup.get(key);
+  const existing = pendingMeperAgentSetup.get(key);
   if (existing) return existing;
 
   const promise = (async (): Promise<Agent> => {
@@ -166,34 +166,38 @@ async function findOrCreateSiliAgent(
     const found =
       agents.find(
         (a) =>
-          a.name === SILI_AGENT_NAME &&
+          a.name === MEPER_AGENT_NAME &&
           a.visibility === "workspace" &&
           !a.archived_at,
       ) ??
       agents.find(
         (a) =>
-          a.name === LEGACY_HELPER_AGENT_NAME &&
+          LEGACY_HELPER_AGENT_NAMES.includes(a.name) &&
           a.visibility === "workspace" &&
           !a.archived_at,
       );
     const lang = pickContentLang(language);
     if (found) {
       if (
-        found.name === SILI_AGENT_NAME &&
-        found.avatar_url === SILI_AGENT_AVATAR_URL
+        found.name === MEPER_AGENT_NAME &&
+        found.avatar_url === MEPER_AGENT_AVATAR_URL
       ) {
         return found;
       }
       return api.updateAgent(found.id, {
-        name: SILI_AGENT_NAME,
-        avatar_url: SILI_AGENT_AVATAR_URL,
+        name: MEPER_AGENT_NAME,
+        ...(found.instructions?.startsWith("You are Sili Agent, the built-in AI assistant") ||
+          found.instructions?.startsWith("你是 Sili Agent，这个 MEPERStudio workspace 内置的 AI 助手。")
+          ? { instructions: found.instructions.replace(/Sili Agent/g, "MEPER Agent") }
+          : {}),
+        avatar_url: MEPER_AGENT_AVATAR_URL,
       });
     }
     return api.createAgent({
-      name: SILI_AGENT_NAME,
+      name: MEPER_AGENT_NAME,
       description: HELPER_DESCRIPTION[lang],
       instructions: HELPER_INSTRUCTIONS[lang],
-      avatar_url: SILI_AGENT_AVATAR_URL,
+      avatar_url: MEPER_AGENT_AVATAR_URL,
       runtime_id: runtimeId,
       visibility: "workspace",
       max_concurrent_runs: 6,
@@ -201,15 +205,15 @@ async function findOrCreateSiliAgent(
     });
   })();
 
-  pendingSiliAgentSetup.set(key, promise);
+  pendingMeperAgentSetup.set(key, promise);
   // Clear on settle so a manual Retry after a failure runs a fresh probe
   // rather than re-awaiting the rejected promise. .catch on the cleanup
   // chain silences unhandled-rejection noise — the original `promise` we
   // return still propagates rejections to the caller.
   promise
     .finally(() => {
-      if (pendingSiliAgentSetup.get(key) === promise) {
-        pendingSiliAgentSetup.delete(key);
+      if (pendingMeperAgentSetup.get(key) === promise) {
+        pendingMeperAgentSetup.delete(key);
       }
     })
     .catch(() => {});
@@ -218,7 +222,7 @@ async function findOrCreateSiliAgent(
 
 /**
  * Module-level dedupe for skip-path seed tasks. Same StrictMode rationale
- * as `findOrCreateSiliAgent`: each mount has its own useRef, so without a
+ * as `findOrCreateMeperAgent`: each mount has its own useRef, so without a
  * cross-mount cache the dev double-mount would race two CreateTask calls
  * for the same title — the server-side LockAndFindActiveDuplicate gate
  * returns 409 on the second one, but a 409 in the catch block populates
@@ -386,7 +390,7 @@ function RuntimeWelcome({
     });
   };
 
-  // Find or create Sili Agent. Dedupe lives in `findOrCreateSiliAgent`
+  // Find or create MEPER Agent. Dedupe lives in `findOrCreateMeperAgent`
   // (module-level promise cache) so StrictMode double-mounts share one
   // in-flight request. `attemptKey` increments on manual Retry to force
   // the effect to re-run.
@@ -395,7 +399,7 @@ function RuntimeWelcome({
     let cancelled = false;
     (async () => {
       try {
-        const a = await findOrCreateSiliAgent(
+        const a = await findOrCreateMeperAgent(
           workspaceId,
           runtimeId,
           i18n.language,
@@ -457,7 +461,7 @@ function RuntimeWelcome({
     try {
       // Build the per-task "about me" block once and append it to every
       // starter task. The block is empty markdown ("") when the user
-      // skipped both questions, so unconditional concat is safe — Sili Agent
+      // skipped both questions, so unconditional concat is safe — MEPER Agent
       // sees the original prompt verbatim with no trailing context.
       const userContext = buildUserContextSection(
         me?.onboarding_questionnaire,
@@ -465,7 +469,7 @@ function RuntimeWelcome({
       );
       // Create tasks in declared order (STARTER_CARD_IDS), so the user
       // lands on the most foundational task first when there's a tie. We
-      // run them in parallel — Sili Agent's max_concurrent_runs lets it pick
+      // run them in parallel — MEPER Agent's max_concurrent_runs lets it pick
       // them up immediately, and one failure of N shouldn't gate the
       // others.
       const orderedIds = STARTER_CARD_IDS.filter((id) => selected.has(id));
@@ -585,7 +589,7 @@ function RuntimeWelcome({
       >
         <div className="flex flex-col items-center gap-3 pt-4 animate-onboarding-enter">
           <img
-            src={resolvePublicFileUrl(agent.avatar_url) ?? SILI_AGENT_AVATAR_URL}
+            src={resolvePublicFileUrl(agent.avatar_url) ?? MEPER_AGENT_AVATAR_URL}
             alt=""
             aria-hidden
             className="h-14 w-14 rounded-xl ring-1 ring-foreground/10"

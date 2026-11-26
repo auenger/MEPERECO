@@ -378,6 +378,22 @@ class ApiClient {
     });
   }
 
+  async loginPassword(email: string, password: string): Promise<LoginResponse> {
+    return this.fetch<LoginResponse>("/auth/password/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  }
+  async sendPasswordCode(email: string, purpose: "register" | "reset"): Promise<void> {
+    await this.fetch("/auth/password/send-code", { method: "POST", body: JSON.stringify({ email, purpose }) });
+  }
+  async verifyPasswordCode(email: string, code: string, purpose: "register" | "reset"): Promise<{ token: string }> {
+    return this.fetch("/auth/password/verify-code", { method: "POST", body: JSON.stringify({ email, code, purpose }) });
+  }
+  async completePassword(token: string, password: string): Promise<LoginResponse> {
+    return this.fetch<LoginResponse>("/auth/password/complete", { method: "POST", body: JSON.stringify({ token, password }) });
+  }
+  async changePassword(currentPassword: string, password: string): Promise<void> {
+    await this.fetch("/api/me/password", { method: "POST", body: JSON.stringify({ current_password: currentPassword, password }) });
+  }
+
   async getMe(opts?: { signal?: AbortSignal }): Promise<User> {
     return this.fetchValidated(
       "/api/me",
