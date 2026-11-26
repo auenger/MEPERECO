@@ -1,11 +1,11 @@
 ---
 name: silieco-squads
-description: "Use when creating, inspecting, updating, assigning, mentioning, or debugging Silieco squads. Explains what squads are, squad/member fields, CLI commands, leader routing, task assignment, comments, mentions, autopilot behavior, leader briefing, side effects, and product-gap handling."
+description: "Use when creating, inspecting, updating, assigning, mentioning, or debugging MEPERStudio squads. Explains what squads are, squad/member fields, CLI commands, leader routing, task assignment, comments, mentions, autopilot behavior, leader briefing, side effects, and product-gap handling."
 user-invocable: false
 allowed-tools: Bash(silieco *)
 ---
 
-# Silieco Squads
+# MEPERStudio Squads
 
 ## Quick start
 
@@ -32,7 +32,7 @@ to test. These can mutate workspace state or trigger agent runs.
 
 ## Core model
 
-A Silieco squad is a workspace routing and coordination object.
+A MEPERStudio squad is a workspace routing and coordination object.
 
 A squad is not an agent. It does not run work by itself. Current behavior:
 squad-routed work runs through the squad's `leader_id` agent.
@@ -130,7 +130,7 @@ the backend adds the new leader as a squad member with role `leader`.
 
 ## Leader briefing
 
-For squad leader tasks, Silieco appends a squad leader briefing to the leader
+For squad leader tasks, MEPERStudio appends a squad leader briefing to the leader
 agent instructions. The briefing includes:
 
 - Squad Operating Protocol;

@@ -15,7 +15,7 @@ import (
 
 // grokBlockedArgs are flags/subcommands hardcoded by the daemon that must not
 // be overridden by user-configured custom_args. `agent` + `stdio` select the
-// ACP transport; `--always-approve` is daemon-owned so headless Silieco runs
+// ACP transport; `--always-approve` is daemon-owned so headless MEPERStudio runs
 // do not block on interactive permission prompts. Switching into
 // headless/serve/leader/print modes would break the daemon↔grok ACP contract.
 // Model / thinking are managed via session/set_model and --effort.
@@ -404,7 +404,7 @@ func (b *grokBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 		userText := prompt
 		if opts.SystemPrompt != "" {
 			// Grok also reads AGENTS.md from cwd; inline system prompt covers
-			// Silieco runtime brief delivery when file injection is not enough.
+			// MEPERStudio runtime brief delivery when file injection is not enough.
 			userText = opts.SystemPrompt + "\n\n---\n\n" + prompt
 		}
 
@@ -557,7 +557,7 @@ func selectGrokAuthMethod(methods []string, haveAPIKey bool) (string, error) {
 	if len(advertised) == 0 {
 		return "", fmt.Errorf("Grok advertised no usable authentication methods; set XAI_API_KEY or run `grok login`")
 	}
-	return "", fmt.Errorf("Grok advertised unsupported authentication methods %q; update Silieco or authenticate with XAI_API_KEY / `grok login`", advertised)
+	return "", fmt.Errorf("Grok advertised unsupported authentication methods %q; update MEPERStudio or authenticate with XAI_API_KEY / `grok login`", advertised)
 }
 
 // waitForGrokNotificationQuiescence gives the ACP stdout reader a bounded

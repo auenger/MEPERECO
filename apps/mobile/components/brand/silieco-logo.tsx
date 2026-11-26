@@ -1,4 +1,4 @@
-/** MEPER Studio app tile, sourced from MEPER-Studio-Logo/meper-studio-app.svg. */
+/** MEPERStudio app tile, sourced from MEPER-Studio-Logo/meper-studio-app.svg. */
 import Svg, { Defs, LinearGradient, Stop, Path, Rect, G } from "react-native-svg";
 
 interface SiliecoLogoProps {

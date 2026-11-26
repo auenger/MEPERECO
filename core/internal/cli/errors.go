@@ -288,20 +288,20 @@ var kindMessages = map[ErrorKind][2]string{
 		"请求超时：服务器未在规定时间内响应。请检查网络连接或稍后重试。可通过 SILIECO_HTTP_TIMEOUT 调高超时时间。",
 	},
 	KindNetworkDNS: {
-		"Could not resolve the Silieco server address. Check your network connection or the --server-url setting.",
-		"无法解析 Silieco 服务器地址。请检查网络连接或 --server-url 配置。",
+		"Could not resolve the MEPERStudio server address. Check your network connection or the --server-url setting.",
+		"无法解析 MEPERStudio 服务器地址。请检查网络连接或 --server-url 配置。",
 	},
 	KindNetworkRefused: {
-		"Could not connect to the Silieco server. Make sure the server address is correct and reachable.",
-		"无法连接到 Silieco 服务器。请确认服务器地址正确且网络可达。",
+		"Could not connect to the MEPERStudio server. Make sure the server address is correct and reachable.",
+		"无法连接到 MEPERStudio 服务器。请确认服务器地址正确且网络可达。",
 	},
 	KindNetworkTLS: {
-		"Could not establish a secure connection to the Silieco server (TLS/certificate error). Check your system clock and CA certificates.",
-		"无法与 Silieco 服务器建立安全连接（TLS/证书错误）。请检查系统时间和 CA 证书。",
+		"Could not establish a secure connection to the MEPERStudio server (TLS/certificate error). Check your system clock and CA certificates.",
+		"无法与 MEPERStudio 服务器建立安全连接（TLS/证书错误）。请检查系统时间和 CA 证书。",
 	},
 	KindNetworkOffline: {
-		"Could not reach the Silieco server. Check your network connection.",
-		"无法访问 Silieco 服务器。请检查网络连接。",
+		"Could not reach the MEPERStudio server. Check your network connection.",
+		"无法访问 MEPERStudio 服务器。请检查网络连接。",
 	},
 	KindAuthRequired: {
 		"Your session has expired or you are not signed in. Run `silieco login` to sign in again. On a self-hosted or non-OAuth setup, ask your administrator for valid credentials.",
@@ -328,8 +328,8 @@ var kindMessages = map[ErrorKind][2]string{
 		"请求过于频繁。请稍候重试；若持续出现，请降低 API 调用频率。",
 	},
 	KindServerError: {
-		"The Silieco service is temporarily unavailable (server error). Please try again later; if it persists, contact support. Re-run with --debug to see the raw server response.",
-		"Silieco 服务暂时不可用（服务器错误）。请稍后重试；若持续出现请联系支持。可加 --debug 查看服务器原始响应。",
+		"The MEPERStudio service is temporarily unavailable (server error). Please try again later; if it persists, contact support. Re-run with --debug to see the raw server response.",
+		"MEPERStudio 服务暂时不可用（服务器错误）。请稍后重试；若持续出现请联系支持。可加 --debug 查看服务器原始响应。",
 	},
 	KindUnknown: {
 		"An unexpected error occurred.",

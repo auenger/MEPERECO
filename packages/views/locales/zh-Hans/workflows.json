@@ -187,7 +187,7 @@
     "editor_title": "创建 SOP",
     "editor_hint": "配置 Stage、输入输出、Skills 和出阶段门禁。",
     "source": "来源",
-    "source_preset": "Silieco 预设模板",
+    "source_preset": "MEPERStudio 预设模板",
     "source_user": "用户自定义",
     "source_inherited": "继承自 {{name}}",
     "scope": "适用范围",

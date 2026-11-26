@@ -154,7 +154,7 @@ export function createElectronReloadPrompt(
       buttons: ["Reload", "Dismiss"],
       defaultId: 0,
       cancelId: 1,
-      title: "Silieco needs to reload",
+      title: "MEPERStudio needs to reload",
       message: rendererRecoveryMessage(payload.kind),
       detail: rendererRecoveryDetail(payload),
     });
@@ -187,13 +187,13 @@ function rendererRecoveryMessage(kind: ReloadPromptPayload["kind"]) {
 
 function rendererRecoveryDetail(payload: ReloadPromptPayload) {
   const guidance = [
-    "Click Reload to refresh this window and keep using Silieco.",
+    "Click Reload to refresh this window and keep using MEPERStudio.",
     "If this keeps happening, please tell us what you were doing right before this message appeared and whether Reload recovered the window.",
   ];
 
   if (payload.kind === "unresponsive") {
     guidance.push(
-      "For macOS reports, an Activity Monitor sample of the Silieco Helper (Renderer) process helps us find what blocked the app.",
+      "For macOS reports, an Activity Monitor sample of the MEPERStudio Helper (Renderer) process helps us find what blocked the app.",
     );
   }
 

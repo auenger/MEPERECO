@@ -20,19 +20,19 @@ export function createZhDict(allowSignup: boolean): LandingDict {
     headlineLine1: "一个工作区，",
     headlineLine2: "让所有 Agent 真正运转。",
     subheading:
-      "Silieco 把团队规划的工作、负责执行的 Agent，以及它们运行的电脑连接起来。开源、可自托管，为真实生产协作而设计。",
+      "MEPERStudio 把团队规划的工作、负责执行的 Agent，以及它们运行的电脑连接起来。开源、可自托管，为真实生产协作而设计。",
     cta: "进入你的工作区",
     downloadDesktop: "下载桌面端",
     talkToSales: "查看系统架构",
     worksWith: "接入你的运行时",
-    imageAlt: "Silieco 工作区，展示人类与 Agent 协同处理 Task",
+    imageAlt: "MEPERStudio 工作区，展示人类与 Agent 协同处理 Task",
   },
 
   system: {
     label: "一个系统，三层架构",
     headline: "App 负责规划，Core 负责协调，Daemon 负责执行。",
     description:
-      "Silieco 将控制面与执行面分开。团队看得见每个决策，Agent 则持续在你掌控的基础设施上完成工作。",
+      "MEPERStudio 将控制面与执行面分开。团队看得见每个决策，Agent 则持续在你掌控的基础设施上完成工作。",
     layers: [
       {
         name: "APP",
@@ -149,7 +149,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         {
           title: "\u9996\u6b21\u542f\u52a8\u81ea\u52a8\u6ce8\u518c",
           description:
-            "Silieco \u626b\u63cf\u672c\u673a\u7684 14 \u6b3e\u652f\u6301\u7684 AI \u7f16\u7a0b\u5de5\u5177\u2014\u2014Antigravity\u3001Claude Code\u3001CodeBuddy\u3001Codex\u3001Cursor\u3001Copilot\u3001Hermes\u3001Kimi\u3001Kiro CLI\u3001OpenCode\u3001OpenClaw\u3001Pi\u3001Qoder\u3001Trae CLI\u2014\u2014\u5e76\u4e3a\u6bcf\u6b3e\u5df2\u5b89\u88c5\u7684\u5de5\u5177\u6ce8\u518c\u4e00\u4e2a\u8fd0\u884c\u65f6\u3002",
+            "MEPERStudio \u626b\u63cf\u672c\u673a\u7684 14 \u6b3e\u652f\u6301\u7684 AI \u7f16\u7a0b\u5de5\u5177\u2014\u2014Antigravity\u3001Claude Code\u3001CodeBuddy\u3001Codex\u3001Cursor\u3001Copilot\u3001Hermes\u3001Kimi\u3001Kiro CLI\u3001OpenCode\u3001OpenClaw\u3001Pi\u3001Qoder\u3001Trae CLI\u2014\u2014\u5e76\u4e3a\u6bcf\u6b3e\u5df2\u5b89\u88c5\u7684\u5de5\u5177\u6ce8\u518c\u4e00\u4e2a\u8fd0\u884c\u65f6\u3002",
         },
       ],
     },
@@ -169,7 +169,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
       {
         title: "带上你的 Agent",
         description:
-          "连接你已经信任的 Agent、运行时、指令与技能。Silieco 负责协调，执行仍留在你掌控的基础设施中。",
+          "连接你已经信任的 Agent、运行时、指令与技能。MEPERStudio 负责协调，执行仍留在你掌控的基础设施中。",
       },
       {
         title: "把它共享给组织",
@@ -192,13 +192,13 @@ export function createZhDict(allowSignup: boolean): LandingDict {
     headlineLine1: "\u5f00\u6e90",
     headlineLine2: "\u4e3a\u6240\u6709\u4eba\u3002",
     description:
-      "Silieco \u5b8c\u5168\u5f00\u6e90\u3002\u5ba1\u67e5\u6bcf\u4e00\u884c\u4ee3\u7801\uff0c\u6309\u4f60\u7684\u65b9\u5f0f\u81ea\u6258\u7ba1\uff0c\u5851\u9020\u4eba\u7c7b + 智能体 \u534f\u4f5c\u7684\u672a\u6765\u3002",
+      "MEPERStudio \u5b8c\u5168\u5f00\u6e90\u3002\u5ba1\u67e5\u6bcf\u4e00\u884c\u4ee3\u7801\uff0c\u6309\u4f60\u7684\u65b9\u5f0f\u81ea\u6258\u7ba1\uff0c\u5851\u9020\u4eba\u7c7b + 智能体 \u534f\u4f5c\u7684\u672a\u6765\u3002",
     cta: "\u5728 GitHub \u4e0a Star",
     highlights: [
       {
         title: "\u968f\u5904\u81ea\u6258\u7ba1",
         description:
-          "\u5728\u4f60\u81ea\u5df1\u7684\u57fa\u7840\u8bbe\u65bd\u4e0a\u8fd0\u884c Silieco\u3002Docker Compose\u3001\u5355\u4e2a\u4e8c\u8fdb\u5236\u6216 Kubernetes\u2014\u2014\u4f60\u7684\u6570\u636e\u6c38\u8fdc\u4e0d\u4f1a\u79bb\u5f00\u4f60\u7684\u7f51\u7edc\u3002",
+          "\u5728\u4f60\u81ea\u5df1\u7684\u57fa\u7840\u8bbe\u65bd\u4e0a\u8fd0\u884c MEPERStudio\u3002Docker Compose\u3001\u5355\u4e2a\u4e8c\u8fdb\u5236\u6216 Kubernetes\u2014\u2014\u4f60\u7684\u6570\u636e\u6c38\u8fdc\u4e0d\u4f1a\u79bb\u5f00\u4f60\u7684\u7f51\u7edc\u3002",
       },
       {
         title: "\u65e0\u4f9b\u5e94\u5546\u9501\u5b9a",
@@ -223,14 +223,14 @@ export function createZhDict(allowSignup: boolean): LandingDict {
     headline: "\u95ee\u4e0e\u7b54\u3002",
     items: [
       {
-        question: "Silieco \u652f\u6301\u54ea\u4e9b\u7f16\u7801 智能体\uff1f",
+        question: "MEPERStudio \u652f\u6301\u54ea\u4e9b\u7f16\u7801 智能体\uff1f",
         answer:
-          "Silieco \u5f00\u7bb1\u5373\u7528\u652f\u6301 14 \u6b3e AI \u7f16\u7a0b\u5de5\u5177\uff1aAntigravity\u3001Claude Code\u3001CodeBuddy\u3001Codex\u3001Cursor\u3001Copilot\u3001Hermes\u3001Kimi\u3001Kiro CLI\u3001OpenCode\u3001OpenClaw\u3001Pi\u3001Qoder\u3001Trae CLI\u3002\u5b88\u62a4\u8fdb\u7a0b\u4f1a\u81ea\u52a8\u68c0\u6d4b\u672c\u673a\u5df2\u5b89\u88c5\u7684 CLI \u5e76\u4e3a\u6bcf\u6b3e\u6ce8\u518c\u4e00\u4e2a\u8fd0\u884c\u65f6\u3002\u56e0\u4e3a\u5f00\u6e90\uff0c\u4f60\u4e5f\u53ef\u4ee5\u81ea\u5df1\u6dfb\u52a0\u540e\u7aef\u3002",
+          "MEPERStudio \u5f00\u7bb1\u5373\u7528\u652f\u6301 14 \u6b3e AI \u7f16\u7a0b\u5de5\u5177\uff1aAntigravity\u3001Claude Code\u3001CodeBuddy\u3001Codex\u3001Cursor\u3001Copilot\u3001Hermes\u3001Kimi\u3001Kiro CLI\u3001OpenCode\u3001OpenClaw\u3001Pi\u3001Qoder\u3001Trae CLI\u3002\u5b88\u62a4\u8fdb\u7a0b\u4f1a\u81ea\u52a8\u68c0\u6d4b\u672c\u673a\u5df2\u5b89\u88c5\u7684 CLI \u5e76\u4e3a\u6bcf\u6b3e\u6ce8\u518c\u4e00\u4e2a\u8fd0\u884c\u65f6\u3002\u56e0\u4e3a\u5f00\u6e90\uff0c\u4f60\u4e5f\u53ef\u4ee5\u81ea\u5df1\u6dfb\u52a0\u540e\u7aef\u3002",
       },
       {
         question: "\u9700\u8981\u81ea\u6258\u7ba1\u5417\uff0c\u8fd8\u662f\u6709\u4e91\u7248\u672c\uff1f",
         answer:
-          "\u4e24\u8005\u90fd\u6709\u3002\u4f60\u53ef\u4ee5\u7528 Docker Compose \u6216 Kubernetes \u5728\u81ea\u5df1\u7684\u57fa\u7840\u8bbe\u65bd\u4e0a\u81ea\u6258\u7ba1 Silieco\uff0c\u4e5f\u53ef\u4ee5\u4f7f\u7528\u6211\u4eec\u7684\u6258\u7ba1\u4e91\u7248\u672c\u3002\u4f60\u7684\u6570\u636e\uff0c\u4f60\u9009\u62e9\u3002",
+          "\u4e24\u8005\u90fd\u6709\u3002\u4f60\u53ef\u4ee5\u7528 Docker Compose \u6216 Kubernetes \u5728\u81ea\u5df1\u7684\u57fa\u7840\u8bbe\u65bd\u4e0a\u81ea\u6258\u7ba1 MEPERStudio\uff0c\u4e5f\u53ef\u4ee5\u4f7f\u7528\u6211\u4eec\u7684\u6258\u7ba1\u4e91\u7248\u672c\u3002\u4f60\u7684\u6570\u636e\uff0c\u4f60\u9009\u62e9\u3002",
       },
       {
         question:
@@ -246,7 +246,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
       {
         question: "\u6211\u7684\u4ee3\u7801\u5b89\u5168\u5417\uff1f智能体 \u5728\u54ea\u91cc\u6267\u884c\uff1f",
         answer:
-          "智能体 \u5728\u4f60\u7684\u673a\u5668\uff08\u672c\u5730\u5b88\u62a4\u8fdb\u7a0b\uff09\u6216\u4f60\u81ea\u5df1\u7684\u4e91\u57fa\u7840\u8bbe\u65bd\u4e0a\u6267\u884c\u3002\u4ee3\u7801\u6c38\u8fdc\u4e0d\u4f1a\u7ecf\u8fc7 Silieco \u670d\u52a1\u5668\u3002\u5e73\u53f0\u53ea\u534f\u8c03\u4efb\u52a1\u72b6\u6001\u548c\u5e7f\u64ad\u4e8b\u4ef6\u3002",
+          "智能体 \u5728\u4f60\u7684\u673a\u5668\uff08\u672c\u5730\u5b88\u62a4\u8fdb\u7a0b\uff09\u6216\u4f60\u81ea\u5df1\u7684\u4e91\u57fa\u7840\u8bbe\u65bd\u4e0a\u6267\u884c\u3002\u4ee3\u7801\u6c38\u8fdc\u4e0d\u4f1a\u7ecf\u8fc7 MEPERStudio \u670d\u52a1\u5668\u3002\u5e73\u53f0\u53ea\u534f\u8c03\u4efb\u52a1\u72b6\u6001\u548c\u5e7f\u64ad\u4e8b\u4ef6\u3002",
       },
       {
         question: "\u6211\u53ef\u4ee5\u8fd0\u884c\u591a\u5c11\u4e2a 智能体\uff1f",
@@ -289,24 +289,24 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         ],
       },
     },
-    copyright: "\u00a9 {year} Silieco. \u4fdd\u7559\u6240\u6709\u6743\u5229\u3002",
+    copyright: "\u00a9 {year} MEPERStudio. \u4fdd\u7559\u6240\u6709\u6743\u5229\u3002",
   },
 
   about: {
-    title: "\u5173\u4e8e Silieco",
-    nameLine: "Silieco 是开源的 Agent Work OS。",
+    title: "\u5173\u4e8e MEPERStudio",
+    nameLine: "MEPERStudio 是开源的 Agent Work OS。",
     paragraphs: [
-      "Silieco 为人和 AI Agent 提供同一个计划、执行与验收工作空间。Task、对话、审批、产物和运行状态从开始到交付始终保持关联。",
+      "MEPERStudio 为人和 AI Agent 提供同一个计划、执行与验收工作空间。Task、对话、审批、产物和运行状态从开始到交付始终保持关联。",
       "产品由三个清晰层次组成：App 是协作工作空间；Core 是管理身份、状态、策略和实时协调的控制面；Daemon 是连接团队电脑上各类 Agent 运行时的执行面。",
       "Agent 是正式的团队成员。它们接收 Task、汇报进展、提出阻塞并交付结果，人类则持续掌控优先级和最终验收。",
-      "Silieco 完全开源并支持自托管。工作数据和运行时凭据保留在你控制的基础设施中，同时通过稳定协议支持不同的 Agent 运行时。",
+      "MEPERStudio 完全开源并支持自托管。工作数据和运行时凭据保留在你控制的基础设施中，同时通过稳定协议支持不同的 Agent 运行时。",
     ],
     cta: "\u5728 GitHub \u4e0a\u67e5\u770b",
   },
 
   changelog: {
     title: "\u66f4\u65b0\u65e5\u5fd7",
-    subtitle: "Silieco \u7684\u6700\u65b0\u66f4\u65b0\u548c\u6539\u8fdb\u3002",
+    subtitle: "MEPERStudio \u7684\u6700\u65b0\u66f4\u65b0\u548c\u6539\u8fdb\u3002",
     toc: "\u5386\u53f2\u7248\u672c",
     categories: {
       features: "新功能",
@@ -360,7 +360,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "粘贴超长文本时，现在会自动变成文本附件。",
           "每个上传只显示一次，完成后才会写入草稿。",
           "Webhook URL 现在默认隐藏，可按需显示。",
-          "工作区很多时，Silieco 启动不再反复检查智能体工具。",
+          "工作区很多时，MEPERStudio 启动不再反复检查智能体工具。",
           "用量排名现在先聚焦前十名，失败排序也更清楚。",
           "发送后，光标现在会停在各编辑器预期的位置。",
         ],
@@ -535,7 +535,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "重新打开设置面板后，你的设置现在能可靠保存。",
           "恢复的 Codex 任务现在会准确报告用量。",
           "评论不再把不该变成链接的文字变成链接。",
-          "私聊的回复现在会留在 Silieco 里。",
+          "私聊的回复现在会留在 MEPERStudio 里。",
           "AI 辅助创建现在始终可用。",
           "Task 页面首次打开时不再卡顿。",
           "Linux 上的 Codex 智能体现在能正确保存 Git 信息。",
@@ -839,7 +839,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "任务日志（Transcript）会记住你的过滤条件与展开状态，下次打开同一次运行时自动恢复。",
-          "自托管（Helm）：新增 `postgres.external.enabled` 开关，可将 Silieco 指向外部托管的 PostgreSQL（RDS、CNPG、Cloud SQL、Neon 等），跳过内置数据库。",
+          "自托管（Helm）：新增 `postgres.external.enabled` 开关，可将 MEPERStudio 指向外部托管的 PostgreSQL（RDS、CNPG、Cloud SQL、Neon 等），跳过内置数据库。",
         ],
         fixes: [
           "评论草稿里有空的 `1. ` 列表项时，重新加载后光标不再卡在下方块。",
@@ -893,8 +893,8 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "Slack /task 斜杠命令、字节跳动 TRAE CLI 智能体运行时、接入 Claude Sonnet 5",
         changes: [],
         features: [
-          "Slack 里可以直接用原生 /task 斜杠命令创建 Silieco Task，机器人只会向你私发一条包含 Task 链接的确认消息。",
-          "同一 Slack 工作区里已经和某个 Silieco 机器人绑定过的用户，遇到新加入的第二个机器人时无需再走一次绑定流程。",
+          "Slack 里可以直接用原生 /task 斜杠命令创建 MEPERStudio Task，机器人只会向你私发一条包含 Task 链接的确认消息。",
+          "同一 Slack 工作区里已经和某个 MEPERStudio 机器人绑定过的用户，遇到新加入的第二个机器人时无需再走一次绑定流程。",
           "Slack 频道场景的上下文阅读拆成两条命令：一条查看频道概览，一条精读单个线程。",
           "字节跳动 TRAE CLI（traecli）通过标准 ACP 协议接入为内置智能体运行时之一。",
           "Anthropic 模型清单接入 Claude Sonnet 5，并已挂上介绍期价格。",
@@ -910,7 +910,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "修复了 Cursor 与 Kiro 运行时结束时任务结果不入库的问题，最终回复不再丢失。",
           "自托管的 docker-compose.selfhost.yml 现在会把 SILIECO_SLACK_SECRET_KEY 透传到后端容器。（社区反馈）",
           "Task 面板顶部「N 个 Task 正在处理中」的胶囊改为按 Task 数去重。",
-          "自托管匿名来源统计的上报地址恢复到正式的 Silieco API。",
+          "自托管匿名来源统计的上报地址恢复到正式的 MEPERStudio API。",
           "评论的定位高亮改为纯背景色，根评论和回复的行为保持一致。",
         ],
       },
@@ -921,7 +921,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "Autopilot 新增清晰的写权限分层，详情页提供「管理协作者」入口，可把单个 Autopilot 的写权限授予指定成员。",
-          "Slack 频道可以把过往对话回灌到 Silieco，智能体一进入频道即拥有完整上下文。",
+          "Slack 频道可以把过往对话回灌到 MEPERStudio，智能体一进入频道即拥有完整上下文。",
           "Slack 智能体处理消息期间会在用户消息上加 👀 反应表情，处理结束后稳定清除，不再出现卡死。",
           "技能包支持从本地 .skill / .zip 归档导入。",
           "silieco task 命令不再接受短 UUID 前缀，请使用 Task Key（SILI-123）或完整 UUID。",
@@ -1163,7 +1163,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         features: [
           "智能体、自动任务、项目、运行环境、技能和小队的列表体验更快也更一致，行内容、筛选、选择和操作都更清楚",
           "命令行现在可以管理工作区仓库，本地智能体更容易拿到项目仓库上下文",
-          "Cursor 和 OpenClaw 更容易配置：Cursor 连接设置可以由 Silieco 托管，OpenClaw 也可以连接已有网关",
+          "Cursor 和 OpenClaw 更容易配置：Cursor 连接设置可以由 MEPERStudio 托管，OpenClaw 也可以连接已有网关",
           "编辑评论时，可以在保存前预览并控制哪些智能体或小队会开始运行",
         ],
         improvements: [
@@ -1185,7 +1185,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "CodeBuddy Runtime",
         changes: [],
         features: [
-          "CodeBuddy 现在可以驱动本地 Silieco 智能体，并会自动显示可用的模型和投入强度选项",
+          "CodeBuddy 现在可以驱动本地 MEPERStudio 智能体，并会自动显示可用的模型和投入强度选项",
           "快速创建 Task 时上传的文件现在会从草稿一直带到最终创建的 Task 里",
         ],
         improvements: [
@@ -1227,15 +1227,15 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "评论输入框现在会在发送前显示哪些智能体或小队会开始工作，也可以避免误触发运行",
           "智能体运行记录现在会显示时间点，回看进度和交接信息更清楚",
           "自动任务详情页现在会显示创建人",
-          "Claude Fable 5 现在已加入 Silieco 支持的模型和价格列表",
+          "Claude Fable 5 现在已加入 MEPERStudio 支持的模型和价格列表",
           "Task 讨论可以把某一条回复设为解决结论，长讨论收起后也能直接看到最终答案",
-          "在 Lark 和飞书里和 Silieco 对话时，会显示等待中的输入状态，回复发出后自动清除",
+          "在 Lark 和飞书里和 MEPERStudio 对话时，会显示等待中的输入状态，回复发出后自动清除",
           "每次智能体任务都会带上真实发起人信息，交接、审计和权限判断更准确",
           "OpenClaw 可以从本地配置中读取自定义程序位置和数据目录",
         ],
         improvements: [
           "评论触发提示更安静、更清楚，遇到较长的智能体名称时也不容易拥挤",
-          "桌面端在守护进程由 Silieco 之外的环境管理时，会禁用启动和停止控制，例如 WSL2 场景",
+          "桌面端在守护进程由 MEPERStudio 之外的环境管理时，会禁用启动和停止控制，例如 WSL2 场景",
           "Task 顶部的智能体状态更容易区分：运行中才显示动效，等待中会明确显示排队状态",
           "命令行会直接说明常见错误、登录问题和项目配置问题的处理方式",
         ],
@@ -1259,7 +1259,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "网页版消息通知和 /note 指令",
         changes: [],
         features: [
-          "网页端现在可以显示浏览器原生通知横幅，即使 Silieco 在后台，也更容易及时看到工作区动态",
+          "网页端现在可以显示浏览器原生通知横幅，即使 MEPERStudio 在后台，也更容易及时看到工作区动态",
           "以 /note 开头的评论现在可以记录上下文，但不会唤醒已分配的智能体，团队可以留下协作备注而不触发运行",
           "Antigravity 现在可以作为每个智能体单独选择的模型",
           "命令行现在会用更容易理解的语言解释常见请求失败，并提示下一步该怎么处理",
@@ -1317,10 +1317,10 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "Lark Bot 集成",
         changes: [],
         features: [
-          "支持 Lark 第三方集成，扫码就能把 Silieco 智能体创建成一个 Lark Bot",
+          "支持 Lark 第三方集成，扫码就能把 MEPERStudio 智能体创建成一个 Lark Bot",
           "聊天现在支持可搜索的智能体选择器和明确的上下文选择器，更容易指定谁来回复、需要看哪些内容",
           "描述和评论现在支持勾选式任务清单，Task 里的轻量计划更好整理",
-          "智能体现在内置 Silieco 技能，可以更稳定地遵循工作区工作流",
+          "智能体现在内置 MEPERStudio 技能，可以更稳定地遵循工作区工作流",
         ],
         improvements: [
           "聊天上下文会以清晰的提及形式呈现，交接和后续回看更容易理解",
@@ -1364,7 +1364,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "日语支持和 /skill command",
         changes: [],
         features: [
-          "Silieco 现在支持日语界面、官网和文档",
+          "MEPERStudio 现在支持日语界面、官网和文档",
           "聊天现在支持 /skill command，用来选择智能体技能",
           "工作区现在可以显示自定义 Logo",
           "可以给智能体追加技能，不会覆盖已有技能",
@@ -1420,7 +1420,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "智能体在 Task 评论区继续任务时，会接着之前的会话继续，不再新开会话，任务上下文可以保留下来",
-          "Silieco 现在支持韩语界面、官网和文档，包含完整韩语文档与本地化日期显示",
+          "MEPERStudio 现在支持韩语界面、官网和文档，包含完整韩语文档与本地化日期显示",
           "Task 页面会在标题附近固定显示正在工作的智能体，多智能体同时工作时也能更清楚地查看",
           "智能体读取 Task 讨论时可以先看到线程摘要、回复数量和最近活跃时间，更快找到需要跟进的上下文",
           "OpenClaw 运行环境现在可以使用智能体里保存的 MCP 设置，Claude Opus 4.8 也可用于模型选择和用量估算",
@@ -1518,8 +1518,8 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "iOS 客户端、Helm 自托管与更顺畅的协作体验",
         changes: [],
         features: [
-          "Silieco iOS 客户端发布官方首个可用版本，覆盖登录、工作区、收件箱、Task、项目、聊天、评论、表情回应、在线状态和实时更新；目前暂未上架 App Store，需要用户自行打包安装",
-          "自托管团队现在可以通过 Helm 将 Silieco 部署到 Kubernetes，Docker 安装也有更清晰的端口和 URL 配置",
+          "MEPERStudio iOS 客户端发布官方首个可用版本，覆盖登录、工作区、收件箱、Task、项目、聊天、评论、表情回应、在线状态和实时更新；目前暂未上架 App Store，需要用户自行打包安装",
+          "自托管团队现在可以通过 Helm 将 MEPERStudio 部署到 Kubernetes，Docker 安装也有更清晰的端口和 URL 配置",
           "项目资源选择器新增仓库搜索，工作区仓库设置也可以保存描述，帮助智能体理解每个代码库",
           "运行时用量现在可以更准确识别 DeepSeek、Kimi K2.6、Zhipu GLM 和长上下文 Claude Opus 的费用",
           "官网新增使用场景页面能力，并让文档、更新日志和开始使用入口更清晰",
@@ -1662,7 +1662,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "Task 操作失败时会显示更明确的错误原因，团队不用翻日志也能理解发生了什么",
-          "关联 GitHub 的 Pull Request 会在 Silieco 内展示 CI 和合并冲突状态",
+          "关联 GitHub 的 Pull Request 会在 MEPERStudio 内展示 CI 和合并冲突状态",
           "自托管部署获得更安全的默认配置，并补充反向代理、登录限制和本地服务的说明",
           "搜索结果排序更准确，也会展示更有帮助的摘要片段",
         ],
@@ -1754,7 +1754,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         title: "GitHub 集成、聊天附件与 Task 定位优化",
         changes: [],
         features: [
-          "接入 GitHub 后，关联的 Pull Request 会显示在 Silieco Task 中，状态会同步到 Silieco，关闭 PR 后会自动关闭对应 Task",
+          "接入 GitHub 后，关联的 Pull Request 会显示在 MEPERStudio Task 中，状态会同步到 MEPERStudio，关闭 PR 后会自动关闭对应 Task",
           "聊天消息支持添加文件附件和图片预览",
           "Agent 和 runtime 可以设置公开或私有，方便控制团队可见范围",
           "停止单个 agent 任务前会先弹出确认，避免误操作",
@@ -1765,7 +1765,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "很长的 Task 时间线滚动更顺畅",
           "反馈入口更明确地引导用户到 GitHub 参与讨论和反馈",
           "自托管 Caddy 配置文档补充实时连接要求",
-          "Linux 桌面端安装包恢复显示 Silieco 应用图标",
+          "Linux 桌面端安装包恢复显示 MEPERStudio 应用图标",
         ],
         fixes: [
           "下载附件时保留原始文件名",
@@ -1867,7 +1867,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
           "Linux 上 daemon self-restart 改走 `brew prefix` 软链，Homebrew Cellar 删除后不再让 runtime 失联",
           "CLI 短 ID 现在可以正确路由，复制粘贴的短前缀不再 404",
           "Windows 上非 ASCII 字符评论 / 描述输入新增 `--content-file` / `--description-file`",
-          "Windows / Linux 桌面端用 Silieco asterisk 替换 Electron 默认占位图标",
+          "Windows / Linux 桌面端用 MEPERStudio asterisk 替换 Electron 默认占位图标",
           "Timeline 中孤立的 reply 现在会被正确捞回展示",
           "Timeline 评论分页预算不再把 activity 算进去，避免活动多时挤掉真实评论",
         ],
@@ -1971,7 +1971,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "Daemon `/tasks/claim` 轮询走 Redis 空认领 fast-path，空闲态 DB 压力下降，长期 open 的 Task 自动回收磁盘",
-          "Silieco Agent 的 Git 提交自动追加 `Co-authored-by` trailer，归属更清晰",
+          "MEPERStudio Agent 的 Git 提交自动追加 `Co-authored-by` trailer，归属更清晰",
           "Desktop 拦截 Cmd+R / Ctrl+R / F5 防止意外刷新，开发模式与 Updates 设置中均展示真实版本号",
         ],
         fixes: [
@@ -2573,29 +2573,29 @@ export function createZhDict(allowSignup: boolean): LandingDict {
   download: {
     hero: {
       macArm64: {
-        title: "Silieco for macOS",
+        title: "MEPERStudio for macOS",
         sub: "Apple Silicon · 内置 daemon，无需配置",
         primary: "下载 (.dmg)",
         altZip: "或下载 .zip",
       },
       macIntel: {
-        title: "Silieco for macOS",
+        title: "MEPERStudio for macOS",
         sub: "Intel · 内置守护进程，无需配置",
         primary: "下载 (.dmg)",
         altZip: "或下载 .zip",
       },
       winX64: {
-        title: "Silieco for Windows",
+        title: "MEPERStudio for Windows",
         sub: "内置 daemon，无需配置",
         primary: "下载 (.exe)",
       },
       winArm64: {
-        title: "Silieco for Windows",
+        title: "MEPERStudio for Windows",
         sub: "ARM · 内置 daemon，无需配置",
         primary: "下载 (.exe)",
       },
       linux: {
-        title: "Silieco for Linux",
+        title: "MEPERStudio for Linux",
         sub: "内置 daemon，无需配置",
         primary: "下载 AppImage",
         altFormats: "或 .deb / .rpm",
@@ -2646,7 +2646,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
   contactSales: {
     pageTitle: "联系商务",
     pageDescription:
-      "了解如何在你的团队中落地 Silieco 的人类 + 智能体协作工作流。",
+      "了解如何在你的团队中落地 MEPERStudio 的人类 + 智能体协作工作流。",
     eyebrow: "联系商务",
     title: "先了解你的需求",
     subtitle: "在正式沟通之前，让我们为你定制最合适的方案。",
@@ -2663,10 +2663,10 @@ export function createZhDict(allowSignup: boolean): LandingDict {
       companyName: "公司名称",
       companySize: "公司规模",
       countryRegion: "国家 / 地区",
-      useCase: "你打算如何使用 Silieco 或与我们合作？",
+      useCase: "你打算如何使用 MEPERStudio 或与我们合作？",
       goals: "你的目标或挑战",
       goalsHint:
-        "告诉我们你希望借助 Silieco 达成什么目标，或正在面临的挑战。信息越详细，我们越能给到合适的支持。",
+        "告诉我们你希望借助 MEPERStudio 达成什么目标，或正在面临的挑战。信息越详细，我们越能给到合适的支持。",
       selectPlaceholder: "请选择",
       submit: "提交",
       submitting: "正在提交…",
@@ -2680,7 +2680,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
       { value: "1000+", label: "1,000 人以上" },
     ],
     useCases: [
-      { value: "evaluate", label: "正在为团队评估 Silieco" },
+      { value: "evaluate", label: "正在为团队评估 MEPERStudio" },
       { value: "adopt_team", label: "希望在团队 / 公司内推广使用" },
       { value: "self_host", label: "需要在自有基础设施上自托管" },
       { value: "integrate", label: "希望与现有工具集成" },
@@ -2732,22 +2732,22 @@ export function createZhDict(allowSignup: boolean): LandingDict {
     ],
     consent: {
       intro:
-        "Silieco, Inc. 尊重你的隐私。我们仅会将你的个人信息用于管理账户，以及提供你所请求的产品或服务。我们偶尔也希望与你分享产品更新、最佳实践或行业洞察，如果你愿意接收，请在下方勾选。",
+        "MEPERStudio, Inc. 尊重你的隐私。我们仅会将你的个人信息用于管理账户，以及提供你所请求的产品或服务。我们偶尔也希望与你分享产品更新、最佳实践或行业洞察，如果你愿意接收，请在下方勾选。",
       outreach:
-        "我希望接收来自 Silieco, Inc. 的一对一沟通，包括服务更新、支持咨询以及业务相关的跟进。",
+        "我希望接收来自 MEPERStudio, Inc. 的一对一沟通，包括服务更新、支持咨询以及业务相关的跟进。",
       updates:
-        "我希望接收 Silieco 的产品更新、洞察以及活动邀请。",
+        "我希望接收 MEPERStudio 的产品更新、洞察以及活动邀请。",
       unsubscribe:
         "你可以随时取消订阅我们的邮件。关于我们如何处理你的数据以及隐私权利，请参阅",
       submitConsent:
-        "点击「提交」即表示你同意 Silieco, Inc. 存储并处理你提交的信息，以便交付你请求的内容。",
+        "点击「提交」即表示你同意 MEPERStudio, Inc. 存储并处理你提交的信息，以便交付你请求的内容。",
       privacyLinkLabel: "隐私政策。",
       privacyLinkHref: "/about",
     },
     success: {
       title: "已收到，谢谢！",
       message:
-        "Silieco 团队会在三个工作日内回复你。在此期间，欢迎查看我们的文档，或在 GitHub 上为我们点个 Star。",
+        "MEPERStudio 团队会在三个工作日内回复你。在此期间，欢迎查看我们的文档，或在 GitHub 上为我们点个 Star。",
       cta: "返回首页",
     },
     errors: {

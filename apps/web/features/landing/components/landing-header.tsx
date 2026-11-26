@@ -43,7 +43,7 @@ export function LandingHeader({
           <Link href="/" className="flex shrink-0 items-center gap-3">
             <img
               src={variant === "dark" ? "/brand/meper-studio-horizontal-white.svg" : "/brand/meper-studio-horizontal-color.svg"}
-              alt="MEPER Studio"
+              alt="MEPERStudio"
               width={510}
               height={112}
               className="h-auto w-[150px] sm:w-[180px]"

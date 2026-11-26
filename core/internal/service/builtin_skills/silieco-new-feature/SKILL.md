@@ -8,7 +8,7 @@ user-invocable: false
 
 ## Purpose
 
-Convert the current large Task, comments, attachments, and Project context into enough shared understanding for a first implementation. Keep Silieco as the workflow state source.
+Convert the current large Task, comments, attachments, and Project context into enough shared understanding for a first implementation. Keep MEPERStudio as the workflow state source.
 
 ## Input
 

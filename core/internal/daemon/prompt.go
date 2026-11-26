@@ -126,7 +126,7 @@ func buildPromptBody(agentRun AgentRun, provider string) string {
 		return buildQuickCreatePrompt(agentRun)
 	}
 	var b strings.Builder
-	b.WriteString("You are running as a local coding agent for a Silieco workspace.\n\n")
+	b.WriteString("You are running as a local coding agent for a MEPERStudio workspace.\n\n")
 	fmt.Fprintf(&b, "Your assigned task ID is: %s\n\n", agentRun.TaskID)
 	b.WriteString(turnModeOwnership)
 	// Assignment handoff (SILI-3375): a free-text instruction the person who
@@ -150,7 +150,7 @@ func buildPromptBody(agentRun AgentRun, provider string) string {
 // or reply to.
 func buildQuickCreatePrompt(agentRun AgentRun) string {
 	var b strings.Builder
-	b.WriteString("You are running as a quick-create assistant for a Silieco workspace.\n\n")
+	b.WriteString("You are running as a quick-create assistant for a MEPERStudio workspace.\n\n")
 	b.WriteString("A user captured the following input via the quick-create modal. There is NO existing task. Your job is to create a well-formed task from this input with a single `silieco task create` command.\n\n")
 	fmt.Fprintf(&b, "User input:\n> %s\n\n", agentRun.QuickCreatePrompt)
 
@@ -261,7 +261,7 @@ func buildQuickCreatePrompt(agentRun AgentRun) string {
 // previous turn's --parent UUID.
 func buildCommentPrompt(agentRun AgentRun, provider string) string {
 	var b strings.Builder
-	b.WriteString("You are running as a local coding agent for a Silieco workspace.\n\n")
+	b.WriteString("You are running as a local coding agent for a MEPERStudio workspace.\n\n")
 	fmt.Fprintf(&b, "Your assigned task ID is: %s\n\n", agentRun.TaskID)
 	// Mode marker for the brief's router. Emitted unconditionally from the same
 	// branch that selects this code path, so the brief and the prompt can never
@@ -424,13 +424,13 @@ func buildChatPrompt(agentRun AgentRun) string {
 	// the creator prompting the agent (SILI-4230).
 	if agentRun.ChatIntro {
 		var b strings.Builder
-		b.WriteString("You are running as a chat assistant for a Silieco workspace.\n")
+		b.WriteString("You are running as a chat assistant for a MEPERStudio workspace.\n")
 		b.WriteString("You were just created, and this is the very first message in a direct chat with the person who created you. They have not written anything yet — you are opening the conversation. Send a short, warm, first-person introduction: who you are, what you're good at, and how they can work with you. Do NOT phrase it as an answer to a question or repeat any prompt back; just introduce yourself as if you reached out first.\n")
 		return b.String()
 	}
 
 	var b strings.Builder
-	b.WriteString("You are running as a chat assistant for a Silieco workspace.\n")
+	b.WriteString("You are running as a chat assistant for a MEPERStudio workspace.\n")
 	if agentRun.ChatKind == "group" {
 		b.WriteString("You were explicitly @mentioned in a Space group chat. The message below contains the recent speaker-labelled group transcript through the triggering message. Use it as shared context, respond as yourself to the whole group, and do not claim another participant's words as your own.\n\n")
 	} else {
@@ -438,9 +438,9 @@ func buildChatPrompt(agentRun AgentRun) string {
 	}
 	// Channel awareness (SILI-3871). When the session is backed by an IM channel,
 	// the agent must KNOW it is operating inside that channel — otherwise an ask
-	// like "what did you just talk about" sends it to read Silieco instead of the
+	// like "what did you just talk about" sends it to read MEPERStudio instead of the
 	// channel conversation. A web-only chat session gets no such block — its
-	// history is the Silieco chat_session the agent already resumes.
+	// history is the MEPERStudio chat_session the agent already resumes.
 	//
 	// The history half is Slack-only, and that is a real server constraint, not a
 	// simplification: `silieco chat history` / `silieco chat thread` are served by
@@ -458,7 +458,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 	// silently dropped it for Feishu/Lark (GH #6006).
 	if agentRun.ChatChannelType != "" {
 		platform := channelDisplayName(agentRun.ChatChannelType)
-		fmt.Fprintf(&b, "You are operating inside a %s conversation — not the Silieco web app. This conversation and its history live in %s, NOT in Silieco; never look in Silieco tasks or comments for it.\n", platform, platform)
+		fmt.Fprintf(&b, "You are operating inside a %s conversation — not the MEPERStudio web app. This conversation and its history live in %s, NOT in MEPERStudio; never look in MEPERStudio tasks or comments for it.\n", platform, platform)
 		if agentRun.ChatChannelType == execenv.ChannelTypeSlack {
 			b.WriteString("The message below may be only what triggered you. Read the conversation with:\n")
 			b.WriteString("- `silieco chat history --output json` — the channel overview: recent top-level messages, each thread tagged with a `thread_id` and `reply_count`. It does NOT expand thread contents.\n")
@@ -473,7 +473,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 			// prefixed with "我先读取…"). Tell the agent to keep them out of its answer.
 			b.WriteString("Do these reads SILENTLY as an internal step — they are how you gather context, not part of your answer.\n")
 		} else {
-			fmt.Fprintf(&b, "Work from the context already provided to you below — Silieco has no history reader for %s, so there is no command that can fetch more of this conversation. If you genuinely need earlier context that is not here, ask the user for it rather than guessing.\n", platform)
+			fmt.Fprintf(&b, "Work from the context already provided to you below — MEPERStudio has no history reader for %s, so there is no command that can fetch more of this conversation. If you genuinely need earlier context that is not here, ask the user for it rather than guessing.\n", platform)
 		}
 		// Scoped to process, not results — a completion confirmation IS the deliverable.
 		fmt.Fprintf(&b, "Reply to %s with the final outcome only. Do NOT narrate planned or in-progress steps (\"我先读取…\"); completed actions are part of the outcome.\n", platform)
@@ -531,7 +531,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 	}
 	// Outbound attachments: how the agent puts an image/file INTO its reply.
 	// Web/mobile chat only — for IM-channel chats the reply is delivered to
-	// that platform, not the Silieco chat UI, so this binding does not apply.
+	// that platform, not the MEPERStudio chat UI, so this binding does not apply.
 	// This is the DELIVERY layer of the channel policy and keys off "is there a
 	// channel at all", unlike the history block above which is Slack-only; the
 	// two layers must not be collapsed into one condition (SILI-4899). The brief's
@@ -539,7 +539,7 @@ func buildChatPrompt(agentRun AgentRun) string {
 	if agentRun.ChatChannelType == "" {
 		b.WriteString("\nTo include a file or image you produced in your reply, run `silieco attachment upload <local-path>`. The file binds to your reply automatically and appears as an attachment card below it even if you paste nothing. The command also returns a `markdown` snippet you may paste on its own line to place the item where you want it (files render as a card, images inline).\n")
 	} else {
-		fmt.Fprintf(&b, "\nThis reply is delivered to %s as text. You cannot attach a file to it: `silieco attachment upload` binds to a Silieco chat reply, which this is not. If you produce a file, describe it in words — never write its local path as a link, and never upload it and then write as though it arrived.\n", channelDisplayName(agentRun.ChatChannelType))
+		fmt.Fprintf(&b, "\nThis reply is delivered to %s as text. You cannot attach a file to it: `silieco attachment upload` binds to a MEPERStudio chat reply, which this is not. If you produce a file, describe it in words — never write its local path as a link, and never upload it and then write as though it arrived.\n", channelDisplayName(agentRun.ChatChannelType))
 	}
 	return b.String()
 }
@@ -554,8 +554,8 @@ func channelDisplayName(channelType string) string {
 // buildAutopilotPrompt constructs a prompt for run_only autopilot tasks.
 func buildAutopilotPrompt(agentRun AgentRun) string {
 	var b strings.Builder
-	b.WriteString("You are running as a local coding agent for a Silieco workspace.\n\n")
-	b.WriteString("This task was triggered by an Autopilot in run-only mode. There is no assigned Silieco task for this run.\n\n")
+	b.WriteString("You are running as a local coding agent for a MEPERStudio workspace.\n\n")
+	b.WriteString("This task was triggered by an Autopilot in run-only mode. There is no assigned MEPERStudio task for this run.\n\n")
 	fmt.Fprintf(&b, "Autopilot run ID: %s\n", agentRun.AutopilotRunID)
 	if agentRun.AutopilotID != "" {
 		fmt.Fprintf(&b, "Autopilot ID: %s\n", agentRun.AutopilotID)

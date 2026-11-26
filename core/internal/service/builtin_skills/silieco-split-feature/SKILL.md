@@ -1,10 +1,10 @@
 ---
 name: silieco-split-feature
-description: "Use in the Feature SOP planning stage to turn the current large Task into small, parent-linked Silieco child Tasks, grouped into safe execution barriers and kept parked until development starts."
+description: "Use in the Feature SOP planning stage to turn the current large Task into small, parent-linked MEPERStudio child Tasks, grouped into safe execution barriers and kept parked until development starts."
 user-invocable: false
 ---
 
-# Split Feature into Silieco Child Tasks
+# Split Feature into MEPERStudio Child Tasks
 
 ## Input
 
@@ -16,7 +16,7 @@ user-invocable: false
 - Prefer vertical, verifiable slices; use technical-only children when shared foundation or migration work is genuinely required.
 - Each child must be small enough for one focused implementation cycle and have an objective done condition.
 - Preserve the parent as the scope and progress index.
-- Express order with Silieco child `--stage N` barrier groups; describe exact dependencies in each child.
+- Express order with MEPERStudio child `--stage N` barrier groups; describe exact dependencies in each child.
 - Avoid overlapping ownership of one acceptance scenario across children.
 - Create new development children as `backlog` so planning does not start all agents early.
 
@@ -38,6 +38,6 @@ user-invocable: false
 
 ## Required output
 
-Produce real Silieco child Tasks plus a concise parent comment listing child IDs by barrier group and requirement coverage. All children remain `backlog`; after the SOP enters `开发实现`, a human or parent coordinator promotes only the first ready group to `todo`.
+Produce real MEPERStudio child Tasks plus a concise parent comment listing child IDs by barrier group and requirement coverage. All children remain `backlog`; after the SOP enters `开发实现`, a human or parent coordinator promotes only the first ready group to `todo`.
 
 This Stage is complete when every requirement is covered, every child is parent-linked, ordering is visible, and SOP Stage attachment is confirmed. Do not create `queue.yaml`, `workflow-state.json`, worktrees, branches, or implementation code here. `--stage N` is a child barrier group; `--workflow-stage <uuid>` is the SOP Stage assignment.

@@ -31,7 +31,7 @@ func tryResolveAppURL(cmd *cobra.Command) string {
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate and set up workspaces",
-	Long:  "Log in to Silieco, then automatically discover and watch all your workspaces.",
+	Long:  "Log in to MEPERStudio, then automatically discover and watch all your workspaces.",
 	// Up to one positional is accepted so `--token sili_...` / `--token mcn_...`
 	// (space form) can recover the token in runAuthLogin even though pflag
 	// won't bind it.

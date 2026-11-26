@@ -1,5 +1,5 @@
 appId: ai.silieco.desktop
-productName: Silieco
+productName: MEPERStudio
 directories:
   buildResources: build
 files:
@@ -11,7 +11,7 @@ files:
   - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
   - "!dist/**"
 protocols:
-  - name: Silieco
+  - name: MEPERStudio
     schemes:
       - silieco
 asarUnpack:
@@ -29,7 +29,7 @@ linux:
   executableName: silieco-desktop
   desktop:
     entry:
-      StartupWMClass: Silieco
+      StartupWMClass: MEPERStudio
   icon: build/icons
   target:
     - AppImage

@@ -112,7 +112,7 @@ function profileLogPath(profile: string): string {
   return join(profileDir(profile), "daemon.log");
 }
 
-// Sidecar file that records which Silieco user the cached PAT in config.json
+// Sidecar file that records which MEPERStudio user the cached PAT in config.json
 // was minted for. The Go CLI/daemon never read or write this file, so it
 // survives Go-side config rewrites. Used to detect user switches and mint a
 // fresh PAT instead of reusing a token that belongs to a previous user.
@@ -418,7 +418,7 @@ function findCliOnPath(): string | null {
  * - Dev (`electron-vite dev`): `app.getAppPath()` → `apps/desktop`, resolving
  *   to `apps/desktop/resources/bin/silieco`. `bundle-cli.mjs` populates this
  *   before dev starts, so iterating on Go changes is "make build → restart".
- * - Packaged: `app.getAppPath()` → `<Silieco.app>/Contents/Resources/app.asar`.
+ * - Packaged: `app.getAppPath()` → `<MEPERStudio.app>/Contents/Resources/app.asar`.
  *   electron-builder's `asarUnpack: resources/**` extracts the binary to
  *   `app.asar.unpacked/`, so we swap the path segment to execute it.
  */
@@ -635,7 +635,7 @@ async function mintPat(jwt: string): Promise<string> {
       "X-Silieco-Protocol": "task-run-v1",
     },
     // Omit expires_in_days → server treats as null → non-expiring PAT.
-    body: JSON.stringify({ name: "Silieco Desktop" }),
+    body: JSON.stringify({ name: "MEPERStudio Desktop" }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");

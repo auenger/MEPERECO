@@ -61,7 +61,7 @@ export function StepHeader({ currentStep }: { currentStep: OnboardingStep }) {
         <div className="hidden shrink-0 items-center gap-2.5 sm:flex">
           <SiliecoIcon className="size-5" noSpin />
           <span className="text-label font-semibold tracking-[-0.01em]">
-            Silieco
+            MEPERStudio
           </span>
         </div>
         <span className="hidden h-5 w-px bg-border sm:block" />

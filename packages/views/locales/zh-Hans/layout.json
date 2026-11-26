@@ -36,8 +36,8 @@
     "loading_named_prefix": "正在加载"
   },
   "sidebar": {
-    "brand_name": "Silieco",
-    "brand_tagline": "MEPER Studio Agent OS",
+    "brand_name": "MEPERStudio",
+    "brand_tagline": "MEPERStudio Agent OS",
     "create_project": "创建项目",
     "view_projects": "查看全部项目",
     "unpin_tooltip": "取消固定",

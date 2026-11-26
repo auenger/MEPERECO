@@ -26,7 +26,7 @@ export function LandingFooter() {
           {/* Left — newsletter / CTA */}
           <div className="lg:w-[340px] lg:shrink-0">
             <Link href="#product" className="flex items-center gap-3">
-              <img src="/brand/meper-studio-horizontal-white.svg" alt="MEPER Studio" width={510} height={112} className="h-auto w-[180px]" />
+              <img src="/brand/meper-studio-horizontal-white.svg" alt="MEPERStudio" width={510} height={112} className="h-auto w-[180px]" />
             </Link>
             <p className="mt-4 max-w-[300px] text-body leading-[1.7] text-white/50 sm:text-body-lg">
               {t.footer.tagline}
@@ -119,7 +119,7 @@ export function LandingFooter() {
           <div className="flex items-end gap-6 sm:gap-8">
             <img
               src="/brand/meper-studio-horizontal-white.svg"
-              alt="MEPER Studio"
+              alt="MEPERStudio"
               width={510}
               height={112}
               className="h-auto w-full"

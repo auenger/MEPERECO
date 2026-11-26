@@ -34,7 +34,7 @@ export function WorkspacesPage() {
     <div className="flex min-h-svh flex-col bg-background">
       <DragStrip />
       <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
-        <span className="font-medium">Silieco</span>
+        <span className="font-medium">MEPERStudio</span>
         <div className="flex min-w-0 items-center gap-3">
           <span className="truncate text-caption text-muted-foreground">{user?.email}</span>
           <Button variant="ghost" size="sm" onClick={logout}>{t(($) => $.new_page.log_out)}</Button>

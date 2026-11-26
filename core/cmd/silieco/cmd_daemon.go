@@ -515,7 +515,7 @@ func daemonStartupFailureError(logs daemonStartupLogs, waitErr error, profile, s
 		strings.Contains(joined, "no such host") ||
 		strings.Contains(joined, "i/o timeout") ||
 		strings.Contains(joined, "network is unreachable"):
-		target := "the Silieco server"
+		target := "the MEPERStudio server"
 		if serverURL != "" {
 			target += " at " + serverURL
 		}
@@ -924,7 +924,7 @@ func requireDaemonRestartPreflight(cmd *cobra.Command, profile string) error {
 			}
 			return fmt.Errorf("refusing to restart: preflight check against %s failed (%w); the running daemon was left untouched", baseURL, err)
 		}
-		return fmt.Errorf("refusing to restart: cannot reach the Silieco server at %s (%w); the running daemon was left untouched.\nMake sure the server is running and reachable, then rerun 'silieco daemon restart'", baseURL, err)
+		return fmt.Errorf("refusing to restart: cannot reach the MEPERStudio server at %s (%w); the running daemon was left untouched.\nMake sure the server is running and reachable, then rerun 'silieco daemon restart'", baseURL, err)
 	}
 	return nil
 }

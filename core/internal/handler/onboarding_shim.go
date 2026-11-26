@@ -51,7 +51,7 @@ const maxStarterPromptLen = 2 * 1024
 
 const (
 	onboardingAssistantName = "Sili Agent"
-	onboardingTaskTitle     = "Start here: learn Silieco with Sili Agent"
+	onboardingTaskTitle     = "Start here: learn MEPERStudio with Sili Agent"
 	onboardingAgentTemplate = "silieco_helper"
 
 	// noRuntimeTaskTitle MUST match the pre-v3 service constant so
@@ -59,7 +59,7 @@ const (
 	noRuntimeTaskTitle = "Connect a runtime to start using agents"
 )
 
-const onboardingAssistantDescription = "Your built-in Silieco agent for product guidance, workspace setup, tasks, and automation."
+const onboardingAssistantDescription = "Your built-in MEPERStudio agent for product guidance, workspace setup, tasks, and automation."
 
 const onboardingAssistantAvatarURL = "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%20width%3D%22256%22%20height%3D%22256%22%20role%3D%22img%22%3E%3Ctitle%3EMEPER%20Studio%20meper-studio-app%3C%2Ftitle%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22m-left%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%2307A8CE%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230879DC%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22m-right%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%231886EC%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%231246C8%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22tile%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20stop-color%3D%22%23248DF2%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23123DAE%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20x%3D%220%22%20y%3D%220%22%20width%3D%22256%22%20height%3D%22256%22%20rx%3D%2258.112%22%20fill%3D%22url%28%23tile%29%22%20%2F%3E%3Cg%20transform%3D%22translate%2835.84%2032.256%29%20scale%281.7715199999999998%29%22%20opacity%3D%221%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M7%2086V24L20%2017L46%2043L34%2055L27%2048V86Z%22%2F%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M41%2061L83%2017L96%2024V86H76V49L55%2075Z%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"
 
@@ -71,11 +71,11 @@ const onboardingAssistantAvatarURL = "data:image/svg+xml,%3Csvg%20xmlns%3D%22htt
 // in-views copy of this string (`packages/views/onboarding/templates/
 // helper-instructions.ts`) — these two must stay in sync until the shim
 // is removed.
-const onboardingAssistantInstructions = `You are Sili Agent, the built-in AI assistant for this Silieco workspace. Your role is to help any member use Silieco better — answer questions, give advice, and execute workspace operations on their behalf.
+const onboardingAssistantInstructions = `You are Sili Agent, the built-in AI assistant for this MEPERStudio workspace. Your role is to help any member use MEPERStudio better — answer questions, give advice, and execute workspace operations on their behalf.
 
-## What Silieco is
+## What MEPERStudio is
 
-Silieco is an open-source, AI-native team workspace (source: https://github.com/silieco-ai/silieco). The core idea: AI agents are treated as real teammates — they get assigned tasks on a kanban-style board, comment in threads, change status, and run code, exactly like human members. You can also chat directly with agents (chat), group them into squads, and run scheduled or triggered automation (autopilot).
+MEPERStudio is an open-source, AI-native team workspace (source: https://github.com/silieco-ai/silieco). The core idea: AI agents are treated as real teammates — they get assigned tasks on a kanban-style board, comment in threads, change status, and run code, exactly like human members. You can also chat directly with agents (chat), group them into squads, and run scheduled or triggered automation (autopilot).
 
 For concept details (workspace / task / project / agent / runtime / skill / squad / autopilot / inbox / chat session): fetch https://silieco.ai/docs via WebFetch — that's authoritative. For the "why" or implementation, fetch the GitHub repo above. Never paraphrase concepts from memory.
 
@@ -96,7 +96,7 @@ A few things you can actually do (non-exhaustive — ` + "`--help`" + ` is the s
 
 Be concise and direct, like a colleague. Respond in the user's language (Chinese in, Chinese out). When pointing at a UI location, name the exact path ("Settings → Agents → New"); when pointing at a doc, link to the specific page, not the homepage. Never fabricate URLs, flags, or file paths.`
 
-const onboardingTaskDescription = `Welcome to Silieco.
+const onboardingTaskDescription = `Welcome to MEPERStudio.
 
 This is your guided first run. Sili Agent is assigned to this task and will help you try the core workflow:
 
@@ -246,6 +246,17 @@ func (h *Handler) BootstrapOnboardingRuntime(w http.ResponseWriter, r *http.Requ
 		slog.Warn("bootstrap onboarding (shim): duplicate task check failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", req.WorkspaceID)...)
 		writeError(w, http.StatusInternalServerError, "failed to create onboarding task")
 		return
+	}
+	// The product rename must not create a second onboarding task for an
+	// existing workspace that already has the old titled task.
+	if !foundTask {
+		task, foundTask, err = taskguard.LockAndFindActiveDuplicate(
+			r.Context(), qtx, wsUUID, emptyUUID, emptyUUID, "Start here: learn Silieco with Sili Agent", false,
+		)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to check existing onboarding task")
+			return
+		}
 	}
 	taskCreated := false
 	if !foundTask {
@@ -495,11 +506,11 @@ func noRuntimeTaskDescription(language pgtype.Text) string {
 
 func enNoRuntimeTaskDescription() string {
 	return strings.Join([]string{
-		"Welcome to Silieco.",
+		"Welcome to MEPERStudio.",
 		"",
-		"Agents need a runtime before they can execute work. You can still use Silieco as a lightweight project-management workspace while you install one.",
+		"Agents need a runtime before they can execute work. You can still use MEPERStudio as a lightweight project-management workspace while you install one.",
 		"",
-		"## Try Silieco first",
+		"## Try MEPERStudio first",
 		"",
 		"Before the runtime is ready, you can:",
 		"",
@@ -524,7 +535,7 @@ func enNoRuntimeTaskDescription() string {
 		"4. Confirm your terminal can find it:",
 		"   which codex",
 		"   codex --version",
-		"5. Restart the Silieco daemon:",
+		"5. Restart the MEPERStudio daemon:",
 		"   silieco daemon restart",
 		"   If you use the desktop app, restarting the app is enough.",
 		"6. Return to Runtimes and refresh. You should see a Codex runtime online.",
@@ -538,9 +549,9 @@ func enNoRuntimeTaskDescription() string {
 
 func zhNoRuntimeTaskDescription() string {
 	return strings.Join([]string{
-		"欢迎来到 Silieco。",
+		"欢迎来到 MEPERStudio。",
 		"",
-		"智能体需要先连上运行时才能执行工作。运行时还没准备好时，你也可以先把 Silieco 当作轻量项目管理工具体验起来。",
+		"智能体需要先连上运行时才能执行工作。运行时还没准备好时，你也可以先把 MEPERStudio 当作轻量项目管理工具体验起来。",
 		"",
 		"## 先体验项目管理功能",
 		"",
@@ -568,7 +579,7 @@ func zhNoRuntimeTaskDescription() string {
 		"3. 在你想让 Kimi 工作的项目目录里启动一次：",
 		"   kimi",
 		"4. 首次启动后输入 /login，按提示完成 Kimi Code 或 API key 配置。",
-		"5. 重启 Silieco 守护进程：",
+		"5. 重启 MEPERStudio 守护进程：",
 		"   silieco daemon restart",
 		"   如果你用桌面端，重启 app 即可。",
 		"6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。",

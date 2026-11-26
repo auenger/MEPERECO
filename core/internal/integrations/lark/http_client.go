@@ -56,7 +56,7 @@ const (
 
 	// defaultRequestTimeout is the per-call HTTP timeout. Lark's API
 	// is normally well under 1s; we leave headroom for cross-region
-	// latency from a self-hosted Silieco deployment to feishu.cn.
+	// latency from a self-hosted MEPERStudio deployment to feishu.cn.
 	defaultRequestTimeout = 10 * time.Second
 
 	// defaultResourceDownloadTimeout is intentionally longer than normal
@@ -144,7 +144,7 @@ func (c HTTPClientConfig) withDefaults() HTTPClientConfig {
 // NewHTTPAPIClient constructs the real APIClient that speaks to Lark's
 // open platform over HTTPS. Per-installation credentials flow in via
 // each call's InstallationCredentials parameter; tokens are cached
-// keyed by app_id so a single Silieco server reuses Lark's
+// keyed by app_id so a single MEPERStudio server reuses Lark's
 // tenant_access_token across calls to the same app.
 func NewHTTPAPIClient(cfg HTTPClientConfig) APIClient {
 	cfg = cfg.withDefaults()
@@ -1227,14 +1227,14 @@ func bindingPromptTemplate(bindURL string) (string, error) {
 		"config": map[string]any{"wide_screen_mode": true},
 		"header": map[string]any{
 			"template": "blue",
-			"title":    map[string]any{"tag": "plain_text", "content": "Silieco"},
+			"title":    map[string]any{"tag": "plain_text", "content": "MEPERStudio"},
 		},
 		"elements": []any{
 			map[string]any{
 				"tag": "div",
 				"text": map[string]any{
 					"tag":     "lark_md",
-					"content": "你还没有绑定 Silieco 账户。点击下方按钮完成绑定后即可使用此 Agent。",
+					"content": "你还没有绑定 MEPERStudio 账户。点击下方按钮完成绑定后即可使用此 Agent。",
 				},
 			},
 			map[string]any{

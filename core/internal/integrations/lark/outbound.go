@@ -53,9 +53,9 @@ type CardRender struct {
 type RenderInput struct {
 	Kind         CardKind
 	AgentName    string
-	TaskNumber  int32
-	TaskID      pgtype.UUID
-	RunID       pgtype.UUID
+	TaskNumber   int32
+	TaskID       pgtype.UUID
+	RunID        pgtype.UUID
 	Content      string
 	ErrorMessage string
 }
@@ -79,7 +79,7 @@ type defaultRenderer struct{}
 func NewDefaultRenderer() Renderer { return &defaultRenderer{} }
 
 func (defaultRenderer) Render(in RenderInput) (CardRender, error) {
-	header := "Silieco"
+	header := "MEPERStudio"
 	if in.AgentName != "" {
 		header = in.AgentName
 	}
@@ -300,7 +300,7 @@ func (p *Patcher) processEvent(ctx context.Context, e events.Event) error {
 
 	// Only bound sessions reach here, so classify the task origin before
 	// spending any send work. Web/mobile direct-chat tasks can reuse a session
-	// that originated in Lark, but their replies belong only in Silieco.
+	// that originated in Lark, but their replies belong only in MEPERStudio.
 	// Sealed channel tasks own an input batch just like direct tasks, so the
 	// discriminator is the immutable channel_ingested provenance of that
 	// batch, not chat_input_run_id presence (which #5645 originally used).
@@ -498,7 +498,7 @@ func (p *Patcher) fail(ctx context.Context, creds InstallationCredentials, bindi
 	render, err := p.cfg.Renderer.Render(RenderInput{
 		Kind:         CardKindError,
 		AgentName:    agentName,
-		RunID:       runID,
+		RunID:        runID,
 		ErrorMessage: errorMessageFromPayload(payload),
 	})
 	if err != nil {

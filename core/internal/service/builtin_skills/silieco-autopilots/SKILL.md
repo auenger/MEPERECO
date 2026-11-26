@@ -1,11 +1,11 @@
 ---
 name: silieco-autopilots
-description: "Use when creating, updating, inspecting, triggering, or debugging Silieco autopilots. Covers the full chain: schedule/webhook/manual trigger, create_task vs run_only execution, agent/squad leader admission, runs, created tasks/tasks, webhook URL rotation, and side-effect boundaries."
+description: "Use when creating, updating, inspecting, triggering, or debugging MEPERStudio autopilots. Covers the full chain: schedule/webhook/manual trigger, create_task vs run_only execution, agent/squad leader admission, runs, created tasks/tasks, webhook URL rotation, and side-effect boundaries."
 user-invocable: false
 allowed-tools: Bash(silieco *)
 ---
 
-# Silieco Autopilots
+# MEPERStudio Autopilots
 
 ## Quick start
 
@@ -27,7 +27,7 @@ The chain is: trigger fires (`schedule`, `webhook`, or `manual`) -> `autopilot_r
 
 Execution modes:
 
-- `create_task` creates a Silieco task, making the run visible as task state.
+- `create_task` creates a MEPERStudio task, making the run visible as task state.
 - `run_only` creates an agent task directly. No task is created; any durable
   report location has to come from other task context or instructions.
 

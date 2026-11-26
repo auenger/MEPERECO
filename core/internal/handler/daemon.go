@@ -1644,35 +1644,6 @@ func claimResponseAgentIdentityMatches(resp AgentRunResponse) bool {
 	return resp.AgentID != "" && resp.Agent != nil && resp.Agent.ID == resp.AgentID
 }
 
-func appendUniqueSkills(existing, added []service.AgentSkillData) []service.AgentSkillData {
-	seen := make(map[string]bool, len(existing))
-	for _, skill := range existing {
-		seen[skill.Name] = true
-	}
-	for _, skill := range added {
-		if !seen[skill.Name] {
-			existing = append(existing, skill)
-			seen[skill.Name] = true
-		}
-	}
-	return existing
-}
-
-func appendUniqueSkillRefs(existing, added []service.AgentSkillRefData) []service.AgentSkillRefData {
-	seen := make(map[string]bool, len(existing))
-	for _, skill := range existing {
-		seen[skill.Source+":"+skill.ID] = true
-	}
-	for _, skill := range added {
-		key := skill.Source + ":" + skill.ID
-		if !seen[key] {
-			existing = append(existing, skill)
-			seen[key] = true
-		}
-	}
-	return existing
-}
-
 // buildClaimedTaskResponse assembles the full daemon claim payload for a
 // single already-claimed task and computes the exact comment ids embedded in
 // it (deliveredCommentIDs). Shared by the per-runtime handler
@@ -1709,11 +1680,11 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 			}
 		}
 		manifest := map[string]any{"version": 1, "mcp_servers": workspaceMCPRefs}
-		if len(resp.Agent.SkillRefs) > 0 {
-			manifest["skills"] = resp.Agent.SkillRefs
-		} else {
-			_, refs := service.BuildAgentSkillBundles(resp.Agent.Skills)
-			manifest["skills"] = refs
+		_, refs := service.BuildAgentSkillBundles(resp.Agent.Skills)
+		manifest["skills"] = refs
+		if useSkillRefs {
+			resp.Agent.SkillRefs = refs
+			resp.Agent.Skills = nil
 		}
 		raw, err := json.Marshal(manifest)
 		if err != nil {
@@ -1829,18 +1800,11 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 			RuntimeConfig:         runtimeConfig,
 			DisabledRuntimeSkills: disabledRuntimeSkillsFor(agent.DisabledRuntimeSkills, runtimeID, runtime.Provider),
 		}
-		if useSkillRefs {
-			_, skillRefs := h.AgentRunService.LoadAgentSkillBundles(r.Context(), agentRun.AgentID)
-			agentSkillCount = len(skillRefs)
-			resp.Agent.SkillRefs = skillRefs
-		} else {
-			skills := h.AgentRunService.LoadAgentSkills(r.Context(), agentRun.AgentID)
-			agentSkillCount = len(skills)
-			builtinSkills := h.AgentRunService.BuiltinSkills()
-			builtinSkillCount = len(builtinSkills)
-			skills = append(skills, builtinSkills...)
-			resp.Agent.Skills = skills
-		}
+		skills := h.AgentRunService.LoadAgentSkills(r.Context(), agentRun.AgentID)
+		builtinSkills := h.AgentRunService.DefaultBuiltinSkills()
+		agentSkillCount = len(skills)
+		builtinSkillCount = len(builtinSkills)
+		resp.Agent.Skills = service.MergeRunSkills(builtinSkills, skills)
 	}
 	if !claimResponseAgentIdentityMatches(resp) {
 		responseAgentID := ""
@@ -2040,12 +2004,7 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 					}
 				}
 				if resp.Agent != nil && len(required) > 0 {
-					bundles, refs := service.BuildAgentSkillBundles(required)
-					if useSkillRefs {
-						resp.Agent.SkillRefs = appendUniqueSkillRefs(resp.Agent.SkillRefs, refs)
-					} else {
-						resp.Agent.Skills = appendUniqueSkills(resp.Agent.Skills, bundles)
-					}
+					resp.Agent.Skills = service.MergeRunSkills(resp.Agent.Skills, required)
 				}
 			}
 			if err := h.applyClaimProjectRepos(r.Context(), &resp, task.WorkspaceID, task.ProjectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
@@ -2891,7 +2850,7 @@ func (h *Handler) ResolveRunSkillBundles(w http.ResponseWriter, r *http.Request)
 					writeError(w, http.StatusConflict, "required SOP skill is unavailable: "+strings.Join(missing, ", "))
 					return
 				}
-				bundles = appendUniqueSkills(bundles, required)
+				bundles = service.MergeRunSkills(bundles, required)
 			}
 		}
 	}

@@ -40,7 +40,7 @@ export function buildActorNameResolver(directories: {
     if (type === "member") return memberNames.get(id) ?? "Unknown";
     if (type === "agent") return agentNames.get(id) ?? "Unknown Agent";
     if (type === "squad") return squadNames.get(id) ?? "Unknown Squad";
-    if (type === "system") return "Silieco";
+    if (type === "system") return "MEPERStudio";
     return "System";
   };
 }

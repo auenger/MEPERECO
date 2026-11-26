@@ -32,7 +32,7 @@ import (
 // of the raw one-liner the user typed. Because creation is asynchronous, the
 // command replies with a PRIVATE (ephemeral) acknowledgement via the command's
 // response_url — there is no task number to hand back yet — and the agent's
-// completion surfaces to the invoker as a Silieco inbox notification through the
+// completion surfaces to the invoker as a MEPERStudio inbox notification through the
 // shared quick-create completion path. It starts no chat session / chat run.
 //
 // The installation routing and identity + membership checks mirror the message
@@ -48,11 +48,11 @@ const (
 // User-facing ephemeral replies. Kept terse; only the invoker sees them.
 const (
 	slashUsageText           = "Tell me what to create, e.g. `/task the login button does nothing on Safari`."
-	slashQueuedText          = "✅ On it — I'm turning that into a task. You'll get a Silieco notification when it's ready."
-	slashNotMemberText       = "You're not a member of this Silieco workspace, so I can't create a task for you."
-	slashLinkAccountFallback = "Link your Slack account to Silieco first, then try `/task` again."
+	slashQueuedText          = "✅ On it — I'm turning that into a task. You'll get a MEPERStudio notification when it's ready."
+	slashNotMemberText       = "You're not a member of this MEPERStudio workspace, so I can't create a task for you."
+	slashLinkAccountFallback = "Link your Slack account to MEPERStudio first, then try `/task` again."
 	slashInternalErrorText   = "⚠️ Something went wrong creating the task. Please try again."
-	slashDisabledText        = "This Slack app isn't connected to Silieco (or was disconnected). Ask a workspace admin to reconnect it."
+	slashDisabledText        = "This Slack app isn't connected to MEPERStudio (or was disconnected). Ask a workspace admin to reconnect it."
 )
 
 // slashQueries is the narrow slice of generated queries the slash-command
@@ -75,7 +75,7 @@ type quickCreateEnqueuer interface {
 // SlashCommandProcessor handles the Slack `/task` slash command end to end.
 type SlashCommandProcessor struct {
 	q           slashQueries
-	agentRuns       quickCreateEnqueuer
+	agentRuns   quickCreateEnqueuer
 	binding     bindingMinter
 	appURL      string
 	bindingPath string
@@ -91,7 +91,7 @@ type SlashCommandProcessor struct {
 // anything.
 type SlashCommandConfig struct {
 	Queries     *db.Queries
-	Runs       quickCreateEnqueuer
+	Runs        quickCreateEnqueuer
 	Binding     bindingMinter
 	AppURL      string
 	BindingPath string // default "/slack/bind"
@@ -115,7 +115,7 @@ func NewSlashCommandProcessor(cfg SlashCommandConfig) *SlashCommandProcessor {
 	}
 	p := &SlashCommandProcessor{
 		q:           cfg.Queries,
-		agentRuns:       cfg.Runs,
+		agentRuns:   cfg.Runs,
 		binding:     cfg.Binding,
 		appURL:      strings.TrimRight(cfg.AppURL, "/"),
 		bindingPath: bindingPath,
@@ -236,7 +236,7 @@ func (p *SlashCommandProcessor) resolveInstallation(ctx context.Context, appID, 
 	}, nil
 }
 
-// resolveUser maps the Slack user id to the bound Silieco user, re-checking
+// resolveUser maps the Slack user id to the bound MEPERStudio user, re-checking
 // workspace membership (no binding→member FK). Returns engine.ErrSenderUnbound
 // or engine.ErrSenderNotMember for the product cases.
 func (p *SlashCommandProcessor) resolveUser(ctx context.Context, inst engine.ResolvedInstallation, slackUserID string) (pgtype.UUID, error) {
@@ -278,6 +278,6 @@ func (p *SlashCommandProcessor) bindingText(ctx context.Context, inst engine.Res
 	bindURL := p.appURL + p.bindingPath + "?token=" + url.QueryEscape(token.Raw)
 	// Wrap the URL as an explicit Slack link so the base64url token's `_`/`-`
 	// are not mangled by mrkdwn (same reasoning as the replier).
-	return "👋 To file tasks, link your Slack account to Silieco: <" +
+	return "👋 To file tasks, link your Slack account to MEPERStudio: <" +
 		bindURL + "|link your account>\n(This link expires in 15 minutes.)"
 }

@@ -4335,11 +4335,11 @@ func (s *AgentRunService) LoadAgentSkills(ctx context.Context, agentID pgtype.UU
 	return result
 }
 
-// LoadAgentSkillBundles returns every skill visible to an agent, including
-// built-ins, with stable bundle hashes and lightweight refs for slim claims.
+// LoadAgentSkillBundles returns the base run skills with stable hashes.
+// SOP-specific skills are merged separately from the stage snapshot.
 func (s *AgentRunService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID) ([]AgentSkillData, []AgentSkillRefData) {
 	skills := s.LoadAgentSkills(ctx, agentID)
-	skills = append(skills, s.BuiltinSkills()...)
+	skills = MergeRunSkills(s.DefaultBuiltinSkills(), skills)
 	return BuildAgentSkillBundles(skills)
 }
 
@@ -4392,18 +4392,7 @@ func BuildAgentSkillBundles(skills []AgentSkillData) ([]AgentSkillData, []AgentS
 	bundles := make([]AgentSkillData, 0, len(skills))
 	refs := make([]AgentSkillRefData, 0, len(skills))
 	for _, skill := range skills {
-		source := skill.Source
-		id := skill.ID
-		if source == "" {
-			if id == "" {
-				source = skillbundle.SourceBuiltin
-			} else {
-				source = skillbundle.SourceWorkspace
-			}
-		}
-		if id == "" && source == skillbundle.SourceBuiltin {
-			id = "builtin:" + skill.Name
-		}
+		source, id := skillIdentity(skill)
 		skill.Source = source
 		skill.ID = id
 

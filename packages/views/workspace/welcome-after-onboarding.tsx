@@ -132,9 +132,9 @@ export function WelcomeAfterOnboarding() {
 // ---------------------------------------------------------------------------
 
 const SILI_AGENT_NAME = "Sili Agent";
-const LEGACY_HELPER_AGENT_NAME = "Silieco Helper";
+const LEGACY_HELPER_AGENT_NAME = "MEPERStudio Helper";
 
-// Use the canonical MEPER Studio app artwork for built-in assistant avatars.
+// Use the canonical MEPERStudio app artwork for built-in assistant avatars.
 const SILI_AGENT_AVATAR_URL = MEPER_APP_ICON_DATA_URL;
 
 /**

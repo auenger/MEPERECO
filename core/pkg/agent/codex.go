@@ -1201,7 +1201,7 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 		_, err := c.request(runCtx, "initialize", map[string]any{
 			"clientInfo": map[string]any{
 				"name":    "silieco-agent-sdk",
-				"title":   "Silieco Agent SDK",
+				"title":   "MEPERStudio Agent SDK",
 				"version": "0.2.0",
 			},
 			"capabilities": map[string]any{

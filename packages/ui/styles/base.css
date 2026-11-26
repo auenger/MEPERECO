@@ -1,5 +1,5 @@
 /* =============================================================================
- * Silieco shared base styles — imported by all apps
+ * MEPERStudio shared base styles — imported by all apps
  * ============================================================================= */
 
 /* The chat launcher overlays the dashboard's bottom-right corner on every
@@ -25,7 +25,7 @@
   color: var(--shiki-dark) !important;
 }
 
-/* Silieco icon: entrance spin animation */
+/* MEPERStudio icon: entrance spin animation */
 @keyframes entrance-spin {
   0% { transform: rotate(0deg); opacity: 0; }
   50% { opacity: 1; }

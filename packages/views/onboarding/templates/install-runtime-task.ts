@@ -25,11 +25,11 @@ export const INSTALL_RUNTIME_TASK_TITLE = {
   zh: "第 1 步 —— 连接运行时,开始使用 agent",
 } as const;
 
-const en = `Welcome to Silieco.
+const en = `Welcome to MEPERStudio.
 
-Agents need a runtime before they can execute work. You can still use Silieco as a lightweight project-management workspace while you install one.
+Agents need a runtime before they can execute work. You can still use MEPERStudio as a lightweight project-management workspace while you install one.
 
-## Try Silieco first
+## Try MEPERStudio first
 
 Before the runtime is ready, you can:
 
@@ -54,7 +54,7 @@ Recommended: Pi — open-source, lightweight, works with 25+ model providers.
    pi --version
 3. Start it once and log in (pick a provider, then sign in to a subscription or paste an API key):
    pi
-4. Wait for Silieco to pick it up. A running daemon re-checks for newly
+4. Wait for MEPERStudio to pick it up. A running daemon re-checks for newly
    installed CLIs every couple of minutes, so no restart is normally needed.
    To apply it immediately:
    silieco daemon restart
@@ -81,7 +81,7 @@ Prefer Codex instead?
 4. Confirm your terminal can find it:
    which codex
    codex --version
-5. Wait for Silieco to pick it up (same as above — \`silieco daemon restart\` applies it immediately).
+5. Wait for MEPERStudio to pick it up (same as above — \`silieco daemon restart\` applies it immediately).
 6. Return to Runtimes and refresh. You should see a Codex runtime online.
 7. Create your first agent from that runtime, then assign an task to the agent and set status to todo.
 
@@ -89,9 +89,9 @@ Codex reference: https://developers.openai.com/codex/cli
 
 When the runtime is connected, you can create Sili Agent for a guided first run.`;
 
-const zh = `欢迎来到 Silieco。
+const zh = `欢迎来到 MEPERStudio。
 
-智能体需要先连上运行时才能执行工作。运行时还没准备好时,你也可以先把 Silieco 当作轻量项目管理工具体验起来。
+智能体需要先连上运行时才能执行工作。运行时还没准备好时,你也可以先把 MEPERStudio 当作轻量项目管理工具体验起来。
 
 ## 先体验项目管理功能
 
@@ -118,7 +118,7 @@ const zh = `欢迎来到 Silieco。
    pi --version
 3. 启动一次并登录(选一个供应商,订阅登录或粘贴 API key 均可):
    pi
-4. 等 Silieco 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
+4. 等 MEPERStudio 识别到它。运行中的守护进程每隔几分钟会重新检查一次新装的 CLI,通常不需要重启。
    想立刻生效:
    silieco daemon restart
    桌面端请打开任意一个本机 runtime 并点 Restart。退出再打开 app 是不够的 —— 守护进程会继续在后台运行。
@@ -143,7 +143,7 @@ Pi 官方仓库:https://github.com/earendil-works/pi
 3. 在你想让 Kimi 工作的项目目录里启动一次:
    kimi
 4. 首次启动后输入 /login,按提示完成 Kimi Code 或 API key 配置。
-5. 等 Silieco 识别到它(同上 —— \`silieco daemon restart\` 立即生效)。
+5. 等 MEPERStudio 识别到它(同上 —— \`silieco daemon restart\` 立即生效)。
 6. 回到 Runtimes 页面刷新。你应该能看到一个在线的 Kimi 运行时。
 7. 用这个运行时创建第一个智能体,再把一个 task 分配给它,并把状态切到 todo。
 

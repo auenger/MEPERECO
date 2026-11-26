@@ -20,19 +20,19 @@ export function createEnDict(allowSignup: boolean): LandingDict {
     headlineLine1: "One workspace.",
     headlineLine2: "Every agent in motion.",
     subheading:
-      "Silieco connects the work your team plans, the agents that execute it, and the computers they run on. Open source, self-hostable, and built for real operations.",
+      "MEPERStudio connects the work your team plans, the agents that execute it, and the computers they run on. Open source, self-hostable, and built for real operations.",
     cta: "Open your workspace",
     downloadDesktop: "Download Desktop",
     talkToSales: "Explore the architecture",
     worksWith: "Bring your runtime",
-    imageAlt: "Silieco workspace showing tasks coordinated across humans and agents",
+    imageAlt: "MEPERStudio workspace showing tasks coordinated across humans and agents",
   },
 
   system: {
     label: "ONE SYSTEM, THREE LAYERS",
     headline: "Plan in the App. Coordinate in Core. Execute through the Daemon.",
     description:
-      "Silieco separates control from execution, so teams can see every decision while agents keep working on infrastructure you own.",
+      "MEPERStudio separates control from execution, so teams can see every decision while agents keep working on infrastructure you own.",
     layers: [
       {
         name: "APP",
@@ -149,7 +149,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         {
           title: "Auto-detection on first run",
           description:
-            "Silieco scans for 14 supported coding tools \u2014 Antigravity, Claude Code, CodeBuddy, Codex, Cursor, Copilot, Hermes, Kimi, Kiro CLI, OpenCode, OpenClaw, Pi, Qoder, and Trae CLI \u2014 and registers a runtime for each one it finds.",
+            "MEPERStudio scans for 14 supported coding tools \u2014 Antigravity, Claude Code, CodeBuddy, Codex, Cursor, Copilot, Hermes, Kimi, Kiro CLI, OpenCode, OpenClaw, Pi, Qoder, and Trae CLI \u2014 and registers a runtime for each one it finds.",
         },
       ],
     },
@@ -169,7 +169,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       {
         title: "Bring your Agent",
         description:
-          "Connect the Agent, runtime, instructions, and skills you already trust. Silieco keeps execution on infrastructure you control.",
+          "Connect the Agent, runtime, instructions, and skills you already trust. MEPERStudio keeps execution on infrastructure you control.",
       },
       {
         title: "Share it with the organization",
@@ -192,13 +192,13 @@ export function createEnDict(allowSignup: boolean): LandingDict {
     headlineLine1: "Open source",
     headlineLine2: "for all.",
     description:
-      "Silieco is fully open source. Inspect every line, self-host on your own terms, and shape the future of human + agent collaboration.",
+      "MEPERStudio is fully open source. Inspect every line, self-host on your own terms, and shape the future of human + agent collaboration.",
     cta: "Star on GitHub",
     highlights: [
       {
         title: "Self-host anywhere",
         description:
-          "Run Silieco on your own infrastructure. Docker Compose, single binary, or Kubernetes \u2014 your data never leaves your network.",
+          "Run MEPERStudio on your own infrastructure. Docker Compose, single binary, or Kubernetes \u2014 your data never leaves your network.",
       },
       {
         title: "No vendor lock-in",
@@ -223,30 +223,30 @@ export function createEnDict(allowSignup: boolean): LandingDict {
     headline: "Questions & answers.",
     items: [
       {
-        question: "What coding agents does Silieco support?",
+        question: "What coding agents does MEPERStudio support?",
         answer:
-          "Silieco supports 14 coding tools out of the box: Antigravity, Claude Code, CodeBuddy, Codex, Cursor, Copilot, Hermes, Kimi, Kiro CLI, OpenCode, OpenClaw, Pi, Qoder, and Trae CLI. The daemon auto-detects whichever CLIs you already have installed and registers a runtime for each one. Since it's open source, you can also add your own backends.",
+          "MEPERStudio supports 14 coding tools out of the box: Antigravity, Claude Code, CodeBuddy, Codex, Cursor, Copilot, Hermes, Kimi, Kiro CLI, OpenCode, OpenClaw, Pi, Qoder, and Trae CLI. The daemon auto-detects whichever CLIs you already have installed and registers a runtime for each one. Since it's open source, you can also add your own backends.",
       },
       {
         question: "Do I need to self-host, or is there a cloud version?",
         answer:
-          "Both. You can self-host Silieco on your own infrastructure with Docker Compose or Kubernetes, or use our hosted cloud version. Your data, your choice.",
+          "Both. You can self-host MEPERStudio on your own infrastructure with Docker Compose or Kubernetes, or use our hosted cloud version. Your data, your choice.",
       },
       {
         question:
           "How is this different from just using coding agents directly?",
         answer:
-          "Coding agents are great at executing. Silieco adds the management layer: task queues, team coordination, skill reuse, runtime monitoring, and a unified view of what every agent is doing. Think of it as the project manager for your agents.",
+          "Coding agents are great at executing. MEPERStudio adds the management layer: task queues, team coordination, skill reuse, runtime monitoring, and a unified view of what every agent is doing. Think of it as the project manager for your agents.",
       },
       {
         question: "Can agents work on long-running tasks autonomously?",
         answer:
-          "Yes. Silieco manages the full task lifecycle \u2014 enqueue, claim, execute, complete or fail. Agents report blockers proactively and stream progress in real time. You can check in whenever you want or let them run overnight.",
+          "Yes. MEPERStudio manages the full task lifecycle \u2014 enqueue, claim, execute, complete or fail. Agents report blockers proactively and stream progress in real time. You can check in whenever you want or let them run overnight.",
       },
       {
         question: "Is my code safe? Where does agent execution happen?",
         answer:
-          "Agent execution happens on your machine (local daemon) or your own cloud infrastructure. Code never passes through Silieco servers. The platform only coordinates task state and broadcasts events.",
+          "Agent execution happens on your machine (local daemon) or your own cloud infrastructure. Code never passes through MEPERStudio servers. The platform only coordinates task state and broadcasts events.",
       },
       {
         question: "How many agents can I run?",
@@ -289,24 +289,24 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         ],
       },
     },
-    copyright: "\u00a9 {year} Silieco. All rights reserved.",
+    copyright: "\u00a9 {year} MEPERStudio. All rights reserved.",
   },
 
   about: {
-    title: "About Silieco",
-    nameLine: "Silieco is the open Agent Work OS.",
+    title: "About MEPERStudio",
+    nameLine: "MEPERStudio is the open Agent Work OS.",
     paragraphs: [
-      "Silieco gives people and AI agents one shared workspace for planning work, executing it, and reviewing the result. Tasks, conversations, approvals, artifacts, and runtime activity stay connected from start to finish.",
+      "MEPERStudio gives people and AI agents one shared workspace for planning work, executing it, and reviewing the result. Tasks, conversations, approvals, artifacts, and runtime activity stay connected from start to finish.",
       "The product has three clear layers. App is the collaborative workspace. Core is the control plane for identity, state, policy, and realtime coordination. Daemon is the execution plane that connects the coding runtimes on computers your team controls.",
       "Agents are first-class teammates. They receive tasks, report progress, raise blockers, and deliver results while people keep control of priorities and acceptance.",
-      "Silieco is open source and self-hostable. Your work and runtime credentials remain on infrastructure you control, with a protocol designed to support different agent runtimes.",
+      "MEPERStudio is open source and self-hostable. Your work and runtime credentials remain on infrastructure you control, with a protocol designed to support different agent runtimes.",
     ],
     cta: "View on GitHub",
   },
 
   changelog: {
     title: "Changelog",
-    subtitle: "New updates and improvements to Silieco.",
+    subtitle: "New updates and improvements to MEPERStudio.",
     toc: "All releases",
     categories: {
       features: "New Features",
@@ -360,7 +360,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Long pasted text now becomes a text attachment automatically.",
           "Uploads now appear once and become draft content only after they finish.",
           "Webhook URLs now hide their secret tokens until you choose to reveal them.",
-          "Starting Silieco with many workspaces now launches far fewer agent checks.",
+          "Starting MEPERStudio with many workspaces now launches far fewer agent checks.",
           "Usage rankings now focus on the top agents and sort failures more clearly.",
           "Each composer now leaves the cursor where that surface expects it.",
         ],
@@ -535,7 +535,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Your settings now save reliably after you reopen the panel.",
           "Resumed Codex tasks now report their usage accurately.",
           "Comments no longer turn the wrong text into links.",
-          "Direct chat replies now stay in Silieco.",
+          "Direct chat replies now stay in MEPERStudio.",
           "AI-assisted creation is now always available.",
           "The Tasks page no longer stutters when you first open it.",
           "Codex agents on Linux now save their Git details correctly.",
@@ -839,7 +839,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "The task transcript remembers your filter and expansion choices, and restores them the next time you open the run.",
-          "Self-hosted (Helm): a new `postgres.external.enabled` toggle points Silieco at an externally managed PostgreSQL (RDS, CNPG, Cloud SQL, Neon…) and skips the built-in database.",
+          "Self-hosted (Helm): a new `postgres.external.enabled` toggle points MEPERStudio at an externally managed PostgreSQL (RDS, CNPG, Cloud SQL, Neon…) and skips the built-in database.",
         ],
         fixes: [
           "Ordered-list caret no longer strands on the block below when a comment draft with an empty `1. ` line reloads.",
@@ -893,8 +893,8 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "Slack /task slash command, ByteDance TRAE CLI runtime, and Claude Sonnet 5",
         changes: [],
         features: [
-          "Slack's native /task slash command creates a Silieco Task and replies to you privately with the link.",
-          "A Slack user who already linked their account to one Silieco bot no longer re-links when the same Slack workspace connects a second bot.",
+          "Slack's native /task slash command creates a MEPERStudio Task and replies to you privately with the link.",
+          "A Slack user who already linked their account to one MEPERStudio bot no longer re-links when the same Slack workspace connects a second bot.",
           "Slack channel context is now driven by two focused reads: a channel overview and a per-thread read.",
           "ByteDance TRAE CLI (traecli) joins the built-in agent runtimes over the standard ACP transport.",
           "Claude Sonnet 5 is now available in the Anthropic model catalog with introductory pricing.",
@@ -910,7 +910,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Cursor and Kiro runtime completion transcripts are recovered so the final result no longer goes missing.",
           "Self-host: SILIECO_SLACK_SECRET_KEY is now passed through to the backend container in docker-compose.selfhost.yml. (Community-reported.)",
           "The Tasks board \"N working\" chip counts distinct Tasks instead of distinct agents.",
-          "Anonymous self-host source-channel reports go back to the official Silieco API endpoint.",
+          "Anonymous self-host source-channel reports go back to the official MEPERStudio API endpoint.",
           "Comment deep-link highlights are now background-only and consistent between root comments and replies.",
         ],
       },
@@ -921,7 +921,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "Autopilots now have a clear write-permission layer, plus a Manage Access dialog that lets the creator grant write access to specific workspace members.",
-          "Slack channels can backfill their conversation history into Silieco, so an agent has the prior context the moment it joins.",
+          "Slack channels can backfill their conversation history into MEPERStudio, so an agent has the prior context the moment it joins.",
           "Slack messages show a 👀 reaction while an agent is preparing its reply, and the reaction is always cleared on the way out.",
           "Skill bundles can be installed from a local .skill or .zip archive.",
           "silieco task commands no longer accept short UUID prefixes — use the task key (SILI-123) or the full UUID.",
@@ -949,7 +949,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Tasks now have a Remove parent action, so you can detach a sub-Task without first having to pick a different parent.",
         ],
         improvements: [
-          "The local daemon reconnects to Silieco through a more resilient WebSocket flow with bounded backoff, so brief network drops recover smoothly instead of stalling.",
+          "The local daemon reconnects to MEPERStudio through a more resilient WebSocket flow with bounded backoff, so brief network drops recover smoothly instead of stalling.",
           "The daemon now bounds each runtime probe with its own timeout, so a single wedged CLI can no longer block every other runtime from coming online.",
         ],
         fixes: [
@@ -1185,7 +1185,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "CodeBuddy Runtime",
         changes: [],
         features: [
-          "CodeBuddy can now run local Silieco agents, with its available model and effort choices shown automatically",
+          "CodeBuddy can now run local MEPERStudio agents, with its available model and effort choices shown automatically",
           "Quick-created Tasks now keep uploaded files attached from the first draft through the final Task",
         ],
         improvements: [
@@ -1227,15 +1227,15 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Comment boxes now show which agents or squads will start work before you send, with controls to avoid accidental runs",
           "Run transcripts now include timestamps, making agent progress and handoffs easier to review",
           "Autopilot detail pages now show who created each autopilot",
-          "Claude Fable 5 is now available in Silieco's supported model and pricing list",
+          "Claude Fable 5 is now available in MEPERStudio's supported model and pricing list",
           "Task conversations can now resolve a specific reply, making long threads easier to close while keeping the final answer visible",
-          "Lark and Feishu conversations now show a typing reaction while Silieco is preparing a reply, then clear it before the answer is sent",
+          "Lark and Feishu conversations now show a typing reaction while MEPERStudio is preparing a reply, then clear it before the answer is sent",
           "Agent runs now know who started each task, making handoffs, audit trails, and privacy-aware behavior more accurate",
-          "OpenClaw users can point Silieco at a custom app location and data folder from their local configuration",
+          "OpenClaw users can point MEPERStudio at a custom app location and data folder from their local configuration",
         ],
         improvements: [
           "Comment trigger indicators are quieter, clearer, and less likely to crowd long agent names",
-          "Desktop now disables daemon start and stop controls when the daemon is managed outside Silieco, such as in WSL2",
+          "Desktop now disables daemon start and stop controls when the daemon is managed outside MEPERStudio, such as in WSL2",
           "The active agent indicator in an Task header is easier to read, with motion only while work is running and clearer queued wording otherwise",
           "The CLI now gives clearer guidance around common errors, sign-in problems, and project setup values",
         ],
@@ -1259,7 +1259,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "Web Notifications and /note Command",
         changes: [],
         features: [
-          "The web app can now show native browser notification banners, making workspace activity easier to catch while Silieco is in the background",
+          "The web app can now show native browser notification banners, making workspace activity easier to catch while MEPERStudio is in the background",
           "Comments that start with /note can record context without waking the assigned agent, so teams can leave coordination notes without triggering a run",
           "Antigravity is now available as a per-agent model choice for daemon-run agents",
           "The CLI now explains common request failures in plain language and points to the next action",
@@ -1317,10 +1317,10 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "Lark Bot Integration",
         changes: [],
         features: [
-          "Silieco now supports Lark as a third-party integration, so teams can scan a QR code and create a Silieco agent as a Lark Bot",
+          "MEPERStudio now supports Lark as a third-party integration, so teams can scan a QR code and create a MEPERStudio agent as a Lark Bot",
           "Chat now has a searchable agent picker and an explicit context picker, making it easier to choose who should respond and what they should see",
           "Descriptions and comments now support checkbox task lists for lightweight planning inside an Task",
-          "Agents now include built-in Silieco skills so they can follow workspace workflows more consistently",
+          "Agents now include built-in MEPERStudio skills so they can follow workspace workflows more consistently",
         ],
         improvements: [
           "Chat context is represented with clear mentions, making handoffs and later review easier to understand",
@@ -1364,7 +1364,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "Japanese Support and /skill Command",
         changes: [],
         features: [
-          "Silieco now supports Japanese across the app, site, and docs",
+          "MEPERStudio now supports Japanese across the app, site, and docs",
           "Chat now supports a /skill command for choosing an agent Skill",
           "Workspaces can now show a custom logo",
           "Teams can add Skills to an agent without replacing existing Skills",
@@ -1420,7 +1420,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         changes: [],
         features: [
           "Agents that continue work from an Task comment now resume the previous session instead of starting over, keeping the task context intact",
-          "Silieco now supports Korean across the app, public site, and documentation, including Korean docs pages and localized date formatting",
+          "MEPERStudio now supports Korean across the app, public site, and documentation, including Korean docs pages and localized date formatting",
           "Task pages now keep active agent work visible near the title, with a cleaner view when multiple agents are working at once",
           "Agents can scan Task discussions faster with thread previews, reply counts, and recent activity before opening the full conversation",
           "OpenClaw runtimes can use the MCP setup saved on an agent, and Claude Opus 4.8 is available in model selection and usage estimates",
@@ -1468,7 +1468,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "Local Working Directories",
         changes: [],
         features: [
-          "Projects can now use a local working directory on Desktop, so tasks can run in an existing folder while Silieco shows when another task is waiting for that directory",
+          "Projects can now use a local working directory on Desktop, so tasks can run in an existing folder while MEPERStudio shows when another task is waiting for that directory",
           "Autopilot webhook triggers can now filter incoming events and actions before work starts, with docs linked directly from the setup flow",
           "Swimlane views can group Tasks by parent Task, project, or assignee, making large boards easier to slice by how the team plans work",
           "Comments now support selecting multiple attachments and keeping, removing, or replacing attachments while editing",
@@ -1515,11 +1515,11 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       {
         version: "0.3.8",
         date: "2026-05-25",
-        title: "Silieco for iOS, Helm Self-Hosting & Smoother Collaboration",
+        title: "MEPERStudio for iOS, Helm Self-Hosting & Smoother Collaboration",
         changes: [],
         features: [
-          "Silieco for iOS is now available as our first official usable mobile client, covering login, workspaces, inbox, Tasks, projects, chat, comments, reactions, presence, and live updates; it is not on the App Store yet, so users need to build and install it manually",
-          "Self-hosted teams can now deploy Silieco to Kubernetes with a Helm chart, while Docker-based installs keep clearer port and URL controls",
+          "MEPERStudio for iOS is now available as our first official usable mobile client, covering login, workspaces, inbox, Tasks, projects, chat, comments, reactions, presence, and live updates; it is not on the App Store yet, so users need to build and install it manually",
+          "Self-hosted teams can now deploy MEPERStudio to Kubernetes with a Helm chart, while Docker-based installs keep clearer port and URL controls",
           "Project resource pickers now include repository search, and workspace repository settings can store descriptions that help agents understand each codebase",
           "Runtime usage now recognizes DeepSeek, Kimi K2.6, Zhipu GLM, and long-context Claude Opus model costs more accurately",
           "The public site now supports use-case pages and a clearer path to Docs, Changelog, and getting started",
@@ -1532,7 +1532,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         ],
         fixes: [
           "Task timelines stay in chronological order when live comments and activity arrive close together",
-          "Codex runs no longer inherit hidden host memory during Silieco tasks, and Pi runs receive a cleaner end-of-input signal",
+          "Codex runs no longer inherit hidden host memory during MEPERStudio tasks, and Pi runs receive a cleaner end-of-input signal",
           "Local runtime delete actions now avoid self-healing rows that would immediately reappear, and dependency updates close server security advisories",
           "Title fields now refresh safely after external updates, and markdown code no longer uses ligatures that can distort command flags",
         ],
@@ -1662,7 +1662,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "Failed task actions now show clearer error messages so teams can understand what happened without digging through logs",
-          "GitHub-linked pull requests now surface CI and merge-conflict status inside Silieco",
+          "GitHub-linked pull requests now surface CI and merge-conflict status inside MEPERStudio",
           "Self-hosted deployments get safer defaults and clearer guidance for reverse proxies, auth limits, and local-only services",
           "Search results are ranked more usefully and include better snippets",
         ],
@@ -1754,7 +1754,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         title: "GitHub Integration, Chat Attachments & Safer Task Navigation",
         changes: [],
         features: [
-          "Connect GitHub so linked pull requests appear on Silieco tasks, sync their status, and close the Silieco task automatically when the PR closes",
+          "Connect GitHub so linked pull requests appear on MEPERStudio tasks, sync their status, and close the MEPERStudio task automatically when the PR closes",
           "Chat messages can include file attachments and image previews",
           "Agents and runtimes can now be kept public or private for clearer team access",
           "Stopping a single agent task now asks for confirmation before it is terminated",
@@ -1765,7 +1765,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Long task timelines scroll more smoothly",
           "The feedback dialog now points contributors toward GitHub discussions and tasks",
           "Self-hosted Caddy guidance now calls out real-time connection requirements",
-          "Linux desktop packages show the Silieco app icon again",
+          "Linux desktop packages show the MEPERStudio app icon again",
         ],
         fixes: [
           "Downloaded attachments keep their original filenames",
@@ -1867,7 +1867,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
           "Linux daemon self-restart uses `brew prefix` symlinks, so Homebrew Cellar deletion no longer orphans runtimes",
           "CLI short IDs now route correctly — copied prefixes no longer 404",
           "Windows non-ASCII comment / description input lands via new `--content-file` / `--description-file` flags",
-          "Windows / Linux desktop replaces the Electron placeholder icon with the Silieco asterisk",
+          "Windows / Linux desktop replaces the Electron placeholder icon with the MEPERStudio asterisk",
           "Orphaned timeline replies are now correctly surfaced",
           "Timeline comment pagination budget excludes activities, so heavy activity no longer crowds out real comments",
         ],
@@ -1971,7 +1971,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "Daemon `/tasks/claim` polling uses a Redis empty-claim fast-path, dropping idle DB load and reclaiming disk on long-open tasks",
-          "Silieco Agent commits include a `Co-authored-by` trailer for proper Git attribution",
+          "MEPERStudio Agent commits include a `Co-authored-by` trailer for proper Git attribution",
           "Desktop blocks Cmd+R / Ctrl+R / F5 from reloading the app and shows the real version in dev and Updates settings",
         ],
         fixes: [
@@ -2573,29 +2573,29 @@ export function createEnDict(allowSignup: boolean): LandingDict {
   download: {
     hero: {
       macArm64: {
-        title: "Silieco for macOS",
+        title: "MEPERStudio for macOS",
         sub: "Apple Silicon · bundled daemon, zero setup",
         primary: "Download (.dmg)",
         altZip: "or download .zip",
       },
       macIntel: {
-        title: "Silieco for macOS",
+        title: "MEPERStudio for macOS",
         sub: "Intel · bundled daemon, zero setup",
         primary: "Download (.dmg)",
         altZip: "or download .zip",
       },
       winX64: {
-        title: "Silieco for Windows",
+        title: "MEPERStudio for Windows",
         sub: "Bundled daemon, zero setup",
         primary: "Download (.exe)",
       },
       winArm64: {
-        title: "Silieco for Windows",
+        title: "MEPERStudio for Windows",
         sub: "ARM · bundled daemon, zero setup",
         primary: "Download (.exe)",
       },
       linux: {
-        title: "Silieco for Linux",
+        title: "MEPERStudio for Linux",
         sub: "Bundled daemon, zero setup",
         primary: "Download AppImage",
         altFormats: "or .deb / .rpm",
@@ -2646,7 +2646,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
   contactSales: {
     pageTitle: "Contact Sales",
     pageDescription:
-      "Talk to the Silieco team about rolling out human + agent workflows at your company.",
+      "Talk to the MEPERStudio team about rolling out human + agent workflows at your company.",
     eyebrow: "Contact Sales",
     title: "Let’s understand your needs",
     subtitle:
@@ -2664,10 +2664,10 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       companyName: "Company name",
       companySize: "Company size",
       countryRegion: "Country / Region",
-      useCase: "How do you plan to use or collaborate with Silieco?",
+      useCase: "How do you plan to use or collaborate with MEPERStudio?",
       goals: "Your goals or challenges",
       goalsHint:
-        "Tell us what you’d like to achieve with Silieco or the challenges you’re facing. The more details you provide, the better we can support you.",
+        "Tell us what you’d like to achieve with MEPERStudio or the challenges you’re facing. The more details you provide, the better we can support you.",
       selectPlaceholder: "Please select",
       submit: "Submit",
       submitting: "Submitting…",
@@ -2681,10 +2681,10 @@ export function createEnDict(allowSignup: boolean): LandingDict {
       { value: "1000+", label: "1,000+ employees" },
     ],
     useCases: [
-      { value: "evaluate", label: "Evaluating Silieco for my team" },
-      { value: "adopt_team", label: "Rolling out Silieco to a team or company" },
+      { value: "evaluate", label: "Evaluating MEPERStudio for my team" },
+      { value: "adopt_team", label: "Rolling out MEPERStudio to a team or company" },
       { value: "self_host", label: "Self-hosting on our own infrastructure" },
-      { value: "integrate", label: "Integrating Silieco with existing tools" },
+      { value: "integrate", label: "Integrating MEPERStudio with existing tools" },
       { value: "partner", label: "Partnership or reseller inquiry" },
       { value: "other", label: "Something else" },
     ],
@@ -2732,22 +2732,22 @@ export function createEnDict(allowSignup: boolean): LandingDict {
     ],
     consent: {
       intro:
-        "Silieco, Inc. respects your privacy. We’ll use your personal information only to manage your account and deliver the products or services you’ve requested. Occasionally, we’d love to share product updates, best practices, and insights that may be relevant to you. Please let us know below if you’d like to hear from us.",
+        "MEPERStudio, Inc. respects your privacy. We’ll use your personal information only to manage your account and deliver the products or services you’ve requested. Occasionally, we’d love to share product updates, best practices, and insights that may be relevant to you. Please let us know below if you’d like to hear from us.",
       outreach:
-        "I’d like to receive one-to-one communication from Silieco, Inc., including service updates, support inquiries, and business-related follow-ups.",
+        "I’d like to receive one-to-one communication from MEPERStudio, Inc., including service updates, support inquiries, and business-related follow-ups.",
       updates:
-        "I’d like to receive product updates, insights, and event invitations from Silieco.",
+        "I’d like to receive product updates, insights, and event invitations from MEPERStudio.",
       unsubscribe:
         "You can unsubscribe from our communications at any time. For more details on how we handle your data and privacy rights, please review our",
       submitConsent:
-        "By clicking “Submit,” you consent to allow Silieco, Inc. to store and process your information for the purpose of delivering the requested content.",
+        "By clicking “Submit,” you consent to allow MEPERStudio, Inc. to store and process your information for the purpose of delivering the requested content.",
       privacyLinkLabel: "Privacy Policy.",
       privacyLinkHref: "/about",
     },
     success: {
       title: "Thanks — we got it.",
       message:
-        "A member of the Silieco team will respond within three business days. In the meantime, feel free to explore the docs or star us on GitHub.",
+        "A member of the MEPERStudio team will respond within three business days. In the meantime, feel free to explore the docs or star us on GitHub.",
       cta: "Back to home",
     },
     errors: {

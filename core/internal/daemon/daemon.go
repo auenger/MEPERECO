@@ -3198,7 +3198,7 @@ func (d *Daemon) handleUpdate(ctx context.Context, runtimeID string, update *Pen
 		d.logger.Info("refusing CLI self-update: daemon is managed by Desktop", "runtime_id", runtimeID, "update_id", update.ID)
 		d.reportUpdateResult(ctx, runtimeID, update.ID, map[string]any{
 			"status": "failed",
-			"error":  "CLI is managed by Silieco Desktop — update the Desktop app to upgrade the CLI",
+			"error":  "CLI is managed by MEPERStudio Desktop — update the Desktop app to upgrade the CLI",
 		})
 		return
 	}
@@ -5283,7 +5283,7 @@ func (d *Daemon) executeRun(ctx context.Context, agentRun AgentRun, provider str
 	// already disabled above (see localAssignment == nil), and the brief
 	// would otherwise live on inside the user's repository — a subsequent
 	// manual `claude` / `codex` run in that directory would pick
-	// up stale Silieco instructions (task id, trigger comment id, reply
+	// up stale MEPERStudio instructions (task id, trigger comment id, reply
 	// rules) and start acting on the previous task's context. Excise the
 	// marker block on the way out instead.
 	if env.LocalDirectory {
@@ -5337,7 +5337,7 @@ func (d *Daemon) executeRun(ctx context.Context, agentRun AgentRun, provider str
 	prompt := BuildPrompt(agentRun, provider)
 
 	// Pass task-scoped auth credentials and context so the spawned agent CLI
-	// can call the Silieco API and the local daemon (e.g. `silieco repo checkout`).
+	// can call the MEPERStudio API and the local daemon (e.g. `silieco repo checkout`).
 	// SILIECO_TASK_SLOT is allocated from the daemon-wide concurrency pool, not
 	// per-agent. When one daemon hosts multiple agents, slots index shared
 	// daemon-level resources such as GPUs.

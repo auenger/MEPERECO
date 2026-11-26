@@ -33,6 +33,7 @@ var skillListCmd = &cobra.Command{
 var skillGetCmd = &cobra.Command{
 	Use:   "get <id>",
 	Short: "Get skill details (includes files)",
+	Long:  "Get a workspace skill by ID, or read optional MEPERStudio platform skills using builtin:catalog and builtin:<name>.",
 	Args:  exactArgs(1),
 	RunE:  runSkillGet,
 }

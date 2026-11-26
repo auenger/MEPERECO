@@ -25,7 +25,7 @@ export function DownloadClient({ release }: { release: LatestRelease }) {
       <header className="mx-auto flex h-[78px] w-[min(1120px,calc(100%-40px))] items-center justify-between border-b border-white/10">
         <a href="/" className="flex items-center gap-2.5" aria-label="SiliEco 首页">
           <SiliecoIcon className="h-8 w-8" />
-          <span className="text-xl font-semibold">Silieco</span>
+          <span className="text-xl font-semibold">MEPERStudio</span>
         </a>
         <span className="font-mono text-micro uppercase tracking-[0.18em] text-[#78a7ff]">SiliEco / Downloads</span>
       </header>

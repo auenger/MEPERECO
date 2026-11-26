@@ -57,7 +57,7 @@ type OutboundReplier struct {
 type OutboundReplierConfig struct {
 	Binding bindingMinter
 	Decrypt Decrypter
-	// AppURL is the Silieco web app host the user clicks into to redeem the
+	// AppURL is the MEPERStudio web app host the user clicks into to redeem the
 	// binding token (e.g. https://silieco.example). It comes from SILIECO_APP_URL
 	// (falling back to FRONTEND_ORIGIN) and is intentionally separate from
 	// SILIECO_PUBLIC_URL, which is the backend/API public URL used for webhook and
@@ -151,7 +151,7 @@ func (r *OutboundReplier) sendBindingPrompt(ctx context.Context, inst engine.Res
 	// Wrap the URL as an explicit Slack link <url|label>: formatMrkdwn protects
 	// these from its markdown passes, so the base64url token's `_`/`-` chars are
 	// not mangled into italics.
-	text := "👋 To start chatting with me, link your Slack account to Silieco: <" +
+	text := "👋 To start chatting with me, link your Slack account to MEPERStudio: <" +
 		bindURL + "|link your account>\n(This link expires in 15 minutes.)"
 	return r.post(ctx, inst, msg, text)
 }

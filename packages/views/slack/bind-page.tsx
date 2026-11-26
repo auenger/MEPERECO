@@ -17,7 +17,7 @@ type RedeemState =
 
 // SlackBindPage is the destination the bot's "link your account" prompt points
 // at (SILI-3666). The user lands here logged out OR logged in; we require auth
-// before redeeming because the redeemer's Silieco identity is taken from the
+// before redeeming because the redeemer's MEPERStudio identity is taken from the
 // session (the token alone never proves who is binding — see
 // slack.BindingTokenService.RedeemAndBind).
 //

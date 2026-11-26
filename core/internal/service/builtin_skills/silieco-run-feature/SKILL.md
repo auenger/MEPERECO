@@ -28,4 +28,4 @@ Resume from the first incomplete activity when prior evidence remains valid. Thi
 
 ## Required output
 
-Return the preflight result and implementation handoff in the current child Task. When the child is ready for review, leave later barrier groups in `backlog`; the parent coordinator promotes them only after the current barrier closes. Silieco owns scheduling and Stage transitions; do not create a parallel queue or autonomous batch loop.
+Return the preflight result and implementation handoff in the current child Task. When the child is ready for review, leave later barrier groups in `backlog`; the parent coordinator promotes them only after the current barrier closes. MEPERStudio owns scheduling and Stage transitions; do not create a parallel queue or autonomous batch loop.

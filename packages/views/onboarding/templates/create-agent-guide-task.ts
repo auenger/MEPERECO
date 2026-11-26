@@ -3,7 +3,7 @@ import { HELPER_DESCRIPTION, HELPER_INSTRUCTIONS } from "./helper-instructions";
 const HELPER_AGENT_NAME = "Sili Agent";
 
 /**
- * Skip path, task 2/2: "Create your first Silieco Agent".
+ * Skip path, task 2/2: "Create your first MEPERStudio Agent".
  *
  * Companion to install-runtime-task.ts. The body is a FUNCTION (not a
  * static const) because it needs to embed:
@@ -20,8 +20,8 @@ const HELPER_AGENT_NAME = "Sili Agent";
  * Step 2 of the skip-path bundle. Localized title for supported locales.
  */
 export const CREATE_AGENT_GUIDE_TASK_TITLE = {
-  en: "Step 2 — Create your first Silieco Agent",
-  zh: "第 2 步 —— 创建你的第一个 Silieco Agent",
+  en: "Step 2 — Create your first MEPERStudio Agent",
+  zh: "第 2 步 —— 创建你的第一个 MEPERStudio Agent",
 } as const;
 
 interface BodyOpts {

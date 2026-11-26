@@ -6,7 +6,7 @@ after the latest `main` merge; the prior skill cited pre-merge lines that have
 since moved (see the "drifted" column). Re-confirm with the verification command
 at the bottom before relying on an exact line.
 
-## `silieco task pull-requests` — read PR links from Silieco
+## `silieco task pull-requests` — read PR links from MEPERStudio
 
 | Behavior | File:line | Drifted from |
 |---|---|---|

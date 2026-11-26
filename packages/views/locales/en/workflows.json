@@ -187,7 +187,7 @@
     "editor_title": "Create SOP",
     "editor_hint": "Configure Stages, inputs, outputs, Skills, and exit gates.",
     "source": "Source",
-    "source_preset": "Silieco preset",
+    "source_preset": "MEPERStudio preset",
     "source_user": "User defined",
     "source_inherited": "Inherited from {{name}}",
     "scope": "Scope",

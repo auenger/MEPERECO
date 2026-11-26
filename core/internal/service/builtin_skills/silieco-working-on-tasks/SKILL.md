@@ -1,11 +1,11 @@
 ---
 name: silieco-working-on-tasks
-description: "Use when working on a Silieco task after the runtime has provided the trigger context — to apply the product contracts the runtime brief does not encode: how PR linking differs from close intent, how to read a linked PR's real state via the pull-requests CLI, which metadata keys are high-signal, what status changes trigger on the server, and how sub-task create status (todo vs backlog) controls whether assigned agents start immediately."
+description: "Use when working on a MEPERStudio task after the runtime has provided the trigger context — to apply the product contracts the runtime brief does not encode: how PR linking differs from close intent, how to read a linked PR's real state via the pull-requests CLI, which metadata keys are high-signal, what status changes trigger on the server, and how sub-task create status (todo vs backlog) controls whether assigned agents start immediately."
 user-invocable: false
 allowed-tools: Bash(silieco *), Bash(git *), Bash(gh *)
 ---
 
-# Working on Silieco tasks
+# Working on MEPERStudio tasks
 
 Product contracts the runtime brief does not fully encode: PR linking vs close
 intent, reading linked-PR state, metadata keys, status side effects, and
@@ -67,7 +67,7 @@ Related to SILI-2759 in the body (no title/branch)  # links but reference_only �
 ### Default for code-changing task work
 
 When a task run changes code in a checked-out GitHub repo, the default handoff
-is to open or update a PR before posting the final Silieco task comment, unless
+is to open or update a PR before posting the final MEPERStudio task comment, unless
 the user explicitly asked for a local-only change or no PR. This is a default, not
 an unconditional command: if no code changed, say no PR is needed; if PR creation
 is blocked by auth, failing tests, or missing remote state, report that blocker
@@ -88,7 +88,7 @@ that explicitly.
 
 ## Reading a linked PR's real state
 
-When a step depends on PR state, query Silieco's link table — do not infer it
+When a step depends on PR state, query MEPERStudio's link table — do not infer it
 from branch names, GitHub search, memory, or `pr_url` metadata (which can be
 stale).
 

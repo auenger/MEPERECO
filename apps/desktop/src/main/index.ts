@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, Notification, screen } from "electron";
 import { homedir } from "os";
+import { existsSync } from "node:fs";
 import { join } from "path";
 import { pathToFileURL } from "url";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -634,27 +635,17 @@ function createTaskWindow(context: TaskWindowContext): void {
 // is derived from the userData path. (Same approach VS Code uses for
 // Stable / Insiders coexistence.)
 
-// DESKTOP_APP_SUFFIX lets parallel worktrees run dev Electron side-by-side
-// without fighting for the shared single-instance lock. The suffix is
-// appended to the app name + userData path, so each worktree gets its own
-// lock file. Default (no env var) keeps behavior unchanged — the common
-// single-worktree case still lands at "Silieco Canary".
-const DEV_APP_NAME = process.env.DESKTOP_APP_SUFFIX
-  ? `Silieco Canary ${process.env.DESKTOP_APP_SUFFIX}`
-  : "Silieco Canary";
-
-if (is.dev) {
-  app.setName(DEV_APP_NAME);
-  app.setPath("userData", join(app.getPath("appData"), DEV_APP_NAME));
-} else {
-  // Pin the production app name in code. Electron's Linux WM_CLASS is set
-  // from app.getName() when the first BrowserWindow is realized; the
-  // packaged ASAR's package.json `productName` already steers app.getName()
-  // to "Silieco", but anchoring it here makes WM_CLASS ↔ StartupWMClass
-  // (declared in electron-builder.yml) survive a regression in
-  // productName / the build pipeline. Must run before requestSingleInstanceLock().
-  app.setName("Silieco");
-}
+// Keep existing Electron user data (session, settings and window state) when
+// changing the visible product name. Existing worktree suffixes stay isolated.
+const appSuffix = process.env.DESKTOP_APP_SUFFIX ? ` ${process.env.DESKTOP_APP_SUFFIX}` : "";
+const DEV_APP_NAME = `MEPERStudio Canary${appSuffix}`;
+const dataRoot = app.getPath("appData");
+const legacyNames = is.dev ? [`Silieco Canary${appSuffix}`] : ["Silieco", "MEPER Studio"];
+const visibleName = is.dev ? DEV_APP_NAME : "MEPERStudio";
+const preferredDataPath = join(dataRoot, visibleName);
+const existingLegacyPath = legacyNames.map((name) => join(dataRoot, name)).find((path) => existsSync(path));
+app.setName(visibleName);
+app.setPath("userData", existingLegacyPath ?? preferredDataPath);
 
 // --- Protocol registration -----------------------------------------------
 

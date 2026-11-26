@@ -3,11 +3,11 @@
     "step_of": "Step {{current}} of {{total}}"
   },
   "welcome": {
-    "wordmark": "Welcome to Silieco",
+    "wordmark": "Welcome to MEPERStudio",
     "headline_line1": "One Space,",
     "headline_line2": "from SOP to",
     "headline_emphasis": "execution.",
-    "lede": "Organize intent into Workflows, move work through Stages, and assign Tasks to people or Agents. Silieco keeps every collaborator working from the same context.",
+    "lede": "Organize intent into Workflows, move work through Stages, and assign Tasks to people or Agents. MEPERStudio keeps every collaborator working from the same context.",
     "lede_web": "Create your Space in the browser, or install Desktop to connect a local runtime and let Agents execute Tasks inside each Workflow.",
     "lede_desktop": "Detect a runtime, create a Space, and describe its goal. Then create Tasks directly or turn your team's SOP into a Workflow.",
     "download_desktop": "Download Desktop",
@@ -48,16 +48,16 @@
   "step_runtime_detection": {
     "eyebrow": "Runtime detection",
     "headline": "First, find where your Agents can run.",
-    "lede": "Silieco checks this computer for compatible Agent runtimes before creating anything. Your tools and credentials stay on infrastructure you control.",
+    "lede": "MEPERStudio checks this computer for compatible Agent runtimes before creating anything. Your tools and credentials stay on infrastructure you control.",
     "scanning": "Scanning this computer",
     "scanning_hint": "Looking for Codex, Claude Code, Cursor, Kimi and other supported runtimes.",
     "found": "{{count}} runtime found",
-    "found_hint": "Silieco will connect these runtimes to the workspace after it is created.",
+    "found_hint": "MEPERStudio will connect these runtimes to the workspace after it is created.",
     "empty": "No local runtime detected yet",
     "empty_hint": "You can install one now or continue and connect a runtime from workspace settings later.",
     "scan_again": "Scan again",
     "aside_title": "Bring your own Agent environment.",
-    "aside_body": "A runtime is the controlled execution environment behind an Agent. Silieco coordinates the work, while your runtime keeps models, tools and credentials under your control."
+    "aside_body": "A runtime is the controlled execution environment behind an Agent. MEPERStudio coordinates the work, while your runtime keeps models, tools and credentials under your control."
   },
   "step_workspace_description": {
     "eyebrow": "Workspace purpose",
@@ -72,7 +72,7 @@
   },
   "source_backfill": {
     "eyebrow": "Quick question",
-    "lede": "One quick question — it helps us understand who finds Silieco useful. Answer once and you're back to your work.",
+    "lede": "One quick question — it helps us understand who finds MEPERStudio useful. Answer once and you're back to your work.",
     "submit": "Submit",
     "hint_ready": "Looks good. Hit Submit when you're ready."
   },
@@ -82,7 +82,7 @@
       "question": "Tell us a bit about you."
     },
     "source": {
-      "question": "How did you hear about Silieco?",
+      "question": "How did you hear about MEPERStudio?",
       "friends_colleagues": "Friends or colleagues",
       "search": "Google / search",
       "social_x": "X / Twitter",
@@ -113,7 +113,7 @@
       "other_placeholder": "e.g. teacher, support lead"
     },
     "use_case": {
-      "question": "What do you want to use Silieco for?",
+      "question": "What do you want to use MEPERStudio for?",
       "ship_code": "Ship code with AI agents",
       "manage_team": "Manage tasks for my team",
       "personal_tasks": "Organize my own tasks",
@@ -148,7 +148,7 @@
   "cli_install": {
     "copy_aria": "Copy",
     "intro": "You'll need an agent runtime on this computer (Claude Code, Codex, Cursor, …) for it to run your agent. Also works on servers and remote dev boxes.",
-    "step1_label": "Install the Silieco CLI",
+    "step1_label": "Install the MEPERStudio CLI",
     "step2_label": "Start the daemon"
   },
   "cloud_waitlist": {
@@ -173,18 +173,18 @@
     "error_close": "Close",
     "user_context_heading": "About me",
     "user_context_role_label": "Role",
-    "user_context_use_case_label": "What I want to do with Silieco",
+    "user_context_use_case_label": "What I want to do with MEPERStudio",
     "runtime": {
-      "greeting": "Hi, welcome to Silieco",
+      "greeting": "Hi, welcome to MEPERStudio",
       "subtitle": "I'm your first Agent assistant.",
-      "capabilities": "Ask me anything about how to use Silieco. You can also have me get things done in your workspace — create tasks, set up cron tasks, build new agents…",
+      "capabilities": "Ask me anything about how to use MEPERStudio. You can also have me get things done in your workspace — create tasks, set up cron tasks, build new agents…",
       "section_label": "Pick one or more tasks to start with:",
       "assign_empty": "Pick one or more",
       "assign_count": "Assign {{count}} task to me →",
       "assign_count_plural": "Assign {{count}} tasks to me →",
       "cards": {
         "intro": {
-          "subtitle": "Let me explain in 1–2 paragraphs what Silieco is and what it can do."
+          "subtitle": "Let me explain in 1–2 paragraphs what MEPERStudio is and what it can do."
         },
         "tour": {
           "subtitle": "I'll walk you through how task, agent, squad, autopilot fit together."
@@ -203,7 +203,7 @@
     },
     "skip": {
       "loading": "Setting up your workspace…",
-      "title": "Welcome to Silieco!",
+      "title": "Welcome to MEPERStudio!",
       "subtitle": "We've added two tasks to help you with the next step.",
       "got_it": "Got it",
       "status_in_progress": "In progress",
@@ -215,7 +215,7 @@
         },
         "create_agent": {
           "title": "Create your first agent",
-          "subtitle": "Once a runtime is online, build your first Silieco agent."
+          "subtitle": "Once a runtime is online, build your first MEPERStudio agent."
         }
       }
     }
@@ -284,7 +284,7 @@
     },
     "creation_disabled_eyebrow": "Workspace creation is disabled",
     "creation_disabled_headline": "Ask your administrator for an invitation.",
-    "creation_disabled_lede": "This Silieco instance does not allow new workspaces to be created. Once an administrator invites you to a workspace, accept the invitation and refresh to continue.",
+    "creation_disabled_lede": "This MEPERStudio instance does not allow new workspaces to be created. Once an administrator invites you to a workspace, accept the invitation and refresh to continue.",
     "creation_disabled_logout": "Log out",
     "creation_disabled_eyebrow_resume": "Your workspace",
     "creation_disabled_headline_resume": "Continue with {{name}}.",
@@ -325,7 +325,7 @@
   "step_platform": {
     "eyebrow": "Connect a computer",
     "headline": "Connect a computer to run your agent.",
-    "lede": "Your agent runs on a real computer that you connect to Silieco. Pick how you want to connect one.",
+    "lede": "Your agent runs on a real computer that you connect to MEPERStudio. Pick how you want to connect one.",
     "hint_default": "Pick a way to connect — or skip and connect a computer later.",
     "hint_downloaded": "Finish setup on the download page, then come back to this tab.",
     "download_title": "Use this computer",

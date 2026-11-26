@@ -40,16 +40,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: isProd
-      ? "Silieco"
+      ? "MEPERStudio"
       : isStaging
-        ? "Silieco (Staging)"
-        : "Silieco (Dev)",
+        ? "MEPERStudio (Staging)"
+        : "MEPERStudio (Dev)",
     slug: "silieco-mobile",
     version: "0.1.0",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     scheme: "silieco",
-    // 1024x1024 MEPER Studio icon, opaque for iOS native corner masking.
+    // 1024x1024 MEPERStudio icon, opaque for iOS native corner masking.
     // Expo prebuild generates every required iOS icon size from this PNG.
     icon: "./assets/icon.png",
     ios: {
@@ -72,7 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       // Per-variant bundle id overrides exist for one reason: an Apple ID
       // can only sign bundle prefixes it owns, so contributors not on the
-      // Silieco Apple Developer team (and external users self-building a
+      // MEPERStudio Apple Developer team (and external users self-building a
       // personal copy against production) need to swap to a reverse-domain
       // they control. Each variant has its own `_<VARIANT>` suffix and is
       // only read inside that variant's branch — a generic
@@ -98,7 +98,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           // iOS 14+. Camera + microphone are disabled — we only ever read
           // from the existing photo library.
           photosPermission:
-            "Allow Silieco to access your photos to attach images to Tasks and comments.",
+            "Allow MEPERStudio to access your photos to attach images to Tasks and comments.",
           cameraPermission: false,
           microphonePermission: false,
         },

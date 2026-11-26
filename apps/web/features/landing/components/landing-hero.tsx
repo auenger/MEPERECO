@@ -162,7 +162,7 @@ const PREVIEW_COLUMNS = [
     count: 4,
     accent: "bg-[#45c486]",
     tasks: [
-      ["SILI-08", "Create the Silieco workspace"],
+      ["SILI-08", "Create the MEPERStudio workspace"],
       ["SILI-16", "Register Sili Agent"],
     ],
   },
@@ -183,7 +183,7 @@ function ProductImage({ alt }: { alt: string }) {
                 <span className="bg-[#3978f6]" />
               </span>
               <span className="text-caption font-semibold sm:text-body">
-                Silieco Workspace
+                MEPERStudio Workspace
               </span>
               <span className="hidden font-mono text-micro text-black/38 sm:inline">
                 / OPERATIONS

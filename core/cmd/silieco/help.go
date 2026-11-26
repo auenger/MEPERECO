@@ -107,7 +107,7 @@ func init() {
 	})
 }
 
-var rootHelpTemplate = `Work seamlessly with Silieco from the command line.
+var rootHelpTemplate = `Work seamlessly with MEPERStudio from the command line.
 
 USAGE
   silieco <command> <subcommand> [flags]

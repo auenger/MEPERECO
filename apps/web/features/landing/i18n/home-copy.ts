@@ -65,7 +65,7 @@ const zh: HomeCopy = {
   watch: "看协作如何发生",
   footnote: "开源 · 可自部署 · 连接你自己的 Agent",
   artLabel:
-    "人类定义目标，Agent 执行任务，在 Silieco 中提交证据并交还给人验收。",
+    "人类定义目标，Agent 执行任务，在 MEPERStudio 中提交证据并交还给人验收。",
   human: "人类成员",
   humanRole: "定义目标 · 判断结果",
   agentRole: "理解上下文 · 推进执行",
@@ -130,7 +130,7 @@ const zh: HomeCopy = {
   filmTitle: ["从一个任务，", "到一次共同交付。"],
   filmDescription:
     "人类员工与 Agent 数字员工，如何按照工作 SOP 协同推进？把这段过程，放进一支短片。",
-  videoLabel: "Silieco v3 人机协作宣传片，76 秒",
+  videoLabel: "MEPERStudio v3 人机协作宣传片，76 秒",
   filmCaption: "协作流程演绎 · 中文 · 可开启字幕与声音",
   downloadFilm: "下载完整影片",
   videoError: "暂时无法播放，可下载完整影片观看。",
@@ -167,7 +167,7 @@ const en: HomeCopy = {
   watch: "See it in action",
   footnote: "Open source · Self-hostable · Your own agents",
   artLabel:
-    "Humans define goals, agents execute, and evidence returns to a human for review through Silieco.",
+    "Humans define goals, agents execute, and evidence returns to a human for review through MEPERStudio.",
   human: "Your team",
   humanRole: "Set direction · Review outcomes",
   agentRole: "Read context · Execute work",
@@ -235,7 +235,7 @@ const en: HomeCopy = {
   filmTitle: ["From a shared task", "to a shared outcome."],
   filmDescription:
     "See how human teammates and digital workers follow an SOP, pass work along, and reach a shared delivery.",
-  videoLabel: "Silieco v3 collaboration film, 76 seconds",
+  videoLabel: "MEPERStudio v3 collaboration film, 76 seconds",
   filmCaption: "Illustrated workflow · Chinese · Optional subtitles and sound",
   downloadFilm: "Download the film",
   videoError: "Playback is unavailable. Download the film to watch.",

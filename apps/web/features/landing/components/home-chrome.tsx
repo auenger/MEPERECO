@@ -47,7 +47,7 @@ export function HomeHeader({
           <span>
             <img
               src={theme === "dark" ? "/brand/meper-studio-horizontal-white.svg" : "/brand/meper-studio-horizontal-color.svg"}
-              alt="MEPER Studio"
+              alt="MEPERStudio"
               width={510}
               height={112}
               className="h-auto w-[160px] sm:w-[180px]"

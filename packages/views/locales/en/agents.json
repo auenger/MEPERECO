@@ -40,7 +40,7 @@
   },
   "empty": {
     "title": "No agents yet",
-    "description": "Create an agent and assign it tasks, like any teammate. Local agents run on your machine; cloud agents run on Silieco's runtime."
+    "description": "Create an agent and assign it tasks, like any teammate. Local agents run on your machine; cloud agents run on MEPERStudio's runtime."
   },
   "no_matches": {
     "title": "No matches",
@@ -492,7 +492,7 @@
       "save_failed_toast": "Failed to save custom arguments"
     },
     "mcp_config": {
-      "intro": "Manage the MCP servers available to this agent. Servers managed by Silieco are merged with servers inherited from the local runtime.",
+      "intro": "Manage the MCP servers available to this agent. Servers managed by MEPERStudio are merged with servers inherited from the local runtime.",
       "workspace_title": "Granted by workspace",
       "workspace_hint": "Workspace administrators manage these encrypted servers. Select the servers this agent may use; an SOP Stage can only narrow this list.",
       "workspace_empty": "No workspace MCP servers are available. Add one in Settings → Integrations.",
@@ -501,13 +501,13 @@
       "workspace_save_action": "Save workspace access",
       "workspace_saved_toast": "Workspace MCP access saved",
       "workspace_save_failed_toast": "Failed to save workspace MCP access",
-      "managed_title": "Managed by Silieco",
-      "managed_hint": "Saved in Silieco for this agent. These servers are merged with runtime servers; a Silieco server wins when names match.",
-      "managed_empty": "No MCP servers are managed by Silieco yet.",
+      "managed_title": "Managed by MEPERStudio",
+      "managed_hint": "Saved in MEPERStudio for this agent. These servers are merged with runtime servers; a MEPERStudio server wins when names match.",
+      "managed_empty": "No MCP servers are managed by MEPERStudio yet.",
       "add_action": "Add MCP",
       "agent_disabled_badge": "Off for agent",
       "runtime_disabled_badge": "Off in runtime",
-      "runtime_overridden_badge": "Overridden by Silieco",
+      "runtime_overridden_badge": "Overridden by MEPERStudio",
       "runtime_title": "Inherited from runtime",
       "runtime_hint": "Discovered automatically from {{runtime}} and merged at run launch. URLs, headers, commands, and environment variables never leave the machine.",
       "refresh_action": "Refresh",

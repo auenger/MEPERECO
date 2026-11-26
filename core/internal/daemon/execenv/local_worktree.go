@@ -76,7 +76,7 @@ func FinalizeLocalWorktree(ctx context.Context, root, branch string) (string, er
 	} else if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 {
 		return "", err
 	}
-	if _, err := localGit(ctx, root, "-c", "user.name=Silieco Agent", "-c", "user.email=agent@silieco.local", "commit", "--no-gpg-sign", "--no-verify", "-m", "Silieco task changes ("+branch+")"); err != nil {
+	if _, err := localGit(ctx, root, "-c", "user.name=MEPERStudio Agent", "-c", "user.email=agent@silieco.local", "commit", "--no-gpg-sign", "--no-verify", "-m", "MEPERStudio task changes ("+branch+")"); err != nil {
 		return "", err
 	}
 	return localGit(ctx, root, "rev-parse", "HEAD")

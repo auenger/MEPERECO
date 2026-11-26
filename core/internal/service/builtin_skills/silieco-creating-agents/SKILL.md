@@ -1,13 +1,13 @@
 ---
 name: silieco-creating-agents
-description: "Use when creating, inspecting, or debugging a Silieco agent through the `silieco agent` CLI or `POST /api/agents` — what each field is, its persisted shape, whether it is metadata-only or consumed by the daemon at claim time, which inputs are validated/rejected, how custom_env secrets are gated, and how skill binding behaves. Not for assigning tasks to existing agents or for runtime task prompts."
+description: "Use when creating, inspecting, or debugging a MEPERStudio agent through the `silieco agent` CLI or `POST /api/agents` — what each field is, its persisted shape, whether it is metadata-only or consumed by the daemon at claim time, which inputs are validated/rejected, how custom_env secrets are gated, and how skill binding behaves. Not for assigning tasks to existing agents or for runtime task prompts."
 user-invocable: false
 allowed-tools: Bash(silieco *)
 ---
 
-# Creating Silieco agents
+# Creating MEPERStudio agents
 
-This is the contract for Silieco's agent-creation path: what the create entry
+This is the contract for MEPERStudio's agent-creation path: what the create entry
 points accept, what the server validates and rejects, how each field is
 persisted, and which fields the daemon actually reads at claim time. It is
 not a parameter manual — it states source-traced facts, and every claim is

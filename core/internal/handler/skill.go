@@ -327,6 +327,21 @@ func (h *Handler) SearchSkills(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetSkill(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	// The builtin catalog contains only platform-authored static content.
+	// Reuse the existing authenticated GET route so older CLI builds can
+	// discover and read optional skills without a new CLI command.
+	if id == "builtin:catalog" {
+		writeJSON(w, http.StatusOK, map[string]any{"skills": h.AgentRunService.BuiltinSkillCatalog()})
+		return
+	}
+	if strings.HasPrefix(id, "builtin:") {
+		if skill, ok := h.AgentRunService.BuiltinSkillByID(id); ok {
+			writeJSON(w, http.StatusOK, skill)
+		} else {
+			writeError(w, http.StatusNotFound, "builtin skill not found")
+		}
+		return
+	}
 	skill, ok := h.loadSkillForUser(w, r, id)
 	if !ok {
 		return

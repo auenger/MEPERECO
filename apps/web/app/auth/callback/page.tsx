@@ -148,9 +148,9 @@ function CallbackContent() {
       <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-display-sm">Opening Silieco</CardTitle>
+            <CardTitle className="text-display-sm">Opening MEPERStudio</CardTitle>
             <CardDescription>
-              You should see a prompt to open the Silieco desktop app. If
+              You should see a prompt to open the MEPERStudio desktop app. If
               nothing happens, click the button below.
             </CardDescription>
           </CardHeader>
@@ -161,7 +161,7 @@ function CallbackContent() {
                 window.location.href = `silieco://auth/callback?token=${encodeURIComponent(desktopToken)}`;
               }}
             >
-              Open Silieco Desktop
+              Open MEPERStudio Desktop
             </Button>
           </CardContent>
         </Card>

@@ -73,8 +73,8 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Silieco — Project Management for Human + Agent Teams",
-    template: "%s | Silieco",
+    default: "MEPERStudio — Project Management for Human + Agent Teams",
+    template: "%s | MEPERStudio",
   },
   description:
     "Open-source platform that turns coding agents into real teammates. Assign tasks, track progress, compound skills.",
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    siteName: "Silieco",
+    siteName: "MEPERStudio",
     locale: "en_US",
   },
   twitter: { card: "summary_large_image" },

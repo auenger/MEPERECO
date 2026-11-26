@@ -38,8 +38,8 @@ import (
 
 // writeHeader emits the brief's leading title and one-line elevator pitch.
 func writeHeader(b *strings.Builder) {
-	b.WriteString("# Silieco Agent Runtime\n\n")
-	b.WriteString("You are a coding agent in the Silieco platform. Use the `silieco` CLI to interact with the platform.\n\n")
+	b.WriteString("# MEPERStudio Agent Runtime\n\n")
+	b.WriteString("You are a coding agent in the MEPERStudio platform. Refer to the product as MEPERStudio in user-facing responses. The existing `silieco` CLI command remains the compatible way to interact with the platform.\n\n")
 }
 
 // writeBackgroundTaskSafetySlim emits the Background Task Safety section.
@@ -88,10 +88,10 @@ func writeHeader(b *strings.Builder) {
 // forward-references "the explicit exception below".
 func writeBackgroundRunSafetySlim(b *strings.Builder) {
 	b.WriteString("## Background Task Safety\n\n")
-	b.WriteString("Silieco marks the task terminal the moment your top-level turn exits — any process, tool call, or subagent owned by this run that is still active is orphaned, its result lost, and the final comment you meant to post after it never sends. There is no background-completion wakeup here.\n\n")
+	b.WriteString("MEPERStudio marks the task terminal the moment your top-level turn exits — any process, tool call, or subagent owned by this run that is still active is orphaned, its result lost, and the final comment you meant to post after it never sends. There is no background-completion wakeup here.\n\n")
 	b.WriteString("- Do NOT end your turn while background tasks or other work that still belongs to the current run is active, including async subagents, background shell commands, and detached tool calls. Never background-and-yield: never end a turn expecting a future notification or wakeup to resume — it will not arrive.\n")
 	b.WriteString("- When a required result from run-owned work must be collected, wait synchronously inside one foreground tool call that blocks to completion (e.g. a blocking test or build command); never split \"start the wait\" and \"collect the result\" across turns.\n")
-	b.WriteString("- If a tool response says to wait for a future notification/reminder, or that it is running in the background so you can keep working, do not rely on that in Silieco-managed runs — block on the appropriate wait / output / collect operation before exiting.\n")
+	b.WriteString("- If a tool response says to wait for a future notification/reminder, or that it is running in the background so you can keep working, do not rely on that in MEPERStudio-managed runs — block on the appropriate wait / output / collect operation before exiting.\n")
 	b.WriteString("- If you can't observe a background task's result, run the work synchronously instead.\n")
 	b.WriteString("- A user explicitly asking for a local development or test service to stay available after the turn is a persistent service handoff, not background-and-yield. Use it only when the running service itself is the requested deliverable, and hand off only once the service's lifecycle no longer depends on this run: stdio redirected to durable logs, an ownership and cleanup handle recorded (for example PID/profile). Then verify readiness before replying, and provide the URL, logs, and stop instructions. Leave no pending result or future wakeup. Without a supervisor, describe survival as best-effort, not guaranteed.\n")
 	b.WriteString("- The persistent-service exception does not cover tests, builds, CI polling, monitors, or any other work whose completion the agent still owes; those remain run-owned, and the CI-specific rules below still apply.\n")
@@ -175,7 +175,7 @@ func BuildRunInitiatorBlock(initiatorType, initiatorName, initiatorEmail string)
 	} else {
 		fmt.Fprintf(&b, "This task was initiated by **%s**, a member of this workspace.\n\n", safeInitiator)
 	}
-	b.WriteString("Attribute this request to that person and apply any per-person privacy or access rules your instructions define — in a workspace many people can reach, the initiator (not the runtime owner) is who you are answering. Your Silieco credentials stay scoped to the runtime owner, so this attribution does not widen what you can read or write — do not assume the initiator can see everything you can.\n\n")
+	b.WriteString("Attribute this request to that person and apply any per-person privacy or access rules your instructions define — in a workspace many people can reach, the initiator (not the runtime owner) is who you are answering. Your MEPERStudio credentials stay scoped to the runtime owner, so this attribution does not widen what you can read or write — do not assume the initiator can see everything you can.\n\n")
 	return b.String()
 }
 
@@ -395,7 +395,7 @@ func writeWorkflowChat(b *strings.Builder) {
 // writeWorkflowQuickCreate emits the quick-create workflow's hard
 // guardrails.
 func writeWorkflowQuickCreate(b *strings.Builder) {
-	b.WriteString("**This task was triggered by quick-create.** There is NO existing Silieco task. Follow the field and output rules in the user message you just received; ignore the default assignment-task workflow.\n\n")
+	b.WriteString("**This task was triggered by quick-create.** There is NO existing MEPERStudio task. Follow the field and output rules in the user message you just received; ignore the default assignment-task workflow.\n\n")
 	b.WriteString("Hard guardrails (apply even if the user message is missing):\n")
 	b.WriteString("- Run exactly one `silieco task create` invocation, then exit.\n")
 	b.WriteString("- Do NOT call `silieco task get`, `silieco task status`, or `silieco task comment add` for this task — there is no task to query, transition, or comment on. The platform writes the user's success/failure inbox notification automatically based on whether `silieco task create` succeeded.\n")
@@ -404,7 +404,7 @@ func writeWorkflowQuickCreate(b *strings.Builder) {
 
 // writeWorkflowAutopilot emits the autopilot run-only workflow.
 func writeWorkflowAutopilot(b *strings.Builder, ctx RunContextForEnv) {
-	b.WriteString("**This task was triggered by an Autopilot in run-only mode.** There is no assigned Silieco task for this run.\n\n")
+	b.WriteString("**This task was triggered by an Autopilot in run-only mode.** There is no assigned MEPERStudio task for this run.\n\n")
 	fmt.Fprintf(b, "- Autopilot run ID: `%s`\n", ctx.AutopilotRunID)
 	if ctx.AutopilotID != "" {
 		fmt.Fprintf(b, "- Autopilot ID: `%s`\n", ctx.AutopilotID)
@@ -538,10 +538,11 @@ func writeSubTaskCreation(b *strings.Builder) {
 // writeSkills emits the Skills section listing skill names + descriptions.
 func writeSkills(b *strings.Builder, provider string, ctx RunContextForEnv) {
 	skills := modelVisibleSkills(ctx.AgentSkills)
+	b.WriteString("## Skills\n\n")
+	b.WriteString("Only skills relevant to this run are installed: platform basics, enabled Agent skills, and required SOP-stage skills. For other platform guidance when needed, run `silieco skill get builtin:catalog --output json`, then `silieco skill get builtin:<name> --output json` to read the selected skill and its supporting files. This catalog is not a list of installed skills.\n\n")
 	if len(skills) == 0 {
 		return
 	}
-	b.WriteString("## Skills\n\n")
 	switch provider {
 	case "claude", "codebuddy", "codex", "copilot", "opencode", "deveco", "openclaw", "hermes", "pi", "cursor", "kimi", "kiro", "qoder", "antigravity", "qwen":
 		// Hermes discovers these from its per-task HERMES_HOME/skills (seeded by
@@ -578,7 +579,7 @@ func writeMentions(b *strings.Builder) {
 func writeAttachments(b *strings.Builder) {
 	b.WriteString("## Attachments\n\n")
 	b.WriteString("Tasks and comments may include file attachments (images, documents, etc.).\n")
-	b.WriteString("When a task includes attachment IDs and you need the files, inspect `silieco attachment --help` and use the authenticated CLI path. Do not open Silieco resource URLs directly.\n")
+	b.WriteString("When a task includes attachment IDs and you need the files, inspect `silieco attachment --help` and use the authenticated CLI path. Do not open MEPERStudio resource URLs directly.\n")
 	// Closes the inbound half of the SILI-4899 loop: an attachment the agent
 	// just downloaded is the most tempting local path to echo back, because it
 	// came from the conversation and *feels* shared. It is not — the download
@@ -590,7 +591,7 @@ func writeAttachments(b *strings.Builder) {
 // (compressed).
 func writeAlwaysUseCLI(b *strings.Builder) {
 	b.WriteString("## Important: Always Use the `silieco` CLI\n\n")
-	b.WriteString("Access Silieco platform resources (tasks, comments, attachments, files) only through the `silieco` CLI — never `curl` / `wget`. For any operation the CLI doesn't cover, post a comment mentioning the workspace owner rather than working around it.\n\n")
+	b.WriteString("Access MEPERStudio platform resources (tasks, comments, attachments, files) only through the `silieco` CLI — never `curl` / `wget`. For any operation the CLI doesn't cover, post a comment mentioning the workspace owner rather than working around it.\n\n")
 }
 
 // writeDeliveryInvariant emits the always-on delivery contract, shared by every
@@ -632,12 +633,12 @@ func writeOutput(b *strings.Builder, kind runKind, ctx RunContextForEnv) {
 	case kindChat:
 		b.WriteString("This is a chat session. Your reply is delivered directly to the chat window the user is reading.\n\n")
 		// Two-layer channel policy (SILI-4899). This is the DELIVERY layer: any
-		// non-empty channel type means the reply leaves Silieco for an external
+		// non-empty channel type means the reply leaves MEPERStudio for an external
 		// IM platform, where `attachment upload` has nothing to bind to. The
 		// orthogonal HISTORY layer (which read commands exist) is Slack-only and
 		// lives in the per-turn chat prompt — do not collapse the two.
 		if ctx.ChatChannelType != "" {
-			fmt.Fprintf(b, "**Delivering files here:** this %s conversation is text-only — Silieco cannot push a file you produced back into it. `silieco attachment upload` does NOT apply: it binds to a Silieco chat reply, which this is not. Say in words what you produced and where it can be obtained; never upload and then write as though the file arrived, and never link its local path.\n", ChannelDisplayName(ctx.ChatChannelType))
+			fmt.Fprintf(b, "**Delivering files here:** this %s conversation is text-only — MEPERStudio cannot push a file you produced back into it. `silieco attachment upload` does NOT apply: it binds to a MEPERStudio chat reply, which this is not. Say in words what you produced and where it can be obtained; never upload and then write as though the file arrived, and never link its local path.\n", ChannelDisplayName(ctx.ChatChannelType))
 		} else {
 			b.WriteString("**Delivering files here:** run `silieco attachment upload <local-path>` — it binds the file to your reply and it renders as an attachment card. That command is the ONLY way a file reaches the user; a path written into your reply text is not.\n")
 		}

@@ -25,8 +25,8 @@ var debugFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:           "silieco",
-	Short:         "Silieco CLI — local agent runtime and management tool",
-	Long:          "Work seamlessly with Silieco from the command line.",
+	Short:         "MEPERStudio CLI — local agent runtime and management tool",
+	Long:          "Work seamlessly with MEPERStudio from the command line.",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -39,7 +39,7 @@ func init() {
 	// server can split logs/metrics by client version.
 	cli.ClientVersion = version
 
-	rootCmd.PersistentFlags().String("server-url", "", "Silieco server URL (env: SILIECO_SERVER_URL)")
+	rootCmd.PersistentFlags().String("server-url", "", "MEPERStudio server URL (env: SILIECO_SERVER_URL)")
 	rootCmd.PersistentFlags().String("workspace-id", "", "Workspace ID (env: SILIECO_WORKSPACE_ID)")
 	rootCmd.PersistentFlags().String("profile", "", "Configuration profile name (e.g. dev) — isolates config, daemon state, and workspaces")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print full error details on failure (env: SILIECO_DEBUG)")

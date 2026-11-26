@@ -1,11 +1,11 @@
 ---
 name: silieco-runtimes-and-repos
-description: "Use when inspecting or debugging Silieco runtimes, daemon run claiming, agent not running, workdir/session reuse, or repository checkout. Covers runtime online/offline state, daemon heartbeat/claim chain, run-scoped repo checkout, project repo context, local_directory caveats, and safe diagnostic commands."
+description: "Use when inspecting or debugging MEPERStudio runtimes, daemon run claiming, agent not running, workdir/session reuse, or repository checkout. Covers runtime online/offline state, daemon heartbeat/claim chain, run-scoped repo checkout, project repo context, local_directory caveats, and safe diagnostic commands."
 user-invocable: false
 allowed-tools: Bash(silieco *)
 ---
 
-# Silieco Runtimes and Repos
+# MEPERStudio Runtimes and Repos
 
 ## Quick start
 

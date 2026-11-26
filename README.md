@@ -1,6 +1,6 @@
-# MEPER Studio
+# MEPERStudio
 
-MEPER Studio 是面向 AI Agent 任务与团队协作的工作平台，提供 Web、桌面端和移动端入口，并通过 Go 后端及本地运行服务连接工作空间、会话与任务执行。
+MEPERStudio 是面向 AI Agent 任务与团队协作的工作平台，提供 Web、桌面端和移动端入口，并通过 Go 后端及本地运行服务连接工作空间、会话与任务执行。
 
 ## 项目结构
 
@@ -91,4 +91,4 @@ docker compose -f docker-compose.selfhost.yml -f docker-compose.selfhost.build.y
 
 ## 命名约定
 
-项目名称统一为 **MEPER Studio**。当前源码中的内部包作用域、Go 模块路径、部分命令和环境变量仍使用既有标识；开发和部署时请以实际配置为准。
+项目名称统一为 **MEPERStudio**。当前源码中的内部包作用域、Go 模块路径、部分命令和环境变量仍使用既有标识；开发和部署时请以实际配置为准。

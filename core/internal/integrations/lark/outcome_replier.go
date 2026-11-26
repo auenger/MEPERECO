@@ -97,7 +97,7 @@ type LarkOutcomeReplier struct {
 	log          *slog.Logger
 }
 
-// OutcomeReplierConfig wires the production replier. AppURL is the Silieco web
+// OutcomeReplierConfig wires the production replier. AppURL is the MEPERStudio web
 // app host the user clicks into to redeem the binding token or open an task
 // (e.g. https://silieco.example). It comes from SILIECO_APP_URL and is
 // intentionally separate from SILIECO_PUBLIC_URL, which is the backend/API
@@ -146,7 +146,7 @@ func NewLarkOutcomeReplier(cfg OutcomeReplierConfig) OutcomeReplier {
 		queries:      cfg.Queries,
 		appURL:       strings.TrimRight(cfg.AppURL, "/"),
 		bindingPath:  bindingPath,
-		noticeHeader: "Silieco",
+		noticeHeader: "MEPERStudio",
 		log:          log,
 	}
 }
@@ -232,7 +232,7 @@ func (r *LarkOutcomeReplier) sendBindingPrompt(ctx context.Context, inst Install
 // as a plain text message. We deliberately send text rather than an
 // interactive card so the confirmation flows inline with the rest of
 // the Lark conversation — consistent with how chat replies render
-// after SILI-2671's plain-text refactor. The link to Silieco is
+// after SILI-2671's plain-text refactor. The link to MEPERStudio is
 // included on its own line so Lark's auto-linker turns it into a
 // tappable URL.
 func (r *LarkOutcomeReplier) sendTaskCreated(ctx context.Context, inst Installation, msg InboundMessage, res DispatchResult) error {

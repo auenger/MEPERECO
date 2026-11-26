@@ -676,7 +676,7 @@ func (c *Cache) createOrUpdateIsolatedCheckout(barePath, repoURL, checkoutPath, 
 		}
 	}
 	if _, err := os.Stat(checkoutPath); err == nil {
-		return "", fmt.Errorf("checkout path already exists and is not a Silieco isolated checkout: %s", checkoutPath)
+		return "", fmt.Errorf("checkout path already exists and is not a MEPERStudio isolated checkout: %s", checkoutPath)
 	} else if !os.IsNotExist(err) {
 		return "", fmt.Errorf("stat checkout path: %w", err)
 	}
@@ -868,7 +868,7 @@ func deleteAllLocalBranches(repoPath string) error {
 	return deleteLocalBranchesUnder(repoPath, "refs/heads/", "")
 }
 
-// deleteStaleAgentBranches prunes branches left by earlier Silieco tasks while
+// deleteStaleAgentBranches prunes branches left by earlier MEPERStudio tasks while
 // preserving the current task branch and every user-created local branch.
 func deleteStaleAgentBranches(repoPath, keepBranch string) error {
 	return deleteLocalBranchesUnder(repoPath, "refs/heads/agent/", "refs/heads/"+keepBranch)
@@ -1154,15 +1154,16 @@ const siliecoHookMarker = "# silieco:prepare-commit-msg:co-authored-by"
 // prepareCommitMsgHook keep recognizing every previously-shipped variant.
 var daemonInstalledHookSignatures = []string{
 	siliecoHookMarker,
-	"# Installed by the Silieco daemon.",
+	"# Installed by the Silieco daemon.", // legacy hook ownership marker
+	"# Installed by the MEPERStudio daemon.",
 }
 
 // prepareCommitMsgHook is the prepare-commit-msg hook script that appends a
-// Co-authored-by trailer for the Silieco Agent to every commit message.
+// Co-authored-by trailer for the MEPERStudio Agent to every commit message.
 const prepareCommitMsgHook = `#!/bin/sh
 # silieco:prepare-commit-msg:co-authored-by
-# Silieco: add Co-authored-by trailer for the Silieco Agent.
-# Installed by the Silieco daemon. Do not edit — it will be overwritten.
+# MEPERStudio: add Co-authored-by trailer for the MEPERStudio Agent.
+# Installed by the MEPERStudio daemon. Do not edit — it will be overwritten.
 
 COMMIT_MSG_FILE="$1"
 COMMIT_SOURCE="$2"
@@ -1184,7 +1185,7 @@ git interpret-trailers --in-place --trailer "$TRAILER" "$COMMIT_MSG_FILE"
 `
 
 // installCoAuthoredByHook installs a prepare-commit-msg git hook that appends
-// a Co-authored-by trailer for the Silieco Agent. The hook is installed in the
+// a Co-authored-by trailer for the MEPERStudio Agent. The hook is installed in the
 // git common directory (the bare repo for worktrees) so it applies to all
 // worktrees created from this cache.
 func installCoAuthoredByHook(worktreePath string) error {
@@ -1210,7 +1211,7 @@ func installCoAuthoredByHook(worktreePath string) error {
 }
 
 // isDaemonInstalledHook reports whether a prepare-commit-msg hook on disk was
-// installed by the Silieco daemon (current or any previously released
+// installed by the MEPERStudio daemon (current or any previously released
 // version). It returns false for hooks that don't carry any known daemon
 // signature, so a user-installed hook at the same path is left alone.
 func isDaemonInstalledHook(contents []byte) bool {

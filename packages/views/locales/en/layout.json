@@ -36,8 +36,8 @@
     "loading_named_prefix": "Loading"
   },
   "sidebar": {
-    "brand_name": "Silieco",
-    "brand_tagline": "MEPER Studio Agent OS",
+    "brand_name": "MEPERStudio",
+    "brand_tagline": "MEPERStudio Agent OS",
     "create_project": "Create project",
     "view_projects": "View all projects",
     "unpin_tooltip": "Unpin",

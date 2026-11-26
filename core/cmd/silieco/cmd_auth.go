@@ -24,7 +24,7 @@ import (
 
 // loginTokenPrefixes are the token prefixes `silieco login --token` accepts.
 // The CLI used to hardcode `sili_` only, which made it impossible to log in
-// with a Silieco Cloud Node PAT (`mcn_`) even though the server happily
+// with a MEPERStudio Cloud Node PAT (`mcn_`) even though the server happily
 // authenticates both kinds. Keep this list in sync with the prefix branches
 // in core/internal/middleware/auth.go.
 var loginTokenPrefixes = []string{"sili_", auth.CloudPATPrefix}
@@ -43,7 +43,7 @@ func validateLoginTokenPrefix(token string) error {
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
-	Short: "Authenticate silieco with Silieco",
+	Short: "Authenticate silieco with MEPERStudio",
 }
 
 var authStatusCmd = &cobra.Command{
@@ -497,7 +497,7 @@ const callbackSuccessHTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Silieco — Authenticated</title>
+<title>MEPERStudio — Authenticated</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @media (prefers-color-scheme: dark) {
