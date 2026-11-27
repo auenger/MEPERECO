@@ -99,6 +99,8 @@ docker compose -f docker-compose.selfhost.yml -f docker-compose.selfhost.build.y
 
 部署参数参见 `.env.example` 和 Compose 文件。对外提供服务时，应配置域名、HTTPS、反向代理及实际使用的邮件、模型和存储服务。
 
+正式版本发布（版本字段同步、源码推送、构建、备份、部署、下载验证和回滚）统一参照 [MEPERStudio 正式版本发布标准流程](docs/release-runbook.md)。
+
 ## 命名约定
 
 项目名称统一为 **MEPERStudio**。对外 CLI 命令统一为 `meperstudio`，新配置使用 `MEPERSTUDIO_*`。内部包作用域、Go 模块路径、数据库标识、旧协议和 Skill ID 保留兼容。旧 `SILIECO_*` 环境变量仍可使用；两者同时设置时新名称优先。新安装默认使用 `~/.meperstudio`，已有 `~/.silieco` 配置目录继续使用，不搬迁正在运行的 Daemon 状态。
