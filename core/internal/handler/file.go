@@ -907,7 +907,9 @@ func (h *Handler) ServeLocalUpload(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/uploads/")
 	// Legacy local attachment URLs use an attachment UUID as their filename.
 	// Redirect them through the authenticated attachment resource so a known
-	// storage path cannot bypass project grants; avatars remain public.
+	// storage path cannot bypass project grants. Installed clients may have
+	// cached the raw URL of a saved avatar: preserve it only when the object
+	// is a standalone image actually published as an avatar.
 	if strings.HasPrefix(key, "workspaces/") {
 		parts := strings.Split(key, "/")
 		if len(parts) == 3 {
@@ -916,6 +918,13 @@ func (h *Handler) ServeLocalUpload(w http.ResponseWriter, r *http.Request) {
 				if err != nil || h.Storage.KeyFromURL(att.Url) != key {
 					http.NotFound(w, r)
 					return
+				}
+				if h.avatarAttachmentIsPublishable(r.Context(), key, att) {
+					published, err := h.Queries.IsPublishedAvatarURL(r.Context(), att.Url)
+					if err == nil && published {
+						h.proxyAvatar(w, r, key, avatarContentType(key))
+						return
+					}
 				}
 				http.Redirect(w, r, attachmentDownloadPath(uuidToString(att.ID)), http.StatusFound)
 				return

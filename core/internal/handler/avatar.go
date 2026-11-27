@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/auth"
 	"github.com/auenger/MEPERECO/core/internal/storage"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------------------
@@ -30,8 +30,9 @@ import (
 // `avatar_url` columns (user / agent / squad / workspace) store the raw
 // storage object URL the upload returned. On a deployment whose bucket is
 // public — S3/R2 behind a public CDN domain, or the LocalStorage backend
-// whose /uploads/* route is served publicly — that URL loads fine in an
-// <img> and nothing here changes it.
+// whose per-user /uploads/* objects are served publicly — that URL loads
+// fine in an <img> and nothing here changes it. Workspace-local uploads
+// instead use the signed avatar endpoint, independently of attachment access.
 //
 // On a PRIVATE bucket with no public CDN (S3 with Block Public Access, R2,
 // MinIO — the shape #6024 reports) that raw URL is a guaranteed 403 in the
@@ -300,10 +301,22 @@ func (h *Handler) avatarKeyIsPublishable(ctx context.Context, key string) bool {
 	if err != nil {
 		return false
 	}
-	if !strings.HasPrefix(strings.ToLower(att.ContentType), "image/") {
+	return h.avatarAttachmentIsPublishable(ctx, key, att)
+}
+
+// In addition to direct task/chat bindings, a file can now belong to project
+// resources via attachment_reference. Do not make that file a public avatar.
+func (h *Handler) avatarAttachmentIsPublishable(ctx context.Context, key string, att db.Attachment) bool {
+	if avatarContentType(key) == "" || !att.WorkspaceID.Valid ||
+		!strings.HasPrefix(key, workspaceUploadNamespace+uuidToString(att.WorkspaceID)+"/") ||
+		h.Storage.KeyFromURL(att.Url) != key ||
+		!strings.HasPrefix(strings.ToLower(att.ContentType), "image/") || attachmentIsBound(att) {
 		return false
 	}
-	return !attachmentIsBound(att)
+	count, err := h.Queries.CountAttachmentReferences(ctx, db.CountAttachmentReferencesParams{
+		WorkspaceID: att.WorkspaceID, AttachmentID: att.ID,
+	})
+	return err == nil && count == 0
 }
 
 // attachmentIsBound reports whether an upload is attached to workspace content.
@@ -351,10 +364,11 @@ func (h *Handler) ownedStorageKey(rawURL string) string {
 // already loadable by an unauthenticated browser fetch, in which case
 // rewriting it would only add a pointless hop through the API.
 func (h *Handler) avatarObjectLoadsUnauthenticated(rawURL string) bool {
-	// LocalStorage objects are served by the public /uploads/* route, whether
-	// the stored URL is site-relative or absolute via LOCAL_UPLOAD_BASE_URL.
+	// Workspace-local uploads are routed through the authenticated attachment
+	// handler. An avatar must use its separate signed endpoint, even if its
+	// storage URL happens to have a public-facing base URL.
 	if _, ok := h.Storage.(*storage.LocalStorage); ok {
-		return true
+		return !strings.HasPrefix(h.Storage.KeyFromURL(rawURL), workspaceUploadNamespace)
 	}
 	// Otherwise: a public CDN domain with no per-request CloudFront signing.
 	// In signed-CloudFront mode the same domain serves private content and the
@@ -410,6 +424,10 @@ func (h *Handler) ServeAvatar(w http.ResponseWriter, r *http.Request) {
 
 	objectURL := h.Storage.ObjectURL(key)
 	h.setAttachmentPreviewSecurityHeaders(w)
+	if _, ok := h.Storage.(*storage.LocalStorage); ok {
+		h.proxyAvatar(w, r, key, contentType)
+		return
+	}
 
 	switch h.resolveAttachmentDownloadMode(objectURL) {
 	case attachmentDownloadModeCloudFront:

@@ -30,7 +30,7 @@
 | 桌面打包 | `MEPERSTUDIO_BUILD_VERSION=X.Y.Z`；打包脚本将版本写入 Electron metadata，并构建匹配架构的内置 CLI |
 | Web 构建 | `NEXT_PUBLIC_APP_VERSION=X.Y.Z` |
 | CLI 发布 | `scripts/build-cli-release.py --version X.Y.Z --commit COMMIT` |
-| 生产 `.env` | `VERSION`、`MEPERSTUDIO_IMAGE_TAG`、`SILIECO_IMAGE_TAG`、**`MEPERSTUDIO_DESKTOP_VERSION`** 全部为 `X.Y.Z`；同步 `COMMIT`、`DATE` |
+| 生产 `.env` | `VERSION`、`MEPERSTUDIO_IMAGE_TAG`、`SILIECO_IMAGE_TAG`、**`MEPERSTUDIO_DESKTOP_VERSION`** 全部为 `X.Y.Z`；同步 `COMMIT`、`DATE`；清空上次可能设置的 `MEPERSTUDIO_BACKEND_IMAGE_TAG` 热修复覆盖 |
 | 桌面更新元数据 | 由本次实际二进制生成 `latest.yml`、`latest-mac.yml`，其中版本、文件名、SHA-512 和大小必须一致 |
 
 **关键经验：`MEPERSTUDIO_DESKTOP_VERSION` 与镜像 tag 是独立配置。** 1.0.2 切换服务和更新源后，下载页一度仍显示 1.0.1，原因是生产 `.env` 的该字段仍为旧值。必须在同一轮配置切换中更新，而不是只修改 `VERSION`。不要全库盲目替换旧版本字符串：协议版本、迁移编号、历史发布记录及兼容性测试不应跟着应用版本变化。
@@ -286,6 +286,7 @@ git push origin "v$release_version"
 - **仅下载页面版本错误：** 检查 `MEPERSTUDIO_DESKTOP_VERSION` 是否仍为旧版本，修复配置后重建 frontend 与 gateway，复验真实链接。不要只检查 `latest.yml`。
 - **原生安装失败：** 先区分未下载、下载完毕、原生准备、安装失败。Mac ad-hoc 包无法保证连续原生更新，提供手动下载路径。不要仅凭下载成功宣称安装成功。
 - **发布指针已经公开后发现实质性修复：** 留存现有不可变版本包，优先发布下一个版本，不覆写同名新旧签名或内容不同的二进制。必要的紧急回滚先确认数据库兼容性与更新客户端行为，保留完整证据和可恢复副本。
+- **仅服务端修复且无需客户端升级：** 构建独立且不可覆盖的 backend 镜像 tag（例如 `1.0.2-avatar-hotfix.1`），保持当前产品版本、Web 和桌面安装包不变。备份生产 `.env`，设置 `MEPERSTUDIO_BACKEND_IMAGE_TAG` 为该 tag，使用 Compose 仅更新 backend，再重建 gateway 刷新后端地址。验证 backend 健康及实际修复效果；失败时恢复原 backend tag。下次完整版本发布时清空此覆盖字段。
 
 ## 9. 1.0.2 实际发布记录
 

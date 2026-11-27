@@ -3,7 +3,7 @@
 
 services:
   backend:
-    image: ${MEPERSTUDIO_BACKEND_IMAGE:-${SILIECO_BACKEND_IMAGE:-meperstudio-backend}}:${MEPERSTUDIO_IMAGE_TAG:-${SILIECO_IMAGE_TAG:-1.0.0}}
+    image: ${MEPERSTUDIO_BACKEND_IMAGE:-${SILIECO_BACKEND_IMAGE:-meperstudio-backend}}:${MEPERSTUDIO_BACKEND_IMAGE_TAG:-${MEPERSTUDIO_IMAGE_TAG:-${SILIECO_IMAGE_TAG:-1.0.0}}}
     build:
       context: .
       dockerfile: Dockerfile
