@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type taskTableGroupValueResponse struct {
@@ -122,7 +122,7 @@ END, ''))`,
 	case "parent":
 		return resolvedTaskTableGroup{
 			kind:      "parent",
-			groupExpr: "COALESCE(i.parent_task_id::text, '__no_parent__')",
+			groupExpr: "CASE WHEN EXISTS (SELECT 1 FROM task visible_parent WHERE visible_parent.id=i.parent_task_id AND visible_parent.workspace_id=i.workspace_id AND (visible_parent.project_id IS NULL OR visible_parent.project_id=ANY($2::uuid[]))) THEN i.parent_task_id::text ELSE '__no_parent__' END",
 			groupSortExpr: `CASE WHEN group_value = '__no_parent__' THEN '' ELSE LOWER(COALESCE(
   (SELECT p.title FROM task p WHERE p.workspace_id = $1 AND p.id = group_value::uuid),
   ''

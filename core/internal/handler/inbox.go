@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type InboxItemResponse struct {
@@ -114,6 +114,13 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	visible := items[:0]
+	for _, item := range items {
+		if h.taskProjectAccessible(r, wsUUID, item.TaskID) {
+			visible = append(visible, item)
+		}
+	}
+	items = visible
 	resp := make([]InboxItemResponse, len(items))
 	for i, item := range items {
 		resp[i] = inboxRowToResponse(item)
@@ -151,6 +158,13 @@ func (h *Handler) ListArchivedInbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	visible := items[:0]
+	for _, item := range items {
+		if h.taskProjectAccessible(r, wsUUID, item.TaskID) {
+			visible = append(visible, item)
+		}
+	}
+	items = visible
 	resp := make([]InboxItemResponse, len(items))
 	for i, item := range items {
 		resp[i] = archivedInboxRowToResponse(item)

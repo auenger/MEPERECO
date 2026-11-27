@@ -15,9 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	"github.com/auenger/MEPERECO/core/internal/auth"
 	"github.com/auenger/MEPERECO/core/internal/daemonws"
@@ -33,6 +30,9 @@ import (
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
 	"github.com/auenger/MEPERECO/core/pkg/redact"
 	"github.com/auenger/MEPERECO/core/pkg/runfailure"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------------------
@@ -2304,6 +2304,12 @@ func (h *Handler) buildClaimedRunResponse(r *http.Request, agentRun *db.AgentRun
 			// task-bound task. Revalidate the soft reference in this workspace at
 			// claim time: a deleted/stale project degrades to workspace context and
 			// can never leak a project from another tenant.
+			if cs.ProjectID.Valid && agentRun.InitiatorUserID.Valid {
+				allowed, err := h.Queries.CanAccessProject(r.Context(), cs.WorkspaceID, agentRun.InitiatorUserID, cs.ProjectID)
+				if err != nil || !allowed {
+					return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.failClaimedRunBeforeLaunch(r.Context(), agentRun, "Project access has been revoked.", runfailure.ReasonInvalidRunIdentity, "error_project_access", http.StatusForbidden, "project access required")
+				}
+			}
 			if err := h.applyClaimProjectRepos(r.Context(), &resp, cs.WorkspaceID, cs.ProjectID, r.URL.Query().Get("repo_scope") == "1"); err != nil {
 				return resp, deliveredCommentIDs, agentSkillCount, builtinSkillCount, h.claimProjectRepoFailure(r, agentRun, err)
 			}
@@ -4204,6 +4210,10 @@ func (h *Handler) ListAgentRunMessagesByUser(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if !h.runProjectAccessible(r, parseUUID(wsID), agentRun) {
+		writeError(w, http.StatusForbidden, "project or chat access required")
+		return
+	}
 	var (
 		messages []db.AgentRunMessage
 		queryErr error

@@ -64,10 +64,7 @@ import { useCurrentWorkspace, useWorkspacePaths, paths } from "@silieco/core/pat
 import { workspaceListOptions, myInvitationListOptions, workspaceKeys } from "@silieco/core/workspace/queries";
 import { resolvePublicFileUrl } from "@silieco/core/workspace/avatar-url";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { inboxKeys, deduplicateInboxItems, inboxUnreadSummaryOptions, unreadWorkspaceIds } from "@silieco/core/inbox/queries";
-import { chatSessionsOptions } from "@silieco/core/chat/queries";
-import { countUnreadChatMessages } from "@silieco/core/chat/unread";
-import { useChatStore } from "@silieco/core/chat";
+import { inboxUnreadSummaryOptions, unreadWorkspaceIds } from "@silieco/core/inbox/queries";
 import { api, ApiError } from "@silieco/core/api";
 import { useModalStore } from "@silieco/core/modals";
 import { useConfigStore } from "@silieco/core/config";
@@ -76,7 +73,7 @@ import { useDeletePin, useReorderPins } from "@silieco/core/pins/mutations";
 import { taskDetailOptions } from "@silieco/core/tasks/queries";
 import { projectDetailOptions } from "@silieco/core/projects/queries";
 import { projectListOptions } from "@silieco/core/projects/queries";
-import { workflowInstancesOptions } from "@silieco/core/workflows";
+import { workflowInstancesOptions, useSopVisibilityStore } from "@silieco/core/workflows";
 import type { PinnedItem } from "@silieco/core/types";
 import { useLogout } from "../auth";
 import { ProjectIcon } from "../projects/components/project-icon";
@@ -86,7 +83,7 @@ import {
   useShortcut,
 } from "@silieco/core/shortcuts";
 import { ShortcutKeycaps } from "../common/shortcut-keycaps";
-import { useAppForeground } from "../common/use-app-foreground";
+import { useMessageUnreadCounts } from "../platform/use-message-unread-counts";
 
 // Top-level nav items stay active when the user is on a child route
 // (e.g. "Projects" stays lit on /:slug/projects/:id). Pinned items keep
@@ -104,7 +101,6 @@ function isNavActive(pathname: string, href: string): boolean {
 const EMPTY_PINS: PinnedItem[] = [];
 const EMPTY_WORKSPACES: Awaited<ReturnType<typeof api.listWorkspaces>> = [];
 const EMPTY_INVITATIONS: Awaited<ReturnType<typeof api.listMyInvitations>> = [];
-const EMPTY_INBOX: Awaited<ReturnType<typeof api.listInbox>> = [];
 const EMPTY_INBOX_SUMMARY: Awaited<ReturnType<typeof api.getInboxUnreadSummary>> = [];
 
 // Nav items reference WorkspacePaths method names so they can be resolved
@@ -366,10 +362,16 @@ interface AppSidebarProps {
   hideBrand?: boolean;
   /** Desktop provides the new-task action in its window toolbar. */
   taskInToolbar?: boolean;
+  /** Localized attention notice supplied by the desktop updater. */
+  settingsNotice?: string;
 }
 
-export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, hideBrand, taskInToolbar = false }: AppSidebarProps = {}) {
+export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, hideBrand, taskInToolbar = false, settingsNotice }: AppSidebarProps = {}) {
   const { t } = useT("layout");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
+  const visibleManagementNav = managementNav.filter((item) => sopEnabled || item.key !== "workflows");
+  const settingsLabel = t(($) => $.nav.settings);
+  const settingsAccessibleLabel = settingsNotice ? `${settingsLabel} · ${settingsNotice}` : settingsLabel;
   const { state, isMobile, setOpen } = useSidebar();
   const iconOnly = state === "collapsed" && !isMobile;
   const { pathname, push, openInNewTab, searchParams } = useNavigation();
@@ -383,44 +385,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
   const workspaceCreationDisabled = useConfigStore((s) => s.workspaceCreationDisabled);
 
   const wsId = workspace?.id;
-  const { data: inboxItems = EMPTY_INBOX } = useQuery({
-    queryKey: wsId ? inboxKeys.list(wsId) : ["inbox", "disabled"],
-    queryFn: () => api.listInbox(),
-    enabled: !!wsId,
-  });
-  const unreadCount = React.useMemo(
-    () => deduplicateInboxItems(inboxItems).filter((i) => !i.read).length,
-    [inboxItems],
-  );
-  // Chat tab unread badge: IM-style total of unread *messages* across chat
-  // threads (countUnreadChatMessages is the shared definition — mobile's tab
-  // badge derives from the same function, keeping the platforms in agreement).
-  const { data: chatSessions = [] } = useQuery({
-    ...chatSessionsOptions(wsId ?? ""),
-    enabled: !!wsId,
-  });
-  // The session the user is reading right now must not count: the thread list
-  // renders its row badge as 0 (auto mark-read is about to clear it), and a
-  // reply landing in the open conversation would otherwise flash a sidebar
-  // count with no matching row. "Reading right now" = a session is active, a
-  // chat surface is actually showing it (chat page route or the floating
-  // window), AND the app is in the foreground. When the app is backgrounded,
-  // auto mark-read is suppressed (SILI-4485) so the reply stays unread — the
-  // badge must count it, or the notification is silently eaten while the user
-  // is away. A remembered selection while both surfaces are closed also still
-  // counts, for the same reason.
-  const activeChatSessionId = useChatStore((s) => s.activeSessionId);
-  const floatingChatOpen = useChatStore((s) => s.isOpen);
-  const appForeground = useAppForeground();
-  const chatHref = p.chat();
-  const viewedChatSessionId =
-    appForeground && (floatingChatOpen || isNavActive(pathname, chatHref))
-      ? activeChatSessionId
-      : null;
-  const chatUnreadCount = React.useMemo(
-    () => countUnreadChatMessages(chatSessions, viewedChatSessionId),
-    [chatSessions, viewedChatSessionId],
-  );
+  const { inboxUnreadCount: unreadCount, chatUnreadCount } = useMessageUnreadCounts();
   // Cross-workspace unread summary backs the workspace-switcher dot. One
   // shared cache entry across workspaces; gated on an active workspace since
   // the endpoint resolves through the workspace-member middleware.
@@ -518,7 +483,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
   });
   const { data: workflowRuns = [] } = useQuery({
     ...workflowInstancesOptions(wsId ?? ""),
-    enabled: Boolean(wsId),
+    enabled: Boolean(wsId) && sopEnabled,
   });
   const visibleRunsByProject = React.useMemo(() => {
     const grouped = new Map<string, typeof workflowRuns>();
@@ -539,7 +504,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
   const projectsHref = p.projects();
   const [expandedSpaceId, setExpandedSpaceId] = useState<string>();
   const [managementOpen, setManagementOpen] = useState<Record<string, boolean>>({});
-  const managementActive = managementNav.some((item) =>
+  const managementActive = visibleManagementNav.some((item) =>
     isNavActive(pathname, p[item.key]()),
   );
   useEffect(() => {
@@ -683,7 +648,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
                     <Layers3 />
                   </SidebarMenuButton>
                   <DropdownMenuContent side="right" align="start" sideOffset={10} className="w-48">
-                    {managementNav.map((item) => {
+                    {visibleManagementNav.map((item) => {
                       const href = p[item.key]();
                       const Icon = routeIconForPath(href);
                       return (
@@ -960,7 +925,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
                             </SidebarMenuButton>
                             <CollapsibleContent>
                               <SidebarMenu className="ml-3 w-[calc(100%-0.75rem)] border-l border-sidebar-border pl-2">
-                                {managementNav.map((item) => {
+                                {visibleManagementNav.map((item) => {
                                   const href = p[item.key]();
                                   const Icon = routeIconForPath(href);
                                   return (
@@ -1081,7 +1046,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
                                       <FileText className="size-3.5" />
                                       {t(($) => $.nav.resources)}
                                     </AppLink>
-                                    <AppLink
+                                    {sopEnabled && <AppLink
                                       openInAppTab
                                       href={sopHref}
                                       className={cn(
@@ -1094,8 +1059,8 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
                                     >
                                       <GitBranch className="size-3.5" />
                                       SOP
-                                    </AppLink>
-                                    {projectRuns.length > 0 && (
+                                    </AppLink>}
+                                    {sopEnabled && projectRuns.length > 0 && (
                                       <div className="mt-1 border-t border-sidebar-border/70 pt-1">
                                         {projectRuns.map((run) => (
                                           <AppLink
@@ -1167,9 +1132,11 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
             <DropdownMenuContent align="start" side="top" className="w-56">
               <DropdownMenuItem
                 render={<AppLink openInAppTab href={p.settings()} />}
+                aria-label={settingsAccessibleLabel}
               >
                 <Settings className="size-3.5" />
-                {t(($) => $.nav.settings)}
+                {settingsLabel}
+                {settingsNotice && <span aria-hidden="true" className="ml-auto size-1.5 shrink-0 rounded-full bg-destructive" />}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem variant="destructive" onClick={logout}>
@@ -1184,15 +1151,16 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle, 
                 <AppLink
                   openInAppTab
                   href={p.settings()}
-                  aria-label={t(($) => $.nav.settings)}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  aria-label={settingsAccessibleLabel}
+                  className="relative flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 />
               }
             >
               <Settings className="size-4" />
+              {settingsNotice && <span aria-hidden="true" className="pointer-events-none absolute right-1 top-1 size-1.5 rounded-full bg-destructive" />}
             </TooltipTrigger>
             <TooltipContent side="top">
-              {t(($) => $.nav.settings)}
+              {settingsAccessibleLabel}
             </TooltipContent>
           </Tooltip>
         </div>

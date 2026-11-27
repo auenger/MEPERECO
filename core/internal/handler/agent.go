@@ -2168,6 +2168,13 @@ func (h *Handler) ListAgentRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	visible := agentRuns[:0]
+	for _, run := range agentRuns {
+		if h.runProjectAccessible(r, agent.WorkspaceID, run) {
+			visible = append(visible, run)
+		}
+	}
+	agentRuns = visible
 	resp := make([]AgentRunResponse, len(agentRuns))
 	for i, t := range agentRuns {
 		resp[i] = agentRunToResponse(t, workspaceID)
@@ -2443,6 +2450,9 @@ func (h *Handler) ListWorkspaceAgentRunSnapshot(w http.ResponseWriter, r *http.R
 
 	resp := make([]AgentRunResponse, 0, len(agentRuns))
 	for _, t := range agentRuns {
+		if !h.runProjectAccessible(r, parseUUID(workspaceID), t) {
+			continue
+		}
 		if _, ok := allowed[uuidToString(t.AgentID)]; !ok {
 			continue
 		}

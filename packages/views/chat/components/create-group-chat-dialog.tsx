@@ -18,7 +18,7 @@ import {
   useCreateGroupChatSession,
   useUpdateGroupChatParticipants,
 } from "@silieco/core/chat/mutations";
-import type { Agent, ChatSession, MemberWithUser } from "@silieco/core/types";
+import type { Agent, ChatSession, MemberWithUser, Project } from "@silieco/core/types";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { useT } from "../../i18n";
 
@@ -30,6 +30,7 @@ interface CreateGroupChatDialogProps {
   currentUserId?: string;
   onCreated: (session: ChatSession) => void;
   session?: ChatSession | null;
+  projects?: Project[];
 }
 
 export function CreateGroupChatDialog({
@@ -40,6 +41,7 @@ export function CreateGroupChatDialog({
   currentUserId,
   onCreated,
   session,
+  projects = [],
 }: CreateGroupChatDialogProps) {
   const { t } = useT("chat");
   const createGroup = useCreateGroupChatSession();
@@ -64,6 +66,7 @@ export function CreateGroupChatDialog({
   );
   const [title, setTitle] = useState(session?.title ?? "");
   const [query, setQuery] = useState("");
+  const [projectId, setProjectId] = useState(session?.project_id ?? "");
   const [memberIds, setMemberIds] = useState<Set<string>>(
     initialMemberIds,
   );
@@ -84,6 +87,7 @@ export function CreateGroupChatDialog({
   const reset = () => {
     setTitle(session?.title ?? "");
     setQuery("");
+    setProjectId(session?.project_id ?? "");
     setMemberIds(initialMemberIds());
     setAgentIds(initialAgentIds());
   };
@@ -111,14 +115,15 @@ export function CreateGroupChatDialog({
           })
         : await createGroup.mutateAsync({
             title: cleanTitle,
+            project_id: projectId || null,
             member_ids: [...memberIds].filter((id) => id !== currentUserId),
             agent_ids: [...agentIds],
           });
       onCreated(updated);
       onOpenChange(false);
       reset();
-    } catch {
-      toast.error(t(($) => isManaging ? $.group.update_failed : $.group.create_failed));
+    } catch (error) {
+      toast.error(error instanceof Error && error.message.includes("all group members") ? t(($) => $.group.project_members_required) : t(($) => isManaging ? $.group.update_failed : $.group.create_failed));
     }
   };
 
@@ -155,6 +160,16 @@ export function CreateGroupChatDialog({
             </label>
           )}
 
+          {!isManaging && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-caption font-medium">{t(($) => $.group.project_label)}</span>
+              <select className="h-9 rounded-md border border-surface-border bg-surface px-2 text-body" value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                <option value="">{t(($) => $.group.no_project)}</option>
+                {projects.map((project) => <option key={project.id} value={project.id}>{project.title}</option>)}
+              </select>
+              <span className="text-caption text-muted-foreground">{t(($) => $.group.project_hint)}</span>
+            </label>
+          )}
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-surface-border bg-card">
             <div className="min-w-0 shrink-0 border-b border-surface-border p-3">
               <div className="relative">

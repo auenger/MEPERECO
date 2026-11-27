@@ -5,6 +5,12 @@
     "agent_link_no_access": "You don't have access to chat with this agent."
   },
   "group": {
+    "project_locked": "Locked",
+    "project_label": "Bind project",
+    "no_project": "None (workspace chat)",
+    "project_hint": "The binding is fixed. All group members need project access. Agents use the project context and working directory.",
+    "project_members_required": "Grant all group members access to this project first.",
+
     "new_tooltip": "New group chat",
     "create_title": "Create a group chat",
     "create_description": "Bring people and agents from this Space into one shared conversation.",
@@ -198,6 +204,11 @@
     "you_prefix": "You: ",
     "no_messages": "No messages yet",
     "no_response_preview": "No text reply",
+    "mentioned_me": "[Mentioned you]",
+    "new_message": "You have a new chat message",
+    "unread_notice": "{{count}} unread messages",
+    "mention_notification": "Someone mentioned you in {{title}}",
+    "new_message_notification": "{{title}} · New message",
     "quick_agents": "Frequent agents",
     "add": "Add",
     "add_agent": "Add a frequent agent",

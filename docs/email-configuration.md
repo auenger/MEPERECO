@@ -75,7 +75,7 @@ SMTP 配置在 Core Server 启动时读取，变更后需要重启或重新创�
 - 注册、已有账号首次设置密码及忘记密码：通过 `POST /auth/password/send-code` 指定 `register` 或 `reset`，在 `POST /auth/password/verify-code` 中验证并获得短期一次性凭证，然后通过 `POST /auth/password/complete` 提交密码。新用户在最后一步才创建账号；重置密码保留原用户 ID。
 - 已登录用户也可在个人设置中凭当前密码修改密码，或通过原邮箱验证码设置/重置。
 
-验证码有效期 10 分钟，发送间隔 60 秒，最多允许 5 次错误验证；密码设置凭证有效期 10 分钟，只能使用一次且绑定验证目的。新密码至少 12 个字符、最大 72 字节，使用 bcrypt 哈希保存。密码登录使用数据库限流，即使未配置 Redis 也会生效。生产域名为 `https://studio.meper.cn`，部署时确保 TLS 终止及安全 Cookie 配置。
+验证码有效期 10 分钟，发送间隔 60 秒，最多允许 5 次错误验证；密码设置凭证有效期 10 分钟，只能使用一次且绑定验证目的。新密码至少 6 个字符、最大 72 字节，使用 bcrypt 哈希保存。密码登录使用数据库限流，即使未配置 Redis 也会生效。生产域名为 `https://studio.meper.cn`，部署时确保 TLS 终止及安全 Cookie 配置。
 
 设置 `ALLOW_SIGNUP=false` 可关闭新用户注册，`ALLOWED_EMAIL_DOMAINS` 和 `ALLOWED_EMAILS` 可设置注册白名单，已有用户仍可登录。Google OAuth 以及无需验证邮箱的密码注册不启用。
 

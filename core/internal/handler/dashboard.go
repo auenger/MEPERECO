@@ -124,7 +124,7 @@ func (h *Handler) dashboardRestrictedAgents(
 // argument resolves to SQL NULL and the WHERE clause degrades to "no
 // project filter". On a malformed UUID it writes a 400 and returns
 // ok=false; callers must return immediately.
-func parseProjectIDParam(w http.ResponseWriter, r *http.Request) (pgtype.UUID, bool) {
+func (h *Handler) parseProjectIDParam(w http.ResponseWriter, r *http.Request) (pgtype.UUID, bool) {
 	raw := r.URL.Query().Get("project_id")
 	if raw == "" {
 		return pgtype.UUID{}, true
@@ -132,6 +132,9 @@ func parseProjectIDParam(w http.ResponseWriter, r *http.Request) (pgtype.UUID, b
 	u, err := util.ParseUUID(raw)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid project_id")
+		return pgtype.UUID{}, false
+	}
+	if !h.requireProjectAccess(w, r, parseUUID(h.resolveWorkspaceID(r)), u) {
 		return pgtype.UUID{}, false
 	}
 	return u, true
@@ -186,7 +189,7 @@ func (h *Handler) GetDashboardUsageDaily(w http.ResponseWriter, r *http.Request)
 	if _, ok := h.workspaceMember(w, r, workspaceID); !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}
@@ -286,7 +289,7 @@ func (h *Handler) GetDashboardUsageByAgent(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}
@@ -417,7 +420,7 @@ func (h *Handler) GetDashboardAgentRunTime(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}
@@ -509,7 +512,7 @@ func (h *Handler) GetDashboardRunTimeDaily(w http.ResponseWriter, r *http.Reques
 	if _, ok := h.workspaceMember(w, r, workspaceID); !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}
@@ -583,7 +586,7 @@ func (h *Handler) GetDashboardFailuresDaily(w http.ResponseWriter, r *http.Reque
 	if _, ok := h.workspaceMember(w, r, workspaceID); !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}
@@ -636,7 +639,7 @@ func (h *Handler) GetDashboardFailuresByAgent(w http.ResponseWriter, r *http.Req
 	if !ok {
 		return
 	}
-	projectID, ok := parseProjectIDParam(w, r)
+	projectID, ok := h.parseProjectIDParam(w, r)
 	if !ok {
 		return
 	}

@@ -160,6 +160,17 @@ type ChatMessagePayload struct {
 	CreatedAt     string `json:"created_at"`
 }
 
+// ChatNotificationPayload deliberately carries no conversation title or body.
+// Clients retrieve the recipient-authorized session list before showing a banner.
+type ChatNotificationPayload struct {
+	WorkspaceID   string `json:"workspace_id"`
+	ChatSessionID string `json:"chat_session_id"`
+	MessageID     string `json:"message_id"`
+	RecipientID   string `json:"recipient_id"`
+	CreatedAt     string `json:"created_at"`
+	Mentioned     bool   `json:"mentioned"`
+}
+
 // Chat message kinds (chat_message.message_kind). Additive: unknown values
 // degrade to ChatMessageKindMessage on older readers.
 const (
@@ -238,6 +249,8 @@ type ChatCancelFinalizedPayload struct {
 // Fires to other devices so their unread counts stay in sync.
 type ChatSessionReadPayload struct {
 	ChatSessionID string `json:"chat_session_id"`
+	WorkspaceID   string `json:"workspace_id"`
+	RecipientID   string `json:"recipient_id"`
 }
 
 // ChatSessionDeletedPayload is broadcast when a chat session is hard-deleted

@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Shield, User, Plus, MoreHorizontal, UserMinus, Clock, X, Mail } from "lucide-react";
+import { Crown, Shield, User, Plus, MoreHorizontal, UserMinus, Clock, X, Mail, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { ActorAvatar } from "../../common/actor-avatar";
+import { MemberProjectAccessDialog } from "../../members/member-project-access-dialog";
 import type { MemberWithUser, MemberRole, Invitation } from "@silieco/core/types";
 import { Input } from "@silieco/ui/components/ui/input";
 import { Button } from "@silieco/ui/components/ui/button";
 import { Card, CardContent } from "@silieco/ui/components/ui/card";
 import { Badge } from "@silieco/ui/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@silieco/ui/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -40,10 +42,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@silieco/core/auth";
 import { useWorkspaceId } from "@silieco/core/hooks";
 import { useCurrentWorkspace } from "@silieco/core/paths";
-import { memberListOptions, invitationListOptions, workspaceKeys } from "@silieco/core/workspace/queries";
+import { memberListOptions, invitationListOptions, inviteCandidatesOptions, workspaceKeys } from "@silieco/core/workspace/queries";
+import { resolvePublicFileUrl } from "@silieco/core/workspace/avatar-url";
 import { api } from "@silieco/core/api";
 import { useT } from "../../i18n";
 import { SettingsCard, SettingsSection, SettingsTab } from "./settings-layout";
+import { useDebouncedValue } from "../../common/use-debounced-value";
 
 const ROLE_ICONS: Record<MemberRole, typeof Crown> = {
   owner: Crown,
@@ -101,6 +105,8 @@ function MemberRow({
   const canRemove = canManage && !isSelf && (member.role !== "owner" || canManageOwners);
   const isLastOwner = member.role === "owner" && ownerCount <= 1;
   const showMenu = canEditRole || canRemove;
+  const canManageProjectAccess = canManage && member.role === "member";
+  const [projectAccessOpen, setProjectAccessOpen] = useState(false);
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -109,6 +115,20 @@ function MemberRow({
         <div className="text-body font-medium truncate">{member.name}</div>
         <div className="text-caption text-muted-foreground truncate">{member.email}</div>
       </div>
+      {canManageProjectAccess && (
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => setProjectAccessOpen(true)}>
+          <Shield className="h-3.5 w-3.5" />
+          {t(($) => $.members.project_access)}
+        </Button>
+      )}
+      {canManageProjectAccess && projectAccessOpen && (
+        <MemberProjectAccessDialog
+          open={projectAccessOpen}
+          onOpenChange={setProjectAccessOpen}
+          userId={member.user_id}
+          memberName={member.name}
+        />
+      )}
       {showMenu && (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -237,9 +257,10 @@ export function MembersTab() {
   const { data: members = [] } = useQuery(memberListOptions(wsId));
   const { data: invitations = [] } = useQuery(invitationListOptions(wsId));
 
-  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSearch, setInviteSearch] = useState("");
+  const [invitePage, setInvitePage] = useState(0);
   const [inviteRole, setInviteRole] = useState<MemberRole>("member");
-  const [inviteLoading, setInviteLoading] = useState(false);
+  const [invitingEmail, setInvitingEmail] = useState<string | null>(null);
   const [memberActionId, setMemberActionId] = useState<string | null>(null);
   const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -253,23 +274,44 @@ export function MembersTab() {
   const canManageWorkspace = currentMember?.role === "owner" || currentMember?.role === "admin";
   const isOwner = currentMember?.role === "owner";
   const ownerCount = members.filter((m) => m.role === "owner").length;
+  const searchTerm = inviteSearch.trim().toLowerCase();
+  const debouncedSearch = useDebouncedValue(searchTerm, 250);
+  const searchReady = Array.from(searchTerm.replace(/^@/, "")).length >= 2;
+  const searchSettled = searchTerm === debouncedSearch;
+  const candidates = useQuery({
+    ...inviteCandidatesOptions(wsId, debouncedSearch, invitePage),
+    enabled: !!wsId && canManageWorkspace && searchReady && searchSettled,
+  });
+  const unavailableEmails = new Set([
+    ...members.map((member) => member.email.toLowerCase()),
+    ...invitations.map((invitation) => invitation.invitee_email.toLowerCase()),
+  ]);
+  const matchingCandidates = (candidates.data?.items ?? []).filter(
+    (candidate) => !unavailableEmails.has(candidate.email.toLowerCase()),
+  );
+  const isCompleteEmail = /^[^\s@<>]+@[^\s@<>]+$/.test(searchTerm) && searchTerm.length <= 254;
+  const canInviteEmail = isCompleteEmail && !unavailableEmails.has(searchTerm);
 
-  const handleInviteMember = async () => {
-    if (!workspace) return;
-    setInviteLoading(true);
+  const handleInviteMember = async (email: string, clearSearch = false) => {
+    if (!workspace || invitingEmail || unavailableEmails.has(email.toLowerCase())) return;
+    setInvitingEmail(email);
     try {
-      await api.createMember(workspace.id, {
-        email: inviteEmail,
+      const invitation = await api.createMember(workspace.id, {
+        email,
         role: inviteRole,
       });
-      setInviteEmail("");
-      setInviteRole("member");
-      qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) });
+      qc.setQueryData<Invitation[]>(workspaceKeys.invitations(wsId), (previous = []) => [invitation, ...previous.filter((item) => item.id !== invitation.id)]);
+      if (clearSearch) setInviteSearch("");
+      setInvitePage(0);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) }),
+        qc.invalidateQueries({ queryKey: workspaceKeys.inviteCandidates(wsId) }),
+      ]);
       toast.success(t(($) => $.members.toast_invitation_sent));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t(($) => $.members.toast_invitation_failed));
     } finally {
-      setInviteLoading(false);
+      setInvitingEmail(null);
     }
   };
 
@@ -284,6 +326,7 @@ export function MembersTab() {
         try {
           await api.revokeInvitation(workspace.id, invitation.id);
           qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) });
+          qc.invalidateQueries({ queryKey: workspaceKeys.inviteCandidates(wsId) });
           toast.success(t(($) => $.members.toast_invitation_revoked));
         } catch (e) {
           toast.error(e instanceof Error ? e.message : t(($) => $.members.toast_invitation_revoke_failed));
@@ -319,6 +362,7 @@ export function MembersTab() {
         try {
           await api.deleteMember(workspace.id, member.id);
           qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
+          qc.invalidateQueries({ queryKey: workspaceKeys.inviteCandidates(wsId) });
           toast.success(t(($) => $.members.toast_member_removed));
         } catch (e) {
           toast.error(e instanceof Error ? e.message : t(($) => $.members.toast_member_remove_failed));
@@ -343,28 +387,38 @@ export function MembersTab() {
                 <h3 className="text-body font-medium">{t(($) => $.members.invite_title)}</h3>
               </div>
               <div className="grid gap-3 sm:grid-cols-[1fr_120px_auto]">
-                <Input
-                  type="email"
-                  name="invite-email"
-                  autoComplete="email"
-                  spellCheck={false}
-                  aria-label={t(($) => $.members.invite_email_placeholder)}
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder={t(($) => $.members.invite_email_placeholder)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && inviteEmail.trim()) handleInviteMember();
-                  }}
-                />
+                <div className="relative min-w-0">
+                  <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    className="pl-9"
+                    name="invite-search"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={254}
+                    aria-label={t(($) => $.members.invite_search_placeholder)}
+                    value={inviteSearch}
+                    disabled={!!invitingEmail}
+                    onChange={(e) => { setInviteSearch(e.target.value); setInvitePage(0); }}
+                    placeholder={t(($) => $.members.invite_search_placeholder)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing && canInviteEmail) {
+                        e.preventDefault();
+                        void handleInviteMember(searchTerm, true);
+                      }
+                    }}
+                  />
+                </div>
                 <Select
                   items={(["member", "admin"] as const).map((value) => ({
                     value,
                     label: roleConfig[value].label,
                   }))}
                   value={inviteRole}
+                  disabled={!!invitingEmail}
                   onValueChange={(value) => setInviteRole(value as MemberRole)}
                 >
-                  <SelectTrigger size="sm">
+                  <SelectTrigger size="default" className="w-full" aria-label={t(($) => $.members.invite_role_label)}>
                     <SelectValue>{() => roleConfig[inviteRole].label}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -373,12 +427,68 @@ export function MembersTab() {
                   </SelectContent>
                 </Select>
                 <Button
-                  onClick={handleInviteMember}
-                  disabled={inviteLoading || !inviteEmail.trim()}
+                  onClick={() => handleInviteMember(searchTerm, true)}
+                  disabled={!!invitingEmail || !canInviteEmail}
                 >
-                  {inviteLoading ? t(($) => $.members.inviting) : t(($) => $.members.invite_button)}
+                  {invitingEmail === searchTerm ? t(($) => $.members.inviting) : t(($) => $.members.invite_button)}
                 </Button>
               </div>
+              <p className="text-caption text-muted-foreground">{t(($) => $.members.invite_search_hint)}</p>
+              {isCompleteEmail && !canInviteEmail && (
+                <p role="status" className="text-caption text-muted-foreground">{t(($) => $.members.invite_unavailable)}</p>
+              )}
+              {searchReady && (
+                <div className="overflow-hidden rounded-md border" aria-busy={!searchSettled || candidates.isFetching}>
+                  <div className="bg-muted/40 px-3 py-2 text-caption font-medium text-muted-foreground">
+                    {t(($) => $.members.invite_search_results)}
+                  </div>
+                  {!searchSettled || candidates.isPending ? (
+                    <p role="status" className="px-3 py-3 text-body text-muted-foreground">{t(($) => $.members.invite_searching)}</p>
+                  ) : candidates.isError ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3">
+                      <p role="status" className="text-body text-muted-foreground">{t(($) => $.members.invite_search_error)}</p>
+                      <Button variant="outline" size="sm" onClick={() => candidates.refetch()}>{t(($) => $.members.invite_search_retry)}</Button>
+                    </div>
+                  ) : matchingCandidates.length === 0 ? (
+                    <p role="status" className="px-3 py-3 text-body text-muted-foreground">{t(($) => $.members.invite_search_empty)}</p>
+                  ) : (
+                    <div className="max-h-80 divide-y overflow-y-auto">
+                      {matchingCandidates.map((candidate) => (
+                        <div key={candidate.id} className="flex min-w-0 items-center gap-3 px-3 py-2">
+                          <Avatar>
+                            <AvatarImage src={resolvePublicFileUrl(candidate.avatar_url) ?? undefined} alt="" />
+                            <AvatarFallback>{Array.from(candidate.name.trim() || candidate.email)[0]?.toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-body font-medium">{candidate.name || candidate.email}</div>
+                            <div className="truncate text-caption text-muted-foreground" title={candidate.email}>{candidate.email}</div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!!invitingEmail}
+                            aria-label={t(($) => $.members.invite_candidate_action, { email: candidate.email })}
+                            onClick={() => handleInviteMember(candidate.email)}
+                          >
+                            {invitingEmail === candidate.email ? t(($) => $.members.inviting) : t(($) => $.members.invite_button)}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {searchSettled && !candidates.isPending && !candidates.isError && (invitePage > 0 || candidates.data?.has_more) && (
+                    <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
+                      <Button variant="ghost" size="sm" disabled={!!invitingEmail || candidates.isFetching || invitePage === 0} onClick={() => setInvitePage((page) => page - 1)}>
+                        <ChevronLeft aria-hidden className="h-4 w-4" />{t(($) => $.members.invite_previous_page)}
+                      </Button>
+                      <span className="text-caption text-muted-foreground">{invitePage + 1}</span>
+                      <Button variant="ghost" size="sm" disabled={!!invitingEmail || candidates.isFetching || !candidates.data?.has_more} onClick={() => setInvitePage((page) => page + 1)}>
+                        {t(($) => $.members.invite_next_page)}<ChevronRight aria-hidden className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

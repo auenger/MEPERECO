@@ -78,8 +78,8 @@ CREATE TEMP TABLE auth_password_rate_limit (bucket text PRIMARY KEY, attempts in
 		return w
 	}
 	email := "employee@example.test"
-	const password = "a secure password 2026"
-	const next = "another secure password 2026"
+	const password = "r7Q!x9"
+	const next = "k8M@z2"
 	// Ordinary login-code requests cannot create a user.
 	call(h.SendCode, SendCodeRequest{Email: email}, 200)
 	if _, err := h.Queries.GetUserByEmail(ctx, email); err != pgx.ErrNoRows {
@@ -132,6 +132,7 @@ CREATE TEMP TABLE auth_password_rate_limit (bucket text PRIMARY KEY, attempts in
 	if err := json.Unmarshal(response.Body.Bytes(), &challenge); err != nil {
 		t.Fatal(err)
 	}
+	call(h.CompletePassword, CompletePasswordRequest{Token: challenge.Token, Password: "short"}, 400)
 	response = call(h.CompletePassword, CompletePasswordRequest{Token: challenge.Token, Password: next}, 200)
 	if err := json.Unmarshal(response.Body.Bytes(), &existing); err != nil || existing.User.ID != login.User.ID {
 		t.Fatal("reset changed identity")
@@ -152,6 +153,7 @@ CREATE TEMP TABLE auth_password_rate_limit (bucket text PRIMARY KEY, attempts in
 		}
 	}
 	change("wrong password", password, 400)
+	change(next, "short", 400)
 	change(next, password, 200)
 	call(h.LoginPassword, PasswordAuthRequest{Email: email, Password: next}, 401)
 	call(h.LoginPassword, PasswordAuthRequest{Email: email, Password: password}, 200)
@@ -180,10 +182,10 @@ CREATE TEMP TABLE auth_password_rate_limit (bucket text PRIMARY KEY, attempts in
 }
 
 func TestPasswordValidation(t *testing.T) {
-	if !validNewPassword("a valid password") || !validNewPassword(" 密码包含空格和汉字字符 ") {
+	if !validNewPassword("r7Q!x9") || !validNewPassword("密码六个字符") || !validNewPassword(strings.Repeat("界", 24)) || !validNewPassword(strings.Repeat("x", 72)) || !validNewPassword(" 密码包含空格和汉字字符 ") {
 		t.Fatal("valid passwords rejected")
 	}
-	if validNewPassword("short") || validNewPassword(strings.Repeat("x", 73)) || validNewPassword("invalid\x00password") {
+	if validNewPassword("short") || validNewPassword(strings.Repeat("x", 73)) || validNewPassword(strings.Repeat("界", 25)) || validNewPassword("invalid\x00password") {
 		t.Fatal("invalid password accepted")
 	}
 	email, password, ok := normalizePasswordAuthRequest(PasswordAuthRequest{Email: "  PERSON@example.test ", Password: "  password  "})
@@ -192,5 +194,26 @@ func TestPasswordValidation(t *testing.T) {
 	}
 	if passwordCodeHash(email, "register", "123456") == passwordCodeHash(email, "reset", "123456") {
 		t.Fatal("challenge purposes not separated")
+	}
+}
+
+func TestCompletePasswordValidationMessage(t *testing.T) {
+	// This request is rejected before opening a database transaction.
+	h := &Handler{}
+	body, err := json.Marshal(CompletePasswordRequest{
+		Token:    strings.Repeat("0", 64),
+		Password: "short",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	h.CompletePassword(w, httptest.NewRequest(http.MethodPost, "/auth/password/complete", bytes.NewReader(body)))
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want=%d response=%s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+	const want = "a valid verification token and a password of at least 6 characters (max 72 bytes) are required"
+	if !strings.Contains(w.Body.String(), want) {
+		t.Fatalf("expected six-character validation message, got %s", w.Body.String())
 	}
 }

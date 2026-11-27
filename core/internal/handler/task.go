@@ -679,6 +679,13 @@ func (h *Handler) SearchTasks(w http.ResponseWriter, r *http.Request) {
 	args[len(args)-2] = limit
 	args[len(args)-1] = offset
 
+	ids, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
+	args = append(args, ids)
+	sqlQuery = strings.Replace(sqlQuery, "WHERE i.workspace_id =", fmt.Sprintf("WHERE (i.project_id IS NULL OR i.project_id = ANY($%d::uuid[])) AND i.workspace_id =", len(args)), 1)
+
 	var results []searchResult
 	err := runSearchQuery(ctx, h.TxStarter, sqlQuery, args, func(rows pgx.Rows) error {
 		for rows.Next() {
@@ -902,6 +909,18 @@ func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		allowedIDs, ok := h.accessibleProjectIDs(w, r, wsUUID)
+		if !ok {
+			return
+		}
+		allowed := projectIDSet(allowedIDs)
+		visible := tasks[:0]
+		for _, task := range tasks {
+			if !task.ProjectID.Valid || allowed[task.ProjectID] {
+				visible = append(visible, task)
+			}
+		}
+		tasks = visible
 		prefix := h.getTaskPrefix(ctx, wsUUID)
 		ids := make([]pgtype.UUID, len(tasks))
 		for i, task := range tasks {
@@ -1034,6 +1053,11 @@ func (h *Handler) ListTasks(w http.ResponseWriter, r *http.Request) {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
 	}
+	allowedProjects, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
+	where = append(where, fmt.Sprintf("(i.project_id IS NULL OR i.project_id = ANY(%s::uuid[]))", addArg(allowedProjects)))
 
 	if len(statusesFilter) > 0 {
 		where = append(where, fmt.Sprintf("i.status = ANY(%s::text[])", addArg(statusesFilter)))
@@ -1493,6 +1517,11 @@ func (h *Handler) ListGroupedTasks(w http.ResponseWriter, r *http.Request) {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
 	}
+	allowedProjects, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
+	where = append(where, fmt.Sprintf("(i.project_id IS NULL OR i.project_id = ANY(%s::uuid[]))", addArg(allowedProjects)))
 
 	statuses := splitCommaParam(r.URL.Query().Get("statuses"))
 	if len(statuses) == 0 {
@@ -1936,6 +1965,13 @@ func (h *Handler) ListChildTasks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list child tasks")
 		return
 	}
+	visible := children[:0]
+	for _, child := range children {
+		if h.projectAccessible(r, task.WorkspaceID, child.ProjectID) {
+			visible = append(visible, child)
+		}
+	}
+	children = visible
 	prefix := h.getTaskPrefix(r.Context(), task.WorkspaceID)
 	ids := make([]pgtype.UUID, len(children))
 	for i, child := range children {
@@ -2015,6 +2051,13 @@ func (h *Handler) ListChildrenByParents(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to list child tasks")
 		return
 	}
+	visible := children[:0]
+	for _, child := range children {
+		if h.projectAccessible(r, wsUUID, child.ProjectID) {
+			visible = append(visible, child)
+		}
+	}
+	children = visible
 	prefix := h.getTaskPrefix(r.Context(), wsUUID)
 	ids := make([]pgtype.UUID, len(children))
 	for i, child := range children {
@@ -2042,24 +2085,38 @@ func (h *Handler) ChildTaskProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.Queries.ChildTaskProgress(r.Context(), wsUUID)
+	allowedIDs, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
+	rows, err := h.DB.Query(r.Context(), `SELECT c.parent_task_id,count(*)::bigint,count(*) FILTER (WHERE c.status IN ('done','cancelled'))::bigint
+    FROM task c JOIN task p ON p.id=c.parent_task_id AND p.workspace_id=c.workspace_id
+    WHERE c.workspace_id=$1 AND (c.project_id IS NULL OR c.project_id=ANY($2::uuid[]))
+     AND (p.project_id IS NULL OR p.project_id=ANY($2::uuid[])) GROUP BY c.parent_task_id`, wsUUID, allowedIDs)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get child task progress")
 		return
 	}
-
+	defer rows.Close()
 	type progressEntry struct {
 		ParentTaskID string `json:"parent_task_id"`
 		Total        int64  `json:"total"`
 		Done         int64  `json:"done"`
 	}
-	resp := make([]progressEntry, len(rows))
-	for i, row := range rows {
-		resp[i] = progressEntry{
-			ParentTaskID: uuidToString(row.ParentTaskID),
-			Total:        row.Total,
-			Done:         row.Done,
+	resp := []progressEntry{}
+	for rows.Next() {
+		var id pgtype.UUID
+		var entry progressEntry
+		if err := rows.Scan(&id, &entry.Total, &entry.Done); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read child task progress")
+			return
 		}
+		entry.ParentTaskID = uuidToString(id)
+		resp = append(resp, entry)
+	}
+	if rows.Err() != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read child task progress")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"progress": resp,
@@ -2331,9 +2388,18 @@ func (h *Handler) QuickCreateTask(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "parent task not found in this workspace")
 			return
 		}
+		if !h.requireProjectAccess(w, r, wsUUID, parent.ProjectID) {
+			return
+		}
+		if !projectUUID.Valid {
+			projectUUID = parent.ProjectID
+		}
 		parentTaskUUID = pid
 	}
 
+	if !h.requireProjectAccess(w, r, wsUUID, projectUUID) {
+		return
+	}
 	agentRun, err := h.AgentRunService.EnqueueQuickCreateRun(
 		r.Context(), wsUUID, requesterUUID, agentUUID, squadUUID,
 		prompt, priority, dueDate, projectUUID, parentTaskUUID,
@@ -2683,6 +2749,48 @@ func (h *Handler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return out
 	}
 
+	if r.Header.Get("X-Actor-Source") == "agent_run_token" {
+		if run, ok := h.runFromRequestHeader(r); ok && run.ChatSessionID.Valid {
+			session, err := h.Queries.GetChatSessionInWorkspace(r.Context(), db.GetChatSessionInWorkspaceParams{ID: run.ChatSessionID, WorkspaceID: wsUUID})
+			if err != nil {
+				writeError(w, http.StatusForbidden, "chat session unavailable")
+				return
+			}
+			if session.Kind == "group" && session.ProjectID.Valid {
+				if projectID.Valid && projectID != session.ProjectID {
+					writeError(w, http.StatusForbidden, "task must use the bound group project")
+					return
+				}
+				projectID = session.ProjectID
+			}
+		}
+	}
+	if parentTaskID.Valid {
+		parent, err := h.Queries.GetTaskInWorkspace(r.Context(), db.GetTaskInWorkspaceParams{ID: parentTaskID, WorkspaceID: wsUUID})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "parent task not found")
+			return
+		}
+		if !h.requireProjectAccess(w, r, wsUUID, parent.ProjectID) {
+			return
+		}
+		if !projectID.Valid {
+			projectID = parent.ProjectID
+		}
+	}
+	if workflowInstanceID.Valid {
+		instance, err := h.Queries.GetWorkflowInstanceInWorkspace(r.Context(), db.GetWorkflowInstanceInWorkspaceParams{ID: workflowInstanceID, WorkspaceID: wsUUID})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "workflow instance not found")
+			return
+		}
+		if !h.requireProjectAccess(w, r, wsUUID, instance.ProjectID) {
+			return
+		}
+	}
+	if !h.requireProjectAccess(w, r, wsUUID, projectID) {
+		return
+	}
 	res, err := h.TaskService.Create(r.Context(), service.TaskCreateParams{
 		WorkspaceID:        wsUUID,
 		Title:              req.Title,
@@ -2969,6 +3077,10 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Validate parent exists in the same workspace.
+			if !h.taskProjectAccessible(r, prevTask.WorkspaceID, newParentID) {
+				writeError(w, http.StatusForbidden, "parent project access required")
+				return
+			}
 			if _, err := h.Queries.GetTaskInWorkspace(r.Context(), db.GetTaskInWorkspaceParams{
 				ID:          newParentID,
 				WorkspaceID: prevTask.WorkspaceID,
@@ -3004,6 +3116,9 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 				ID: projectUUID, WorkspaceID: prevTask.WorkspaceID,
 			}); err != nil {
 				writeError(w, http.StatusBadRequest, "project not found in this workspace")
+				return
+			}
+			if !h.requireProjectAccess(w, r, prevTask.WorkspaceID, projectUUID) {
 				return
 			}
 			params.ProjectID = projectUUID
@@ -3069,6 +3184,9 @@ func (h *Handler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		}
 		if params.ProjectID.Valid && params.ProjectID != instance.ProjectID {
 			writeError(w, http.StatusConflict, "task project does not match the SOP run project")
+			return
+		}
+		if !h.requireProjectAccess(w, r, prevTask.WorkspaceID, instance.ProjectID) {
 			return
 		}
 		params.ProjectID = instance.ProjectID
@@ -3532,7 +3650,7 @@ func (h *Handler) BatchUpdateTasks(w http.ResponseWriter, r *http.Request) {
 			ID:          taskUUID,
 			WorkspaceID: wsUUID,
 		})
-		if err != nil {
+		if err != nil || !h.projectAccessible(r, wsUUID, prevTask.ProjectID) {
 			continue
 		}
 
@@ -3616,6 +3734,9 @@ func (h *Handler) BatchUpdateTasks(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				// Validate parent exists in the same workspace.
+				if !h.taskProjectAccessible(r, wsUUID, newParentID) {
+					continue
+				}
 				if _, err := h.Queries.GetTaskInWorkspace(r.Context(), db.GetTaskInWorkspaceParams{
 					ID:          newParentID,
 					WorkspaceID: prevTask.WorkspaceID,
@@ -3648,6 +3769,9 @@ func (h *Handler) BatchUpdateTasks(w http.ResponseWriter, r *http.Request) {
 			if req.Updates.ProjectID != nil {
 				projectUUID, err := util.ParseUUID(*req.Updates.ProjectID)
 				if err != nil {
+					continue
+				}
+				if !h.projectAccessible(r, wsUUID, projectUUID) {
 					continue
 				}
 				params.ProjectID = projectUUID
@@ -3784,7 +3908,7 @@ func (h *Handler) BatchDeleteTasks(w http.ResponseWriter, r *http.Request) {
 			ID:          taskUUID,
 			WorkspaceID: wsUUID,
 		})
-		if err != nil {
+		if err != nil || !h.projectAccessible(r, wsUUID, task.ProjectID) {
 			continue
 		}
 

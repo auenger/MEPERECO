@@ -19,10 +19,10 @@ import { useShortcut, formatShortcut } from "@silieco/core/shortcuts";
 import { useT } from "@silieco/views/i18n";
 import { SearchCommand, SearchTrigger } from "@silieco/views/search";
 import { FloatingChat, ChatToolbarButton } from "@silieco/views/chat";
-import { WorkspaceSlugProvider, paths, useCurrentWorkspace } from "@silieco/core/paths";
+import { WorkspaceSlugProvider, paths } from "@silieco/core/paths";
 import { useNavigation } from "@silieco/views/navigation";
 import { getCurrentSlug, subscribeToCurrentSlug } from "@silieco/core/platform";
-import { useDesktopUnreadBadge } from "@silieco/views/platform";
+import { useDesktopUnreadBadge, useMessageUnreadCounts } from "@silieco/views/platform";
 import {
   DesktopNavigationProvider,
   routeContentLinkPath,
@@ -30,6 +30,7 @@ import {
 import { TabBar } from "./tab-bar";
 import { TabContent } from "./tab-content";
 import { WindowOverlay } from "./window-overlay";
+import { useDesktopUpdateNotice } from "./use-desktop-update";
 
 const TOP_BAR_HEIGHT_CLASS = "h-12";
 const WINDOW_TOOLBAR_CLEARANCE = 184;
@@ -198,8 +199,10 @@ function NewTaskToolbarButton() {
 // The main area's top bar doubles as a window drag region. When the sidebar
 // is not occupying main-flow width, leave room for the fixed window toolbar
 // so tabs do not land beneath the traffic lights / navigation controls.
-function MainTopBar({ showChat }: { showChat: boolean }) {
+function MainTopBar({ showChat, settingsNotice }: { showChat: boolean; settingsNotice?: string }) {
   const { state, isMobile } = useSidebar();
+  const { chatUnreadCount, inboxUnreadCount } = useMessageUnreadCounts();
+  const { t } = useT("chat");
   // Windows keeps its nav strip inside the sidebar flow, so nothing fixed
   // ever overlaps the tab bar and no clearance is needed.
   const toolbarClearance = IS_WINDOWS
@@ -227,7 +230,10 @@ function MainTopBar({ showChat }: { showChat: boolean }) {
         style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
       />
       <div className="relative z-10 flex h-full min-w-0 flex-1 items-center overflow-hidden">
-        <TabBar />
+        <TabBar settingsNotice={settingsNotice}
+          chatNotice={chatUnreadCount > 0 ? t(($) => $.list.unread_notice, { count: chatUnreadCount }) : undefined}
+          inboxNotice={inboxUnreadCount > 0 ? t(($) => $.list.unread_notice, { count: inboxUnreadCount }) : undefined}
+        />
       </div>
       <div className="relative z-10 flex h-full shrink-0 items-center justify-center gap-1 pr-1" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
         {showChat && (
@@ -296,8 +302,16 @@ function useInternalLinkHandler() {
  * switch instead of mounting A's inbox inside B's tab group (#3766).
  */
 function DesktopInboxBridge() {
-  const workspace = useCurrentWorkspace();
-  useDesktopUnreadBadge(workspace?.id ?? null);
+  const { chatUnreadCount, inboxUnreadCount, workspaceSlug, unreadChatIds, unreadInboxKeys } = useMessageUnreadCounts();
+  useDesktopUnreadBadge(chatUnreadCount + inboxUnreadCount);
+  useEffect(() => {
+    if (!workspaceSlug) return;
+    window.desktopAPI.reconcileNotifications({
+      slug: workspaceSlug,
+      unreadChatIds,
+      unreadInboxKeys,
+    });
+  }, [workspaceSlug, unreadChatIds, unreadInboxKeys]);
   const { push } = useNavigation();
   // The adapter identity changes with the active tab's location; the ref
   // keeps the main-process subscription stable across navigations.
@@ -307,10 +321,12 @@ function DesktopInboxBridge() {
   }, [push]);
 
   useEffect(() => {
-    return window.desktopAPI.onInboxOpen(({ slug, taskKey }) => {
+    return window.desktopAPI.onInboxOpen(({ slug, taskKey, kind }) => {
       if (!slug) return;
-      const inboxPath = `${paths.workspace(slug).inbox()}?task=${encodeURIComponent(taskKey)}`;
-      pushRef.current(inboxPath);
+      const p = paths.workspace(slug);
+      pushRef.current(kind === "chat"
+        ? `${p.chat()}?session=${encodeURIComponent(taskKey)}`
+        : `${p.inbox()}?task=${encodeURIComponent(taskKey)}`);
     });
   }, []);
 
@@ -320,6 +336,7 @@ function DesktopInboxBridge() {
 export function DesktopShell() {
   useInternalLinkHandler();
   useNativeNavigationGestures();
+  const settingsNotice = useDesktopUpdateNotice();
 
   // Reactive read of current workspace slug from the platform singleton.
   // On first mount, slug is null until WorkspaceRouteLayout (inside the tab
@@ -340,6 +357,7 @@ export function DesktopShell() {
           triggered by IndexRedirect, not a route. */}
       <WorkspaceSlugProvider slug={slug}>
         <DesktopInboxBridge />
+        <span role="status" className="sr-only">{settingsNotice}</span>
         <div className="flex h-screen bg-app-shell">
           <SidebarProvider className="flex-1 bg-app-shell">
             {slug && <GlobalShortcuts />}
@@ -350,11 +368,12 @@ export function DesktopShell() {
                 searchSlot={<SearchTrigger />}
                 hideBrand={IS_WINDOWS}
                 taskInToolbar
+                settingsNotice={settingsNotice}
               />
             )}
             {/* Right side: header + content container */}
             <div className="flex flex-1 min-w-0 flex-col">
-              <MainTopBar showChat={Boolean(slug)} />
+              <MainTopBar showChat={Boolean(slug)} settingsNotice={settingsNotice} />
               <MainCanvas>
                 <TabContent />
                 {slug && <FloatingChat showLauncher={false} />}

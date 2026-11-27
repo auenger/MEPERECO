@@ -14,6 +14,7 @@ import { useWorkspacePaths } from "@silieco/core/paths";
 import {
   workflowInstanceOptions,
   workflowInstancesOptions,
+  useSopVisibilityStore,
 } from "@silieco/core/workflows";
 import { Badge } from "@silieco/ui/components/ui/badge";
 import { Button } from "@silieco/ui/components/ui/button";
@@ -40,13 +41,15 @@ export function ProjectTaskSurface({
   workflowRunId?: string;
 }) {
   const { t } = useT("workflows");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const workspaceId = useWorkspaceId();
   const workspacePaths = useWorkspacePaths();
   const navigation = useNavigation();
   const [mode, setMode] = useState<TaskManagementMode>("lifecycle");
-  const { data: runs = [] } = useQuery(
-    workflowInstancesOptions(workspaceId, undefined, projectId),
-  );
+  const { data: runs = [] } = useQuery({
+    ...workflowInstancesOptions(workspaceId, undefined, projectId),
+    enabled: sopEnabled && !!workspaceId,
+  });
   const availableRuns = useMemo(
     () =>
       runs.filter(
@@ -59,16 +62,16 @@ export function ProjectTaskSurface({
   const hasAvailableRuns = availableRuns.length > 0;
   const [selectedRunId, setSelectedRunId] = useState<string>();
   const effectiveMode: TaskManagementMode =
-    workflowRunId
+    !sopEnabled ? "lifecycle" : workflowRunId
       ? "stage"
       : mode === "stage" && !hasAvailableRuns
         ? "lifecycle"
         : mode;
 
   useEffect(() => {
-    setMode(workflowRunId ? "stage" : "lifecycle");
-    setSelectedRunId(workflowRunId);
-  }, [projectId, workflowRunId]);
+    setMode(sopEnabled && workflowRunId ? "stage" : "lifecycle");
+    setSelectedRunId(sopEnabled ? workflowRunId : undefined);
+  }, [projectId, workflowRunId, sopEnabled]);
 
   useEffect(() => {
     if (!hasAvailableRuns && mode === "stage") {
@@ -77,6 +80,7 @@ export function ProjectTaskSurface({
   }, [hasAvailableRuns, mode]);
 
   useEffect(() => {
+    if (!sopEnabled) return;
     if (workflowRunId) {
       setSelectedRunId(workflowRunId);
       return;
@@ -87,7 +91,7 @@ export function ProjectTaskSurface({
     ) {
       setSelectedRunId(availableRuns[0]?.id);
     }
-  }, [availableRuns, selectedRunId, workflowRunId]);
+  }, [availableRuns, selectedRunId, workflowRunId, sopEnabled]);
   const { data: selectedRun } = useQuery({
     ...workflowInstanceOptions(workspaceId, selectedRunId ?? ""),
     enabled: effectiveMode === "stage" && Boolean(selectedRunId),
@@ -115,7 +119,9 @@ export function ProjectTaskSurface({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-2">
         <div className="flex items-center gap-2">
-          {workflowRunId ? (
+          {!sopEnabled ? (
+            <span className="flex items-center gap-1.5 text-caption font-medium"><ListTodo className="size-3.5" />{t(($) => $.project_tasks.lifecycle)}</span>
+          ) : workflowRunId ? (
             <div className="flex min-w-0 items-center gap-2">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand/10 text-brand">
                 <Route className="size-3.5" />
@@ -163,7 +169,7 @@ export function ProjectTaskSurface({
             </button>
           </div>
           )}
-          {!workflowRunId && (
+          {sopEnabled && !workflowRunId && (
           <span className="hidden text-caption text-muted-foreground sm:inline">
             {effectiveMode === "lifecycle"
               ? t(($) => $.project_tasks.lifecycle_hint)

@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 const defaultFileResourcePageSize = 50
@@ -137,14 +137,13 @@ func (h *Handler) ListWorkspaceFileResources(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	limit, offset := parseFileResourcePage(r)
-	rows, err := h.Queries.ListWorkspaceFileResources(r.Context(), db.ListWorkspaceFileResourcesParams{
-		WorkspaceID: workspaceID, PageLimit: limit, PageOffset: offset,
-	})
+	viewer := h.projectViewer(r)
+	rows, err := h.Queries.ListWorkspaceFileResources(r.Context(), db.ListWorkspaceFileResourcesParams{WorkspaceID: workspaceID, ViewerID: viewer, PageLimit: limit, PageOffset: offset})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list files")
 		return
 	}
-	total, err := h.Queries.CountWorkspaceFileResources(r.Context(), workspaceID)
+	total, err := h.Queries.CountWorkspaceFileResources(r.Context(), db.CountWorkspaceFileResourcesParams{WorkspaceID: workspaceID, ViewerID: viewer})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to count files")
 		return
@@ -164,14 +163,14 @@ func (h *Handler) ListProjectFileResources(w http.ResponseWriter, r *http.Reques
 	}
 	limit, offset := parseFileResourcePage(r)
 	rows, err := h.Queries.ListProjectFileResources(r.Context(), db.ListProjectFileResourcesParams{
-		WorkspaceID: project.WorkspaceID, ProjectID: project.ID, PageLimit: limit, PageOffset: offset,
+		WorkspaceID: project.WorkspaceID, ProjectID: project.ID, ViewerID: h.projectViewer(r), PageLimit: limit, PageOffset: offset,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list project files")
 		return
 	}
 	total, err := h.Queries.CountProjectFileResources(r.Context(), db.CountProjectFileResourcesParams{
-		WorkspaceID: project.WorkspaceID, ProjectID: project.ID,
+		WorkspaceID: project.WorkspaceID, ProjectID: project.ID, ViewerID: h.projectViewer(r),
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to count project files")
@@ -217,9 +216,11 @@ func (h *Handler) ListWorkspaceAttachmentReferences(w http.ResponseWriter, r *ht
 		writeError(w, http.StatusInternalServerError, "failed to list workspace attachment references")
 		return
 	}
-	refs := make([]AttachmentReferenceResponse, len(rows))
-	for i, row := range rows {
-		refs[i] = workspaceAttachmentReferenceToResponse(row)
+	refs := make([]AttachmentReferenceResponse, 0, len(rows))
+	for _, row := range rows {
+		if h.projectAccessible(r, workspaceID, row.TargetProjectID) && h.attachmentProjectAccessible(r, workspaceID, row.AttachmentID) {
+			refs = append(refs, workspaceAttachmentReferenceToResponse(row))
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"references": refs, "total": len(refs)})
 }
@@ -269,6 +270,11 @@ func (h *Handler) createAttachmentReference(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
+	if !h.attachmentProjectAccessible(r, workspaceID, attachmentID) {
+		writeError(w, http.StatusForbidden, "attachment access required")
+		return
+	}
+
 	attachment, err := h.Queries.GetAttachment(r.Context(), db.GetAttachmentParams{ID: attachmentID, WorkspaceID: workspaceID})
 	if err != nil || attachment.ChatSessionID.Valid || attachment.ChatMessageID.Valid {
 		writeError(w, http.StatusNotFound, "attachment not found")

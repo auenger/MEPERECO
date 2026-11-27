@@ -16,6 +16,8 @@
 // `registerSystemNotificationClickHandler` instead — core stays headless.
 
 export interface SystemNotificationPayload {
+  /** Defaults to inbox for compatibility; chat uses taskKey as the session id. */
+  kind?: "inbox" | "chat";
   /**
    * Source workspace slug. Empty when it couldn't be resolved — the click is
    * then a no-op rather than routing to the wrong workspace (#3766).
@@ -23,13 +25,26 @@ export interface SystemNotificationPayload {
   slug: string;
   /** Inbox row id — lets the click mark the item read. */
   itemId: string;
-  /** `?task=<…>` selector for the inbox page (task id, else the item id). */
+  /** Inbox task/item selector or chat session id, according to kind. */
   taskKey: string;
   title: string;
   body: string;
 }
 
 type ClickHandler = (payload: SystemNotificationPayload) => void;
+const activeWebNotifications = new Map<string, { notification: Notification; payload: SystemNotificationPayload }>();
+
+/** Dismiss banners for read/archived targets without touching other spaces. */
+export function reconcileWebNotifications(state: { slug: string; unreadChatIds?: string[]; unreadInboxKeys?: string[] }): void {
+  for (const [key, entry] of activeWebNotifications) {
+    if (entry.payload.slug !== state.slug) continue;
+    const unread = entry.payload.kind === "chat" ? state.unreadChatIds : state.unreadInboxKeys;
+    if (unread !== undefined && !unread.includes(entry.payload.taskKey)) {
+      activeWebNotifications.delete(key);
+      entry.notification.close();
+    }
+  }
+}
 
 // Module-level singleton — mirrors how the desktop preload registers its
 // behavior once at boot. The web shell registers a router-aware handler; while
@@ -111,6 +126,11 @@ export function showWebNotification(payload: SystemNotificationPayload): void {
     // inbox and unread badge still surface the new item.
     return;
   }
+  const key = `${payload.kind ?? "inbox"}:${payload.itemId}`;
+  activeWebNotifications.set(key, { notification, payload });
+  notification.onclose = () => {
+    if (activeWebNotifications.get(key)?.notification === notification) activeWebNotifications.delete(key);
+  };
   notification.onclick = () => {
     try {
       window.focus();
@@ -118,6 +138,7 @@ export function showWebNotification(payload: SystemNotificationPayload): void {
       // Best-effort; some browsers disallow programmatic focus.
     }
     notification.close();
+    activeWebNotifications.delete(key);
     clickHandler?.(payload);
   };
 }

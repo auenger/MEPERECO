@@ -5,6 +5,8 @@ import type { RuntimeConfigResult } from "../shared/runtime-config";
 import type { FreezeBreadcrumb } from "../shared/freeze-breadcrumb";
 import type {
   ManualUpdateCheckResult,
+  DesktopUpdateState,
+  UpdateInstallResult,
   UpdaterPreferences,
 } from "../shared/updater-types";
 import {
@@ -177,12 +179,15 @@ const desktopAPI = {
    * param.
    */
   showNotification: (payload: {
+    kind?: "inbox" | "chat";
     slug: string;
     itemId: string;
     taskKey: string;
     title: string;
     body: string;
   }) => ipcRenderer.send("notification:show", payload),
+  reconcileNotifications: (payload: { slug: string; unreadChatIds?: string[]; unreadInboxKeys?: string[] }) =>
+    ipcRenderer.send("notification:reconcile", payload),
   /**
    * Update the OS dock / taskbar unread badge. Pass 0 to clear. Values
    * above 99 render as "99+" (capping is handled in the main process).
@@ -197,6 +202,7 @@ const desktopAPI = {
    */
   onInboxOpen: (
     callback: (payload: {
+      kind?: "inbox" | "chat";
       slug: string;
       itemId: string;
       taskKey: string;
@@ -317,7 +323,13 @@ const updaterAPI = {
     return () => ipcRenderer.removeListener("updater:update-downloaded", handler);
   },
   downloadUpdate: () => ipcRenderer.invoke("updater:download"),
-  installUpdate: () => ipcRenderer.invoke("updater:install"),
+  installUpdate: (): Promise<UpdateInstallResult> => ipcRenderer.invoke("updater:install"),
+  getState: (): Promise<DesktopUpdateState> => ipcRenderer.invoke("updater:get-state"),
+  onState: (callback: (state: DesktopUpdateState) => void) => {
+    const handler = (_: unknown, state: DesktopUpdateState) => callback(state);
+    ipcRenderer.on("updater:state", handler);
+    return () => ipcRenderer.removeListener("updater:state", handler);
+  },
   getPreferences: (): Promise<UpdaterPreferences> =>
     ipcRenderer.invoke("updater:get-preferences"),
   setAutomaticUpdates: (enabled: boolean): Promise<UpdaterPreferences> =>

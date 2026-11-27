@@ -63,11 +63,15 @@ func (h *Handler) gitPullRequestFiles(w http.ResponseWriter, r *http.Request, pr
 	}
 	// Only fetch from an active connection and a repository in the same scoped
 	// binding projection as the PR list. Never accept a remote URL from callers.
+	allowed, ok := h.accessibleProjectIDs(w, r, ws)
+	if !ok {
+		return
+	}
 	var source, provider, instance, owner, repo string
 	var external pgtype.Text
 	var connID pgtype.UUID
 	var number int32
-	err := h.DB.QueryRow(r.Context(), gitMatchedSQL+` SELECT source,provider,instance_url,repo_owner,repo_name,external_repo_id,connection_id,pr_number FROM dedup WHERE id=$3`, ws, p, id).Scan(&source, &provider, &instance, &owner, &repo, &external, &connID, &number)
+	err := h.DB.QueryRow(r.Context(), strings.ReplaceAll(gitMatchedSQL, "WHERE b.workspace_id=$1", "WHERE b.workspace_id=$1 AND b.project_id=ANY($4::uuid[])")+` SELECT source,provider,instance_url,repo_owner,repo_name,external_repo_id,connection_id,pr_number FROM dedup WHERE id=$3`, ws, p, id, allowed).Scan(&source, &provider, &instance, &owner, &repo, &external, &connID, &number)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "pull request not found in Git scope")
 		return

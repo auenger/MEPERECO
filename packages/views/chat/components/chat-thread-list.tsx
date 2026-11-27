@@ -32,6 +32,8 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { createLogger } from "@silieco/core/logger";
 import { removeChatMessageFromCaches } from "@silieco/core/realtime";
 import { useT } from "../../i18n";
+import { stripMentionMarkdown } from "../../tasks/utils/strip-mention-markdown";
+import { useAppForeground } from "../../common/use-app-foreground";
 
 const apiLogger = createLogger("chat.api");
 
@@ -62,8 +64,7 @@ function formatChatTime(dateStr: string): string {
 
 // Collapse a (possibly markdown / multi-line) message into a one-line preview.
 function toPreview(content: string): string {
-  return content
-    .replace(/```[\s\S]*?```/g, " ")
+  return stripMentionMarkdown(content.replace(/```[\s\S]*?```/g, " "))
     .replace(/[#*`>~]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -101,6 +102,7 @@ export function ChatThreadList({
   onArchive: (session: ChatSession) => void;
 }) {
   const { t } = useT("chat");
+  const appForeground = useAppForeground();
   const wsId = useWorkspaceId();
   const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents]);
 
@@ -208,7 +210,8 @@ export function ChatThreadList({
     const agentOffline = agent
       ? presence.byAgent.get(agent.id)?.availability === "offline"
       : false;
-    const unread = isCurrent ? 0 : (session.unread_count ?? 0);
+    const unread = isCurrent && appForeground ? 0 : (session.unread_count ?? 0);
+    const mentioned = unread > 0 && session.has_unread_mention;
     const isConfirmingDelete = confirmingDeleteId === session.id;
     const isConfirmingStop = confirmingStopId === session.id && !!pendingRun;
     const isConfirmingAction = isConfirmingDelete || isConfirmingStop;
@@ -334,7 +337,10 @@ export function ChatThreadList({
                 />
               ) : (
                 <>
-                  <div className="min-w-0 flex-1 overflow-hidden text-caption">{previewNode}</div>
+                  <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-caption">
+                    {mentioned && <span className="shrink-0 font-medium text-destructive">{t(($) => $.list.mentioned_me)}</span>}
+                    <div className="min-w-0 flex-1 overflow-hidden">{previewNode}</div>
+                  </div>
                   {unread > 0 && (
                     <span
                       aria-label={t(($) => $.session_history.row_subtitle.new_reply)}

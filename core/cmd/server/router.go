@@ -966,6 +966,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Put("/", h.UpdateWorkspace)
 					r.Patch("/", h.UpdateWorkspace)
 					r.Post("/members", h.CreateInvitation)
+					r.Get("/invite-candidates", h.SearchWorkspaceInviteCandidates)
 					r.Route("/members/{memberId}", func(r chi.Router) {
 						r.Patch("/", h.UpdateMember)
 						r.Delete("/", h.DeleteMember)
@@ -1208,10 +1209,14 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 
 			// Projects
 			r.Route("/api/projects", func(r chi.Router) {
+				r.With(handler.RequireHumanActor).Get("/member-access/{userId}", h.ListMemberProjectAccess)
 				r.Get("/search", h.SearchProjects)
 				r.Get("/", h.ListProjects)
 				r.Post("/", h.CreateProject)
 				r.Route("/{id}", func(r chi.Router) {
+					r.Use(h.RequireProjectAccess)
+					r.With(handler.RequireHumanActor).Get("/members", h.ListProjectMembers)
+					r.With(handler.RequireHumanActor).Put("/members/{userId}", h.SetProjectMember)
 					r.Get("/", h.GetProject)
 					r.Put("/", h.UpdateProject)
 					r.Delete("/", h.DeleteProject)
@@ -1238,6 +1243,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				r.Get("/", h.ListWorkflows)
 				r.Post("/", h.CreateWorkflow)
 				r.Route("/{id}", func(r chi.Router) {
+					r.Use(h.RequireWorkflowProjectAccess)
 					r.Get("/", h.GetWorkflow)
 					r.Patch("/", h.UpdateWorkflow)
 					r.Delete("/", h.ArchiveWorkflow)
@@ -1256,6 +1262,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			r.Route("/api/workflow-instances", func(r chi.Router) {
 				r.Get("/", h.ListWorkflowInstances)
 				r.Route("/{id}", func(r chi.Router) {
+					r.Use(h.RequireWorkflowInstanceProjectAccess)
 					r.Get("/", h.GetWorkflowInstance)
 					r.Patch("/plan", h.UpdateWorkflowInstancePlan)
 					r.Post("/archive", h.ArchiveWorkflowInstance)
@@ -1305,6 +1312,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				r.Post("/", h.CreateAutopilot)
 				r.Get("/cron-preview", h.CronPreview)
 				r.Route("/{id}", func(r chi.Router) {
+					r.Use(h.RequireAutopilotProjectAccess)
 					r.Get("/", h.GetAutopilot)
 					r.Patch("/", h.UpdateAutopilot)
 					r.Delete("/", h.DeleteAutopilot)
@@ -1347,6 +1355,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 
 			// Comments
 			r.Route("/api/comments/{commentId}", func(r chi.Router) {
+				r.Use(h.RequireCommentProjectAccess)
 				r.Put("/", h.UpdateComment)
 				r.Delete("/", h.DeleteComment)
 				r.Post("/resolve", h.ResolveComment)

@@ -38,6 +38,7 @@ import { useT } from "@silieco/views/i18n";
 import { Download, Server } from "lucide-react";
 import { DaemonSettingsTab } from "./components/daemon-settings-tab";
 import { UpdatesSettingsTab } from "./components/updates-settings-tab";
+import { useDesktopUpdateNotice } from "./components/use-desktop-update";
 import { WorkspaceRouteLayout } from "./components/workspace-route-layout";
 import { DesktopRouteErrorPage } from "./components/route-error-page";
 
@@ -50,6 +51,7 @@ const BrowserToolRoute = lazy(() => import("./platform/browser-tool").then((modu
  */
 function DesktopSettingsRoute() {
   const { t } = useT("settings");
+  const updateNotice = useDesktopUpdateNotice();
   return (
     <SettingsPage
       extraAccountTabs={[
@@ -63,6 +65,7 @@ function DesktopSettingsRoute() {
           value: "updates",
           label: t(($) => $.desktop.tabs.updates),
           icon: Download,
+          notice: updateNotice,
           content: <UpdatesSettingsTab />,
         },
       ]}

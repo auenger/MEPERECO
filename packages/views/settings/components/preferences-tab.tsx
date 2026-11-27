@@ -23,6 +23,7 @@ import {
   useTaskLinkStore,
 } from "@silieco/core/tasks/stores";
 import { api } from "@silieco/core/api";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { browserTimezone, timezoneOptions } from "../../common/timezone-select";
 import { useT } from "../../i18n";
 import {
@@ -168,7 +169,28 @@ export function PreferencesTab() {
           <TaskLinkNewTabRow />
         </SettingsCard>
       </SettingsSection>
+      <SettingsSection title={t(($) => $.preferences.features_title)}>
+        <SettingsCard><SopVisibilityRow /></SettingsCard>
+      </SettingsSection>
     </SettingsTab>
+  );
+}
+
+function SopVisibilityRow() {
+  const { t } = useT("settings");
+  const enabled = useSopVisibilityStore((state) => state.enabled);
+  const setEnabled = useSopVisibilityStore((state) => state.setEnabled);
+  return (
+    <SettingsRow label={t(($) => $.preferences.sop.title)} description={t(($) => $.preferences.sop.hint)}>
+      <Switch
+        checked={enabled}
+        onCheckedChange={(checked) => {
+          setEnabled(checked === true);
+          toast.success(t(($) => $.auto_save.toast_saved), { id: "settings-auto-save" });
+        }}
+        aria-label={t(($) => $.preferences.sop.title)}
+      />
+    </SettingsRow>
   );
 }
 

@@ -19,6 +19,7 @@ import {
   InputOTPSlot,
 } from "@silieco/ui/components/ui/input-otp";
 import { useAuthStore } from "@silieco/core/auth";
+import { PASSWORD_POLICY, validNewPassword } from "@silieco/core/auth/password-policy";
 import { workspaceKeys } from "@silieco/core/workspace/queries";
 import { api } from "@silieco/core/api";
 import type { LoginResponse } from "@silieco/core/api/client";
@@ -221,7 +222,7 @@ export function LoginPage({
     e.preventDefault();
     if (loading) return;
     if (password !== confirmPassword) { setError(t(($) => $.errors.password_mismatch)); return; }
-    if (Array.from(password).length < 12 || new TextEncoder().encode(password).length > 72) { setError(t(($) => $.errors.password_invalid)); return; }
+    if (!validNewPassword(password)) { setError(t(($) => $.errors.password_invalid, PASSWORD_POLICY)); return; }
     setLoading(true); setError("");
     try { await finishLogin(await api.completePassword(passwordToken, password)); setPasswordToken(""); }
     catch (err) { setError(err instanceof Error ? err.message : t(($) => $.errors.password_failed)); }
@@ -327,7 +328,7 @@ export function LoginPage({
               {verifying ? t(($) => $.verify.title) : creatingPassword ? t(($) => $.password.title) : registering ? t(($) => $.signin.create) : mode === "reset" ? t(($) => $.password.reset) : t(($) => $.signin.welcome)}
             </h1>
             <p className="duty-description">
-              {verifying ? t(($) => $.verify.description, { email }) : creatingPassword ? t(($) => $.password.description) : mode === "password" ? t(($) => $.password.login_description) : t(($) => $.signin.description)}
+              {verifying ? t(($) => $.verify.description, { email }) : creatingPassword ? t(($) => $.password.description, PASSWORD_POLICY) : mode === "password" ? t(($) => $.password.login_description) : t(($) => $.signin.description)}
             </p>
           </header>
           {verifying ? (

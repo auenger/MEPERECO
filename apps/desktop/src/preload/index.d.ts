@@ -11,6 +11,8 @@ import type {
 } from "../shared/task-window";
 import type {
   ManualUpdateCheckResult,
+  DesktopUpdateState,
+  UpdateInstallResult,
   UpdaterPreferences,
 } from "../shared/updater-types";
 import type {
@@ -56,17 +58,20 @@ interface DesktopAPI {
   setImmersiveMode: (immersive: boolean) => Promise<void>;
   /** Show a native OS notification for a new inbox item. */
   showNotification: (payload: {
+    kind?: "inbox" | "chat";
     slug: string;
     itemId: string;
     taskKey: string;
     title: string;
     body: string;
   }) => void;
+  reconcileNotifications: (payload: { slug: string; unreadChatIds?: string[]; unreadInboxKeys?: string[] }) => void;
   /** Update the OS dock / taskbar unread badge. Pass 0 to clear. */
   setUnreadBadge: (count: number) => void;
   /** Listen for "open inbox row" requests from notification clicks. Returns an unsubscribe function. */
   onInboxOpen: (
     callback: (payload: {
+      kind?: "inbox" | "chat";
       slug: string;
       itemId: string;
       taskKey: string;
@@ -163,7 +168,9 @@ interface UpdaterAPI {
     callback: (info: { version: string; releaseNotes?: string }) => void,
   ) => () => void;
   downloadUpdate: () => Promise<void>;
-  installUpdate: () => Promise<void>;
+  installUpdate: () => Promise<UpdateInstallResult>;
+  getState: () => Promise<DesktopUpdateState>;
+  onState: (callback: (state: DesktopUpdateState) => void) => () => void;
   getPreferences: () => Promise<UpdaterPreferences>;
   setAutomaticUpdates: (enabled: boolean) => Promise<UpdaterPreferences>;
   checkForUpdates: () => Promise<ManualUpdateCheckResult>;

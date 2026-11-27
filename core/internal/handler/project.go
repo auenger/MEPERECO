@@ -11,15 +11,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	"github.com/auenger/MEPERECO/core/internal/projectgit"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/db/relational"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ProjectResponse struct {
@@ -139,6 +139,19 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list projects")
 		return
 	}
+
+	allowedIDs, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
+	allowed := projectIDSet(allowedIDs)
+	visible := projects[:0]
+	for _, project := range projects {
+		if allowed[project.ID] {
+			visible = append(visible, project)
+		}
+	}
+	projects = visible
 
 	// Batch-fetch task stats and resource counts for all projects
 	statsMap := make(map[string]db.GetProjectTaskStatsRow)
@@ -364,19 +377,6 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		DueDate:     dueDate,
 	}
 
-	// Without resources, keep the simple non-tx path.
-	if len(req.Resources) == 0 {
-		project, err := h.Queries.CreateProject(r.Context(), createParams)
-		if err != nil {
-			h.writeProjectWriteError(w, r, err, "create")
-			return
-		}
-		resp := h.projectToResponse(project)
-		h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
-		writeJSON(w, http.StatusCreated, resp)
-		return
-	}
-
 	// Transactional path: project + all resources are atomic.
 	tx, err := h.TxStarter.Begin(r.Context())
 	if err != nil {
@@ -389,6 +389,11 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	project, err := qtx.CreateProject(r.Context(), createParams)
 	if err != nil {
 		h.writeProjectWriteError(w, r, err, "create")
+		return
+	}
+
+	if err := qtx.GrantProjectMember(r.Context(), wsUUID, project.ID, parseUUID(userID)); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to grant project creator access")
 		return
 	}
 
@@ -681,6 +686,17 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to lock project")
 		return
 	}
+	var hasProtectedData bool
+	if err := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM task WHERE workspace_id=$1 AND project_id=$2)
+      OR EXISTS(SELECT 1 FROM chat_session WHERE workspace_id=$1 AND project_id=$2)
+      OR EXISTS(SELECT 1 FROM autopilot WHERE workspace_id=$1 AND project_id=$2)`, project.WorkspaceID, project.ID).Scan(&hasProtectedData); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check project contents")
+		return
+	}
+	if hasProtectedData {
+		writeError(w, http.StatusConflict, "project contains protected tasks, chats or automations; archive the project instead")
+		return
+	}
 	if err := qtx.ClearChatSessionProjectByProject(r.Context(), db.ClearChatSessionProjectByProjectParams{
 		ProjectID:   project.ID,
 		WorkspaceID: project.WorkspaceID,
@@ -947,9 +963,15 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 	terms := splitSearchTerms(q)
 
 	sqlQuery, args := buildProjectSearchQuery(q, terms, includeClosed)
+	ids, ok := h.accessibleProjectIDs(w, r, wsUUID)
+	if !ok {
+		return
+	}
 	args[1] = wsUUID
 	args[len(args)-2] = limit
 	args[len(args)-1] = offset
+	args = append(args, ids)
+	sqlQuery = strings.Replace(sqlQuery, "WHERE p.workspace_id =", fmt.Sprintf("WHERE p.id = ANY($%d::uuid[]) AND p.workspace_id =", len(args)), 1)
 
 	type projectSearchRow struct {
 		project     db.Project

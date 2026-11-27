@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const (
@@ -412,6 +412,13 @@ func (h *Handler) compileTaskTableQuery(w http.ResponseWriter, r *http.Request, 
 		args = append(args, value)
 		return "$" + strconv.Itoa(len(args))
 	}
+
+	// Keep accessible project IDs at $2: the parent group projection also uses this set.
+	allowedProjects, ok := h.accessibleProjectIDs(w, r, workspaceUUID)
+	if !ok {
+		return taskTableSQL{}, false
+	}
+	where = append(where, fmt.Sprintf("(i.project_id IS NULL OR i.project_id = ANY(%s::uuid[]))", addArg(allowedProjects)))
 
 	for _, status := range spec.Filters.Statuses {
 		if !taskTableContainsString(validTaskStatuses, status) {

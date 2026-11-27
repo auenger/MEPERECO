@@ -675,6 +675,13 @@ func (h *Handler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list workflows")
 		return
 	}
+	visible := rows[:0]
+	for _, row := range rows {
+		if h.projectAccessible(r, wsUUID, row.ProjectID) {
+			visible = append(visible, row)
+		}
+	}
+	rows = visible
 	resp := make([]WorkflowResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = workflowToResponse(row)
@@ -1160,6 +1167,13 @@ func (h *Handler) ListWorkflowInstances(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusInternalServerError, "failed to list workflow instances")
 		return
 	}
+	visible := rows[:0]
+	for _, row := range rows {
+		if h.projectAccessible(r, wsUUID, row.ProjectID) {
+			visible = append(visible, row)
+		}
+	}
+	rows = visible
 	resp := make([]WorkflowInstanceResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = workflowInstanceToResponse(row)
@@ -1232,6 +1246,9 @@ func (h *Handler) CreateWorkflowInstance(w http.ResponseWriter, r *http.Request)
 		if !parsed {
 			return
 		}
+	}
+	if !h.requireProjectAccess(w, r, wsUUID, projectID) {
+		return
 	}
 	if _, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
 		ID: projectID, WorkspaceID: wsUUID,

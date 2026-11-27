@@ -107,6 +107,13 @@ SELECT cs.*,
               WHEN cs.kind = 'group' THEN COALESCE(self_participant.last_read_at, cs.last_read_at)
               ELSE cs.last_read_at
             END)::int AS unread_count,
+       (cs.kind = 'group' AND EXISTS (
+         SELECT 1 FROM chat_message m
+         WHERE m.chat_session_id = cs.id
+           AND (m.sender_user_id IS NULL OR m.sender_user_id <> sqlc.arg(participant_id))
+           AND m.created_at > COALESCE(self_participant.last_read_at, cs.last_read_at)
+           AND m.content ~* ('\[@?[^\r\n]+?\]\(mention://(member/' || sqlc.arg(participant_id)::uuid::text || '|all/all)\)')
+       ))::boolean AS has_unread_mention,
        COALESCE(lm.content, '') AS last_message_content,
        COALESCE(lm.role, '') AS last_message_role,
        lm.created_at AS last_message_at,
@@ -153,6 +160,13 @@ SELECT cs.*,
                         ELSE cs.last_read_at
                       END)
        END::int AS unread_count,
+       (cs.status <> 'archived' AND cs.kind = 'group' AND EXISTS (
+         SELECT 1 FROM chat_message m
+         WHERE m.chat_session_id = cs.id
+           AND (m.sender_user_id IS NULL OR m.sender_user_id <> sqlc.arg(participant_id))
+           AND m.created_at > COALESCE(self_participant.last_read_at, cs.last_read_at)
+           AND m.content ~* ('\[@?[^\r\n]+?\]\(mention://(member/' || sqlc.arg(participant_id)::uuid::text || '|all/all)\)')
+       ))::boolean AS has_unread_mention,
        COALESCE(lm.content, '') AS last_message_content,
        COALESCE(lm.role, '') AS last_message_role,
        lm.created_at AS last_message_at,

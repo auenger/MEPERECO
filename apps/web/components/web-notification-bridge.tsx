@@ -31,10 +31,12 @@ export function WebNotificationBridge() {
 
   useEffect(() => {
     registerSystemNotificationClickHandler(
-      ({ slug, taskKey }: SystemNotificationPayload) => {
+      ({ slug, taskKey, kind }: SystemNotificationPayload) => {
         if (!slug) return;
-        const inboxPath = `${paths.workspace(slug).inbox()}?task=${encodeURIComponent(taskKey)}`;
-        pushRef.current(inboxPath);
+        const p = paths.workspace(slug);
+        pushRef.current(kind === "chat"
+          ? `${p.chat()}?session=${encodeURIComponent(taskKey)}`
+          : `${p.inbox()}?task=${encodeURIComponent(taskKey)}`);
       },
     );
     return () => registerSystemNotificationClickHandler(null);

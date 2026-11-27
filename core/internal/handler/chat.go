@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
 	"github.com/auenger/MEPERECO/core/internal/middleware"
@@ -21,6 +18,9 @@ import (
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/db/relational"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // chatSessionTitleMaxLen caps the rename input. Long enough to fit a
@@ -121,6 +121,9 @@ func (h *Handler) CreateChatSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to lock workspace")
+		return
+	}
+	if !h.requireProjectAccess(w, r, workspaceUUID, projectID) {
 		return
 	}
 	if projectID.Valid {
@@ -239,6 +242,13 @@ func (h *Handler) createGroupChatSession(w http.ResponseWriter, r *http.Request,
 	if _, err := qtx.LockWorkspaceForChatSessionCreate(r.Context(), workspaceUUID); err != nil {
 		writeError(w, http.StatusNotFound, "workspace not found")
 		return
+	}
+	for _, memberID := range memberIDs {
+		allowed, err := qtx.CanAccessProject(r.Context(), workspaceUUID, memberID, projectID)
+		if err != nil || !allowed {
+			writeError(w, http.StatusForbidden, "all group members must have access to the project")
+			return
+		}
 	}
 	if projectID.Valid {
 		if _, err := qtx.LockProjectForChatSessionCreate(r.Context(), db.LockProjectForChatSessionCreateParams{
@@ -385,6 +395,18 @@ func (h *Handler) UpdateGroupChatParticipants(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusNotFound, "group chat not found")
 		return
 	}
+	lockedSession, err := qtx.GetChatSession(r.Context(), session.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "group chat not found")
+		return
+	}
+	for _, memberID := range memberIDs {
+		allowed, err := qtx.CanAccessProject(r.Context(), workspaceUUID, memberID, lockedSession.ProjectID)
+		if err != nil || !allowed {
+			writeError(w, http.StatusForbidden, "all group members must have access to the project")
+			return
+		}
+	}
 	actorUUID := parseUUID(userID)
 	for _, id := range memberIDs {
 		if err := qtx.AddChatSessionParticipant(r.Context(), db.AddChatSessionParticipantParams{
@@ -458,26 +480,30 @@ func (h *Handler) ListChatSessions(w http.ResponseWriter, r *http.Request) {
 		}
 		resp = make([]ChatSessionResponse, 0, len(rows))
 		for _, s := range rows {
+			if !h.projectAccessible(r, s.WorkspaceID, s.ProjectID) {
+				continue
+			}
 			if s.Kind == "direct" {
 				if _, ok := allowed[uuidToString(s.AgentID)]; !ok {
 					continue
 				}
 			}
 			item := ChatSessionResponse{
-				ID:          uuidToString(s.ID),
-				WorkspaceID: uuidToString(s.WorkspaceID),
-				AgentID:     uuidToString(s.AgentID),
-				CreatorID:   uuidToString(s.CreatorID),
-				ProjectID:   uuidToPtr(s.ProjectID),
-				Title:       s.Title,
-				Status:      s.Status,
-				HasUnread:   s.UnreadCount > 0,
-				UnreadCount: int(s.UnreadCount),
-				LastMessage: buildChatLastMessage(s.LastMessageAt, s.LastMessageContent, s.LastMessageRole, s.LastMessageFailureReason, s.LastMessageKind),
-				Pinned:      s.PinnedAt.Valid,
-				CreatedAt:   timestampToString(s.CreatedAt),
-				UpdatedAt:   timestampToString(s.UpdatedAt),
-				Kind:        s.Kind,
+				ID:               uuidToString(s.ID),
+				WorkspaceID:      uuidToString(s.WorkspaceID),
+				AgentID:          uuidToString(s.AgentID),
+				CreatorID:        uuidToString(s.CreatorID),
+				ProjectID:        uuidToPtr(s.ProjectID),
+				Title:            s.Title,
+				Status:           s.Status,
+				HasUnread:        s.UnreadCount > 0,
+				UnreadCount:      int(s.UnreadCount),
+				HasUnreadMention: s.HasUnreadMention,
+				LastMessage:      buildChatLastMessage(s.LastMessageAt, s.LastMessageContent, s.LastMessageRole, s.LastMessageFailureReason, s.LastMessageKind),
+				Pinned:           s.PinnedAt.Valid,
+				CreatedAt:        timestampToString(s.CreatedAt),
+				UpdatedAt:        timestampToString(s.UpdatedAt),
+				Kind:             s.Kind,
 			}
 			if s.Kind == "group" {
 				item.Participants = h.chatSessionParticipants(r.Context(), s.ID)
@@ -495,26 +521,30 @@ func (h *Handler) ListChatSessions(w http.ResponseWriter, r *http.Request) {
 		}
 		resp = make([]ChatSessionResponse, 0, len(rows))
 		for _, s := range rows {
+			if !h.projectAccessible(r, s.WorkspaceID, s.ProjectID) {
+				continue
+			}
 			if s.Kind == "direct" {
 				if _, ok := allowed[uuidToString(s.AgentID)]; !ok {
 					continue
 				}
 			}
 			item := ChatSessionResponse{
-				ID:          uuidToString(s.ID),
-				WorkspaceID: uuidToString(s.WorkspaceID),
-				AgentID:     uuidToString(s.AgentID),
-				CreatorID:   uuidToString(s.CreatorID),
-				ProjectID:   uuidToPtr(s.ProjectID),
-				Title:       s.Title,
-				Status:      s.Status,
-				HasUnread:   s.UnreadCount > 0,
-				UnreadCount: int(s.UnreadCount),
-				LastMessage: buildChatLastMessage(s.LastMessageAt, s.LastMessageContent, s.LastMessageRole, s.LastMessageFailureReason, s.LastMessageKind),
-				Pinned:      s.PinnedAt.Valid,
-				CreatedAt:   timestampToString(s.CreatedAt),
-				UpdatedAt:   timestampToString(s.UpdatedAt),
-				Kind:        s.Kind,
+				ID:               uuidToString(s.ID),
+				WorkspaceID:      uuidToString(s.WorkspaceID),
+				AgentID:          uuidToString(s.AgentID),
+				CreatorID:        uuidToString(s.CreatorID),
+				ProjectID:        uuidToPtr(s.ProjectID),
+				Title:            s.Title,
+				Status:           s.Status,
+				HasUnread:        s.UnreadCount > 0,
+				UnreadCount:      int(s.UnreadCount),
+				HasUnreadMention: s.HasUnreadMention,
+				LastMessage:      buildChatLastMessage(s.LastMessageAt, s.LastMessageContent, s.LastMessageRole, s.LastMessageFailureReason, s.LastMessageKind),
+				Pinned:           s.PinnedAt.Valid,
+				CreatedAt:        timestampToString(s.CreatedAt),
+				UpdatedAt:        timestampToString(s.UpdatedAt),
+				Kind:             s.Kind,
 			}
 			if s.Kind == "group" {
 				item.Participants = h.chatSessionParticipants(r.Context(), s.ID)
@@ -540,6 +570,9 @@ func (h *Handler) loadChatSessionForUser(w http.ResponseWriter, r *http.Request,
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "chat session not found")
+		return db.ChatSession{}, false
+	}
+	if !h.requireProjectAccess(w, r, session.WorkspaceID, session.ProjectID) {
 		return db.ChatSession{}, false
 	}
 	if session.Kind == "group" {
@@ -677,6 +710,20 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		if session.Kind == "group" {
+			member, ok := h.workspaceMember(w, r, workspaceID)
+			if !ok {
+				return
+			}
+			if session.CreatorID != parseUUID(userID) && !roleAllowed(member.Role, "owner", "admin") {
+				writeError(w, http.StatusForbidden, "only the group creator or a workspace admin can bind the project")
+				return
+			}
+		}
+		if !h.requireProjectAccess(w, r, session.WorkspaceID, projectID) {
+			return
+		}
+
 		tx, txErr := h.TxStarter.Begin(r.Context())
 		if txErr != nil {
 			writeError(w, http.StatusInternalServerError, "failed to start transaction")
@@ -696,6 +743,43 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 				}
 				writeError(w, http.StatusInternalServerError, "failed to lock project")
 				return
+			}
+		}
+
+		if session.Kind == "group" {
+			if _, err := qtx.LockChatSessionForRuntimeBind(r.Context(), session.ID); err != nil {
+				writeError(w, http.StatusNotFound, "group chat not found")
+				return
+			}
+			locked, err := qtx.GetChatSession(r.Context(), session.ID)
+			if err != nil {
+				writeError(w, http.StatusNotFound, "group chat not found")
+				return
+			}
+			if locked.ProjectID.Valid && locked.ProjectID != projectID {
+				writeError(w, http.StatusConflict, "group project binding is fixed")
+				return
+			}
+			if locked.ProjectID != projectID {
+				if _, err := qtx.GetPendingChatRun(r.Context(), session.ID); !errors.Is(err, pgx.ErrNoRows) {
+					writeError(w, http.StatusConflict, "wait for group runs to finish before binding the project")
+					return
+				}
+			}
+			participants, err := qtx.ListChatSessionParticipants(r.Context(), session.ID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to load group participants")
+				return
+			}
+			for _, participant := range participants {
+				if participant.ParticipantType != "member" {
+					continue
+				}
+				allowed, err := qtx.CanAccessProject(r.Context(), session.WorkspaceID, participant.ParticipantID, projectID)
+				if err != nil || !allowed {
+					writeError(w, http.StatusForbidden, "all group members must have access to the project")
+					return
+				}
 			}
 		}
 
@@ -726,7 +810,11 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 	}
 	h.publishChat(protocol.EventChatSessionUpdated, workspaceID, "member", userID, resolvedSessionID, payload)
 
-	writeJSON(w, http.StatusOK, chatSessionToResponse(updated))
+	resp := chatSessionToResponse(updated)
+	if updated.Kind == "group" {
+		resp.Participants = h.chatSessionParticipants(r.Context(), updated.ID)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 type SetChatSessionPinnedRequest struct {
@@ -1448,6 +1536,8 @@ func (h *Handler) MarkChatSessionRead(w http.ResponseWriter, r *http.Request) {
 	resolvedSessionID := uuidToString(session.ID)
 	h.publishChat(protocol.EventChatSessionRead, workspaceID, "member", userID, resolvedSessionID, protocol.ChatSessionReadPayload{
 		ChatSessionID: resolvedSessionID,
+		WorkspaceID:   workspaceID,
+		RecipientID:   userID,
 	})
 
 	w.WriteHeader(http.StatusNoContent)
@@ -1672,6 +1762,11 @@ func (h *Handler) ListPendingChatRuns(w http.ResponseWriter, r *http.Request) {
 	// scan on this hot path (SILI-4159).
 	items := make([]PendingChatRunItem, 0, len(rows))
 	for _, row := range rows {
+		session, err := h.Queries.GetChatSessionInWorkspace(r.Context(), db.GetChatSessionInWorkspaceParams{ID: row.ChatSessionID, WorkspaceID: parseUUID(workspaceID)})
+		if err != nil || !h.projectAccessible(r, session.WorkspaceID, session.ProjectID) {
+			continue
+		}
+
 		agentID := uuidToString(row.AgentID)
 		if _, ok := allowed[agentID]; !ok {
 			continue
@@ -1727,21 +1822,22 @@ func (h *Handler) HasPendingChatRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	agentIDs := make([]pgtype.UUID, 0, len(allowed))
-	for id := range allowed {
-		agentIDs = append(agentIDs, parseUUID(id))
-	}
-
-	hasPending, err := h.Queries.HasPendingChatRunsByCreator(r.Context(), db.HasPendingChatRunsByCreatorParams{
-		WorkspaceID: parseUUID(workspaceID),
-		CreatorID:   parseUUID(userID),
-		AgentIds:    agentIDs,
-	})
+	rows, err := h.Queries.ListPendingChatRunsByCreator(r.Context(), db.ListPendingChatRunsByCreatorParams{WorkspaceID: parseUUID(workspaceID), ParticipantID: parseUUID(userID)})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to check pending chat tasks")
+		writeError(w, http.StatusInternalServerError, "failed to check pending chat runs")
 		return
 	}
-
+	hasPending := false
+	for _, row := range rows {
+		if _, ok := allowed[uuidToString(row.AgentID)]; !ok {
+			continue
+		}
+		session, err := h.Queries.GetChatSessionInWorkspace(r.Context(), db.GetChatSessionInWorkspaceParams{ID: row.ChatSessionID, WorkspaceID: parseUUID(workspaceID)})
+		if err == nil && h.projectAccessible(r, session.WorkspaceID, session.ProjectID) {
+			hasPending = true
+			break
+		}
+	}
 	writeJSON(w, http.StatusOK, HasPendingChatRunsResponse{HasPending: hasPending})
 }
 
@@ -1824,6 +1920,10 @@ func (h *Handler) CancelRunByUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.runProjectAccessible(r, wsUUID, agentRun) {
+		writeError(w, http.StatusForbidden, "project or chat access required")
+		return
+	}
 	if agentRun.ChatSessionID.Valid {
 		// Chat privacy: only the member who opened the conversation may
 		// cancel its task, even though the workspace is shared.
@@ -1902,9 +2002,10 @@ type ChatSessionResponse struct {
 	Status      string  `json:"status"`
 	// Only populated by list endpoints — single-session fetches return 0/false/nil.
 	// HasUnread is kept as a convenience (== UnreadCount > 0) for existing consumers.
-	HasUnread   bool             `json:"has_unread"`
-	UnreadCount int              `json:"unread_count"`
-	LastMessage *ChatLastMessage `json:"last_message"`
+	HasUnread        bool             `json:"has_unread"`
+	UnreadCount      int              `json:"unread_count"`
+	HasUnreadMention bool             `json:"has_unread_mention"`
+	LastMessage      *ChatLastMessage `json:"last_message"`
 	// Pinned marks a chat the user has stuck to the top of the list. Populated
 	// by list endpoints and by the pin/unpin + single-session responses.
 	Pinned       bool                      `json:"pinned"`

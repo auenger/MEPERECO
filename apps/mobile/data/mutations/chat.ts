@@ -77,7 +77,7 @@ export function useMarkChatSessionRead() {
       qc.setQueryData<ChatSession[]>(key, (old) =>
         old?.map((s) =>
           s.id === sessionId
-            ? { ...s, has_unread: false, unread_count: 0 }
+            ? { ...s, has_unread: false, unread_count: 0, has_unread_mention: false }
             : s,
         ),
       );

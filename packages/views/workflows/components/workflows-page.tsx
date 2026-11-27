@@ -60,6 +60,7 @@ import {
   workflowInstancesOptions,
   workflowKeys,
   workflowListOptions,
+  useSopVisibilityStore,
 } from "@silieco/core/workflows";
 import { Badge } from "@silieco/ui/components/ui/badge";
 import { Button } from "@silieco/ui/components/ui/button";
@@ -788,7 +789,13 @@ function WorkflowDefinitionCard({
 }
 
 export function WorkflowsPage({ workflowId }: { workflowId?: string }) {
-  return <ProjectSopDesigner workflowId={workflowId} />;
+  const enabled = useSopVisibilityStore((state) => state.enabled);
+  const navigation = useNavigation();
+  const paths = useWorkspacePaths();
+  useEffect(() => {
+    if (!enabled && !useSopVisibilityStore.getState().enabled) navigation.replace(paths.projects());
+  }, [enabled, navigation, paths]);
+  return enabled ? <ProjectSopDesigner workflowId={workflowId} /> : null;
 }
 
 export function LegacyWorkflowsPage({

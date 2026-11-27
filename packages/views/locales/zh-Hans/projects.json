@@ -1,4 +1,13 @@
 {
+  "access": {
+    "manage": "项目权限",
+    "description": "空间管理员始终拥有访问权限。为普通员工授权后，他们才能访问此项目、任务及资源。",
+    "loading": "正在加载员工权限…",
+    "failed": "更新项目权限失败",
+    "load_failed": "无法加载项目权限",
+    "admin": "管理员 · 始终可访问",
+    "done": "完成"
+  },
   "icon_picker": {
     "upload": "上传图片",
     "reset": "恢复默认",

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { createPortal } from "react-dom";
-import { useWorkflowChatEditorStore } from "@silieco/core/workflows";
+import { useWorkflowChatEditorStore, useSopVisibilityStore } from "@silieco/core/workflows";
 import { useWorkspaceId } from "@silieco/core/hooks";
 import { useChatStore } from "@silieco/core/chat";
 import { useWorkspacePaths } from "@silieco/core/paths";
@@ -26,7 +26,8 @@ import { ChatWindow } from "./components/chat-window";
 export function FloatingChat({ showLauncher = true }: { showLauncher?: boolean }) {
   const wsId = useWorkspaceId();
   const editor = useWorkflowChatEditorStore((s) => s.editor);
-  const target = editor?.wsId === wsId ? document.getElementById(editor.portalId) : null;
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
+  const target = sopEnabled && editor?.wsId === wsId ? document.getElementById(editor.portalId) : null;
   const enabled = useChatStore((s) => s.floatingChatEnabled);
   const isOpen = useChatStore((s) => s.isOpen);
   // Keep the composer alive just until its HTTP send settles, not for the

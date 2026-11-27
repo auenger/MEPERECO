@@ -164,6 +164,7 @@ export function useUpdateGroupChatParticipants() {
               ...session,
               has_unread: item.has_unread,
               unread_count: item.unread_count,
+              has_unread_mention: item.has_unread_mention,
               last_message: item.last_message,
             }
           : item),
@@ -194,7 +195,7 @@ export function useMarkChatSessionRead() {
       const prevSessions = qc.getQueryData<ChatSession[]>(chatKeys.sessions(wsId));
 
       const clear = (old?: ChatSession[]) =>
-        old?.map((s) => (s.id === sessionId ? { ...s, has_unread: false, unread_count: 0 } : s));
+        old?.map((s) => (s.id === sessionId ? { ...s, has_unread: false, unread_count: 0, has_unread_mention: false } : s));
       qc.setQueryData<ChatSession[]>(chatKeys.sessions(wsId), clear);
 
       return { prevSessions };
@@ -364,7 +365,7 @@ export function useSetChatSessionArchived() {
                   ...s,
                   status: archived ? "archived" : "active",
                   updated_at: nowIso,
-                  ...(archived ? { unread_count: 0, has_unread: false } : {}),
+                  ...(archived ? { unread_count: 0, has_unread: false, has_unread_mention: false } : {}),
                 }
               : s,
           ),

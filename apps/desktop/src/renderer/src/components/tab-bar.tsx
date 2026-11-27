@@ -37,7 +37,8 @@ import {
 import { useScrollFade } from "@silieco/ui/hooks/use-scroll-fade";
 import { cn } from "@silieco/ui/lib/utils";
 import { useTabStore, useActiveGroup, type Tab } from "@/stores/tab-store";
-import { paths } from "@silieco/core/paths";
+import { parseTabSubject, paths } from "@silieco/core/paths";
+import { isSopRoute, useSopVisibilityStore } from "@silieco/core/workflows";
 import {
   useTabPresentation,
   ResourceLeadingVisual,
@@ -148,6 +149,7 @@ function SortableTabItem({
   isNew,
   shouldReduceMotion,
   showSeparator,
+  notice,
 }: {
   tab: Tab;
   isActive: boolean;
@@ -160,6 +162,7 @@ function SortableTabItem({
   canCloseOthers: boolean;
   isNew: boolean;
   shouldReduceMotion: boolean;
+  notice?: string;
   /**
    * Hairline on the tab's left edge — hidden next to the active tab, and
    * faded out while either of the two tabs it divides is hovered.
@@ -178,6 +181,8 @@ function SortableTabItem({
   // updated as the cache updates. `tab.title` is only a persisted first-frame
   // fallback. See @silieco/views useTabPresentation.
   const { visual, title } = useTabPresentation(tab.url, tab.title);
+  const label = tab.pinned ? `${title} (pinned)` : title;
+  const accessibleLabel = notice ? `${label} · ${notice}` : label;
 
   // Persist the active tab's resolved title so it survives as the next
   // session's first-frame fallback. The tab strip itself always renders the
@@ -257,10 +262,10 @@ function SortableTabItem({
       {...attributes}
       {...listeners}
       onClick={handleClick}
-      aria-label={tab.pinned ? `${title} (pinned)` : title}
+      aria-label={accessibleLabel}
       data-tab-active={isActive ? "true" : undefined}
       data-tab-entering={isEntering ? "true" : undefined}
-      title={tab.pinned ? `${title} (pinned)` : undefined}
+      title={notice || tab.pinned ? accessibleLabel : undefined}
       style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       className={cn(
         "group relative flex size-full min-w-0 items-center gap-1.5 px-2.5 text-caption transition-colors",
@@ -271,7 +276,10 @@ function SortableTabItem({
         isDragging && "opacity-60",
       )}
     >
-      <ResourceLeadingVisual visual={visual} />
+      <span className="relative flex shrink-0">
+        <ResourceLeadingVisual visual={visual} />
+        {notice && <span aria-hidden="true" className="pointer-events-none absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-destructive" />}
+      </span>
       <span
         className="min-w-0 flex-1 overflow-hidden whitespace-nowrap text-left"
         style={{
@@ -508,8 +516,9 @@ function NewTabButton() {
   );
 }
 
-export function TabBar() {
+export function TabBar({ settingsNotice, chatNotice, inboxNotice }: { settingsNotice?: string; chatNotice?: string; inboxNotice?: string } = {}) {
   const group = useActiveGroup();
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const moveTab = useTabStore((s) => s.moveTab);
   const activeWorkspaceSlug = useTabStore((s) => s.activeWorkspaceSlug);
   const shouldReduceMotion = useReducedMotion() ?? false;
@@ -527,7 +536,10 @@ export function TabBar() {
     }),
   );
 
-  const tabs = group?.tabs ?? [];
+  const allTabs = group?.tabs ?? [];
+  // Keep saved tabs intact so they return when SOP is enabled again. An
+  // active SOP route is redirected by its page to an ordinary project view.
+  const tabs = sopEnabled ? allTabs : allTabs.filter((tab) => !isSopRoute(tab.url));
   const activeTabId = group?.activeTabId ?? "";
   const tabIds = tabs.map((t) => t.id);
   const tabOrder = tabIds.join("\0");
@@ -594,8 +606,8 @@ export function TabBar() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const from = tabs.findIndex((t) => t.id === active.id);
-    const to = tabs.findIndex((t) => t.id === over.id);
+    const from = allTabs.findIndex((t) => t.id === active.id);
+    const to = allTabs.findIndex((t) => t.id === over.id);
     // The store clamps the destination to within the source tab's zone
     // (pinned vs unpinned), so this call is safe even when the user tries
     // to drag across the boundary — the tab will land at the boundary.
@@ -623,6 +635,9 @@ export function TabBar() {
             <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
               {tabs.map((tab, index) => {
                 const previousTab = index > 0 ? tabs[index - 1] : null;
+                const subject = parseTabSubject(tab.url);
+                const notice = subject.kind === "page" && subject.page === "settings" ? settingsNotice
+                  : subject.kind === "chat" ? chatNotice : subject.kind === "inbox" ? inboxNotice : undefined;
                 return (
                   <Fragment key={tab.id}>
                     <SortableTabItem
@@ -634,6 +649,7 @@ export function TabBar() {
                       )}
                       isNew={addedTabIdSet.has(tab.id)}
                       shouldReduceMotion={shouldReduceMotion}
+                      notice={notice}
                       showSeparator={
                         !!previousTab &&
                         tab.id !== activeTabId &&

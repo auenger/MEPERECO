@@ -59,6 +59,7 @@ import type {
   Workspace,
   WorkspaceRepo,
   MemberWithUser,
+  InviteCandidatesResponse,
   User,
   Skill,
   SkillSummary,
@@ -2118,6 +2119,11 @@ export class ApiClient {
   }
 
   // Invitations
+  async searchInviteCandidates(workspaceId: string, query: string, page = 0, signal?: AbortSignal): Promise<InviteCandidatesResponse> {
+    const params = new URLSearchParams({ q: query, page: String(page) });
+    return this.fetch(`/api/workspaces/${workspaceId}/invite-candidates?${params}`, { signal });
+  }
+
   async listWorkspaceInvitations(workspaceId: string): Promise<Invitation[]> {
     return this.fetch(`/api/workspaces/${workspaceId}/invitations`);
   }
@@ -2473,9 +2479,9 @@ export class ApiClient {
   }
 
   // Chat Sessions
-  async listChatSessions(params?: { status?: string }): Promise<ChatSession[]> {
+  async listChatSessions(params?: { status?: string; workspaceSlug?: string }): Promise<ChatSession[]> {
     const query = params?.status ? `?status=${params.status}` : "";
-    return this.fetch(`/api/chat/sessions${query}`);
+    return this.fetch(`/api/chat/sessions${query}`, params?.workspaceSlug ? { headers: { "X-Workspace-Slug": params.workspaceSlug } } : undefined);
   }
 
   async getChatSession(id: string): Promise<ChatSession> {
@@ -2733,6 +2739,21 @@ export class ApiClient {
 
   async getProject(id: string): Promise<Project> {
     return this.fetch(`/api/projects/${id}`);
+  }
+
+  async listMemberProjectAccess(userId: string): Promise<{ project_ids: string[] }> {
+    return this.fetch(`/api/projects/member-access/${userId}`);
+  }
+
+  async listProjectMembers(id: string): Promise<{ user_ids: string[] }> {
+    return this.fetch(`/api/projects/${id}/members`);
+  }
+
+  async setProjectMember(id: string, userId: string, granted: boolean): Promise<{ granted: boolean }> {
+    return this.fetch(`/api/projects/${id}/members/${userId}`, {
+      method: "PUT",
+      body: JSON.stringify({ granted }),
+    });
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {

@@ -4,10 +4,11 @@ package realtime
 // use these constants rather than raw strings so a typo can never silently
 // route an event to a non-existent room.
 const (
-	ScopeWorkspace = "workspace"
-	ScopeUser      = "user"
-	ScopeRun       = "run"
-	ScopeChat      = "chat"
+	ScopeWorkspace     = "workspace"
+	ScopeUser          = "user"
+	ScopeWorkspaceUser = "workspace_user"
+	ScopeRun           = "run"
+	ScopeChat          = "chat"
 	// ScopeDaemonRuntime routes daemon wakeup frames through the Redis relay.
 	// It is consumed by the daemon WebSocket hub, not by browser clients.
 	ScopeDaemonRuntime = "daemon_runtime"

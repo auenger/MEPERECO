@@ -60,6 +60,7 @@ import { ActorAvatar } from "../common/actor-avatar";
 import { PillButton } from "../common/pill-button";
 import { ProjectPicker } from "../projects/components/project-picker";
 import { WorkflowAssignmentPicker } from "../workflows/components";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { DueDatePicker, PriorityIcon, PriorityPicker } from "../tasks/components";
 import { canAssignAgent } from "../tasks/components/pickers/assignee-picker";
 import {
@@ -116,6 +117,7 @@ export function AgentCreatePanel({
   setIsExpanded: (v: boolean) => void;
 }) {
   const { t } = useT("modals");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const sendShortcut = useShortcut("send");
   const workspaceName = useCurrentWorkspace()?.name;
   const workspacePaths = useWorkspacePaths();
@@ -409,7 +411,7 @@ export function AgentCreatePanel({
       // The button already disables on !actor / versionBlocked, but the
       // ⌘+Enter path bypasses it — re-guard here and keep the draft in place.
       if (!actor || versionBlocked) return false;
-      if (workflowInstanceId && !workflowStageId) {
+      if (sopEnabled && workflowInstanceId && !workflowStageId) {
         toast.error(t(($) => $.create_task.stage_required));
         return false;
       }
@@ -433,7 +435,7 @@ export function AgentCreatePanel({
             : { squad_id: actor.id }),
           prompt: md,
           project_id: projectId ?? undefined,
-          ...(workflowInstanceId && workflowStageId
+          ...(sopEnabled && workflowInstanceId && workflowStageId
             ? {
                 workflow_instance_id: workflowInstanceId,
                 workflow_stage_id: workflowStageId,
@@ -555,8 +557,8 @@ export function AgentCreatePanel({
     const carry: Record<string, unknown> = {};
     if (parentTaskId) carry.parent_task_id = parentTaskId;
     if (parentTaskIdentifier) carry.parent_task_identifier = parentTaskIdentifier;
-    if (workflowInstanceId) carry.workflow_instance_id = workflowInstanceId;
-    if (workflowStageId) carry.workflow_stage_id = workflowStageId;
+    if (sopEnabled && workflowInstanceId) carry.workflow_instance_id = workflowInstanceId;
+    if (sopEnabled && workflowStageId) carry.workflow_stage_id = workflowStageId;
     onSwitchMode?.(Object.keys(carry).length > 0 ? carry : null);
   };
 
@@ -703,7 +705,7 @@ export function AgentCreatePanel({
               onOpenChange={(open) => setFieldPickerOpen(open ? "project" : null)}
             />
           )}
-          <WorkflowAssignmentPicker
+          {sopEnabled && <WorkflowAssignmentPicker
             projectId={projectId ?? undefined}
             workflowInstanceId={workflowInstanceId}
             workflowStageId={workflowStageId}
@@ -711,7 +713,7 @@ export function AgentCreatePanel({
               setWorkflowInstanceId(assignment.workflowInstanceId);
               setWorkflowStageId(assignment.workflowStageId);
             }}
-          />
+          />}
           {(visibleFields.includes("priority") ||
             priority !== "none" ||
             fieldPickerOpen === "priority") && (

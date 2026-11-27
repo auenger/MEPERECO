@@ -128,6 +128,7 @@ LEFT JOIN task i ON i.id = a.task_id AND i.workspace_id = a.workspace_id
 LEFT JOIN project p ON p.id = i.project_id AND p.workspace_id = a.workspace_id
 WHERE a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,sqlc.arg(viewer_id)::uuid,a.id)
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
@@ -137,6 +138,7 @@ FROM attachment a
 WHERE a.workspace_id = sqlc.arg(workspace_id)
   AND a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,sqlc.arg(viewer_id)::uuid,a.id)
   AND (
       a.task_id IS NOT NULL
       OR EXISTS (
@@ -182,6 +184,7 @@ LEFT JOIN task i ON i.id = a.task_id AND i.workspace_id = a.workspace_id
 LEFT JOIN project p ON p.id = i.project_id AND p.workspace_id = a.workspace_id
 WHERE a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,sqlc.arg(viewer_id)::uuid,a.id)
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
@@ -191,6 +194,7 @@ FROM attachment a
 WHERE a.workspace_id = sqlc.arg(workspace_id)
   AND a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,sqlc.arg(viewer_id)::uuid,a.id)
   AND (
       EXISTS (
           SELECT 1 FROM task source_task

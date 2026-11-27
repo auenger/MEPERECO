@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useInboxUnreadCount } from "@silieco/core/inbox/queries";
 
 type BadgeCapableAPI = {
   setUnreadBadge?: (count: number) => void;
@@ -11,12 +10,11 @@ function getDesktopAPI(): BadgeCapableAPI | undefined {
 }
 
 /**
- * Mirror the inbox unread count onto the OS dock/taskbar badge. No-op on web
+ * Mirror the combined chat and inbox unread count onto the OS dock/taskbar badge. No-op on web
  * (no `desktopAPI`) and on the login screen (no workspace ⇒ count defaults
  * to 0, which clears any stale badge from a previous session).
  */
-export function useDesktopUnreadBadge(wsId: string | null | undefined): void {
-  const count = useInboxUnreadCount(wsId);
+export function useDesktopUnreadBadge(count: number): void {
   useEffect(() => {
     getDesktopAPI()?.setUnreadBadge?.(count);
   }, [count]);

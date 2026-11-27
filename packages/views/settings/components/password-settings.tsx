@@ -7,6 +7,7 @@ import { Button } from "@silieco/ui/components/ui/button";
 import { Label } from "@silieco/ui/components/ui/label";
 import { api } from "@silieco/core/api";
 import { useAuthStore } from "@silieco/core/auth";
+import { PASSWORD_POLICY, validNewPassword } from "@silieco/core/auth/password-policy";
 import { useT } from "../../i18n";
 import { SettingsCard, SettingsSection } from "./settings-layout";
 
@@ -35,7 +36,7 @@ export function PasswordSettings() {
   async function submit(e: FormEvent) {
     e.preventDefault(); if (!user || busy) return;
     setError("");setSuccess(false);
-    if (mode !== "code" && (Array.from(password).length < 12 || new TextEncoder().encode(password).length > 72)) {setError(t($=>$.errors.password_invalid)); return;}
+    if (mode !== "code" && !validNewPassword(password)) {setError(t($=>$.errors.password_invalid, PASSWORD_POLICY)); return;}
     if (mode !== "code" && password !== confirmation) {setError(t($=>$.errors.password_mismatch)); return;}
     setBusy(true);
     try {
@@ -52,7 +53,7 @@ export function PasswordSettings() {
     {mode === "idle" ? <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={()=>{setSuccess(false); if(user.has_password)setMode("current");else void send();}}>{user.has_password?t($=>$.password.change):t($=>$.password.title)}</Button>{user.has_password&&<Button variant="ghost" disabled={busy} onClick={send}>{t($=>$.password.reset)}</Button>}</div> : <form className="grid gap-3 max-w-sm" onSubmit={submit}>
       {mode === "code" ? <><p className="text-sm">{t($=>$.verify.description,{email:user.email})}</p><Label htmlFor="settings-password-code">{t($=>$.verify.label)}</Label><Input id="settings-password-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,""))} required/><Button type="button" variant="ghost" disabled={busy} onClick={send}>{t($=>$.verify.resend)}</Button></> : <>
       {mode==="current"&&<><Label htmlFor="settings-current-password">{t($=>$.password.current)}</Label>{passwordInput("settings-current-password",current,setCurrent,"current-password")}</>}
-      <p className="text-sm text-muted-foreground">{t($=>$.password.description)}</p><Label htmlFor="settings-new-password">{t($=>$.password.new)}</Label>{passwordInput("settings-new-password",password,setPassword,"new-password")}<Label htmlFor="settings-confirm-password">{t($=>$.password.confirm)}</Label>{passwordInput("settings-confirm-password",confirmation,setConfirmation,"new-password")}</>}
+      <p className="text-sm text-muted-foreground">{t($=>$.password.description, PASSWORD_POLICY)}</p><Label htmlFor="settings-new-password">{t($=>$.password.new)}</Label>{passwordInput("settings-new-password",password,setPassword,"new-password")}<Label htmlFor="settings-confirm-password">{t($=>$.password.confirm)}</Label>{passwordInput("settings-confirm-password",confirmation,setConfirmation,"new-password")}</>}
       <div className="flex gap-2"><Button type="submit" variant="brand" disabled={busy||(mode==="code"?code.length!==6:!password||!confirmation||(mode==="current"&&!current))}>{busy?t($=>$.signin.sending):t($=>$.password.complete)}</Button><Button type="button" variant="ghost" disabled={busy} onClick={clear}>{t($=>$.common.back)}</Button></div>
     </form>}
     {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}

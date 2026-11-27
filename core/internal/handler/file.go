@@ -13,11 +13,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/auenger/MEPERECO/core/internal/storage"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/auenger/MEPERECO/core/internal/storage"
-	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 )
 
 // extContentTypes overrides http.DetectContentType for extensions it gets wrong.
@@ -227,7 +228,7 @@ func (h *Handler) buildMarkdownURL(a db.Attachment, id string) string {
 	relPath := attachmentDownloadPath(id)
 	publicURL := strings.TrimRight(h.cfg.PublicURL, "/")
 
-	if h.storageURLIsPubliclyReadable(a.Url) {
+	if !a.WorkspaceID.Valid && h.storageURLIsPubliclyReadable(a.Url) {
 		return a.Url
 	}
 
@@ -465,6 +466,9 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "invalid task_id")
 				return
 			}
+			if !h.requireProjectAccess(w, r, task.WorkspaceID, task.ProjectID) {
+				return
+			}
 			params.TaskID = task.ID
 		}
 		if commentID := r.FormValue("comment_id"); commentID != "" {
@@ -699,6 +703,10 @@ func (h *Handler) loadAttachmentForRequest(w http.ResponseWriter, r *http.Reques
 		return db.Attachment{}, false
 	}
 
+	if !h.attachmentProjectAccessible(r, att.WorkspaceID, att.ID) {
+		writeError(w, http.StatusNotFound, "attachment not found")
+		return db.Attachment{}, false
+	}
 	return att, true
 }
 
@@ -742,6 +750,10 @@ func (h *Handler) loadAttachmentForDownload(w http.ResponseWriter, r *http.Reque
 
 	workspaceID := uuidToString(att.WorkspaceID)
 	if workspaceID == "" {
+		writeError(w, http.StatusNotFound, "attachment not found")
+		return db.Attachment{}, false
+	}
+	if !h.attachmentProjectAccessible(r, att.WorkspaceID, att.ID) {
 		writeError(w, http.StatusNotFound, "attachment not found")
 		return db.Attachment{}, false
 	}
@@ -893,6 +905,23 @@ func (h *Handler) ServeLocalUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	h.setAttachmentPreviewSecurityHeaders(w)
 	key := strings.TrimPrefix(r.URL.Path, "/uploads/")
+	// Legacy local attachment URLs use an attachment UUID as their filename.
+	// Redirect them through the authenticated attachment resource so a known
+	// storage path cannot bypass project grants; avatars remain public.
+	if strings.HasPrefix(key, "workspaces/") {
+		parts := strings.Split(key, "/")
+		if len(parts) == 3 {
+			if id, err := util.ParseUUID(strings.TrimSuffix(parts[2], path.Ext(parts[2]))); err == nil {
+				att, err := h.Queries.GetAttachmentByIDOnly(r.Context(), id)
+				if err != nil || h.Storage.KeyFromURL(att.Url) != key {
+					http.NotFound(w, r)
+					return
+				}
+				http.Redirect(w, r, attachmentDownloadPath(uuidToString(att.ID)), http.StatusFound)
+				return
+			}
+		}
+	}
 	local.ServeFile(w, r, key)
 }
 
@@ -1361,6 +1390,10 @@ func (h *Handler) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.attachmentProjectAccessible(r, att.WorkspaceID, att.ID) {
+		writeError(w, http.StatusNotFound, "attachment not found")
+		return
+	}
 	referenceCount, err := h.Queries.CountAttachmentReferences(r.Context(), db.CountAttachmentReferencesParams{
 		WorkspaceID:  att.WorkspaceID,
 		AttachmentID: att.ID,

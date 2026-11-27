@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -21,7 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const passwordMinRunes = 12
+const passwordMinRunes = 6
 const passwordMaxBytes = 72 // bcrypt's input length limit; never truncate.
 
 type PasswordCodeRequest struct {
@@ -219,7 +220,7 @@ func (h *Handler) CompletePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validPasswordToken(req.Token) || !validNewPassword(req.Password) {
-		writeError(w, 400, "a valid verification token and a password of at least 12 characters (max 72 bytes) are required")
+		writeError(w, 400, fmt.Sprintf("a valid verification token and a password of at least %d characters (max %d bytes) are required", passwordMinRunes, passwordMaxBytes))
 		return
 	}
 	tx, err := h.TxStarter.Begin(r.Context())
@@ -287,7 +288,7 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	var req ChangePasswordRequest
 	if json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&req) != nil || !validLoginPassword(req.CurrentPassword) || !validNewPassword(req.Password) {
-		writeError(w, 400, "current password and a new password of at least 12 characters (max 72 bytes) are required")
+		writeError(w, 400, fmt.Sprintf("current password and a new password of at least %d characters (max %d bytes) are required", passwordMinRunes, passwordMaxBytes))
 		return
 	}
 	user, err := h.Queries.GetUser(r.Context(), parseUUID(userID))

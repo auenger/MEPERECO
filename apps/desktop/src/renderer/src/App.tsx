@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CoreProvider } from "@silieco/core/platform";
 import { pickLocale, type SupportedLocale } from "@silieco/core/i18n";
+import { I18nProvider } from "@silieco/core/i18n/react";
 import { useAuthStore } from "@silieco/core/auth";
 import { workspaceKeys, workspaceListOptions } from "@silieco/core/workspace/queries";
 import { api } from "@silieco/core/api";
@@ -434,12 +435,15 @@ export default function App() {
           ) : (
             <AppContent />
           )}
+          {windowContext.kind === "main" && <UpdateNotification />}
         </CoreProvider>
       ) : (
-        <BlockingRuntimeConfigError message={runtimeConfigResult.error.message} />
+        <I18nProvider locale={locale} resources={resources}>
+          <BlockingRuntimeConfigError message={runtimeConfigResult.error.message} />
+          {windowContext.kind === "main" && <UpdateNotification />}
+        </I18nProvider>
       )}
       <Toaster />
-      {windowContext.kind === "main" && <UpdateNotification />}
     </ThemeProvider>
   );
 }

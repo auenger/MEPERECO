@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/integrations/vcs"
 	"github.com/auenger/MEPERECO/core/internal/projectgit"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type GitBindingResponse struct {
@@ -84,6 +84,9 @@ func (h *Handler) gitScope(w http.ResponseWriter, r *http.Request, projectScoped
 			return ws, p, false
 		}
 	}
+	if !h.requireProjectAccess(w, r, ws, p) {
+		return ws, p, false
+	}
 	return ws, p, true
 }
 
@@ -103,8 +106,8 @@ LEFT JOIN github_installation i ON b.connection_kind='github_app' AND i.id=b.con
 WHERE r.workspace_id=$1 AND r.resource_type='github_repo' AND ($2::uuid IS NULL OR r.project_id=$2) AND ($3::uuid IS NULL OR r.id>$3)
 ORDER BY r.id LIMIT $4`
 
-func (h *Handler) listGitBindings(ctx context.Context, ws, p, after pgtype.UUID, limit int) ([]GitBindingResponse, error) {
-	rows, e := h.DB.Query(ctx, gitBindingsSQL, ws, p, after, limit)
+func (h *Handler) listGitBindings(ctx context.Context, ws, p, after pgtype.UUID, limit int, allowed []pgtype.UUID) ([]GitBindingResponse, error) {
+	rows, e := h.DB.Query(ctx, strings.Replace(gitBindingsSQL, "WHERE r.workspace_id=$1", "WHERE r.project_id=ANY($5::uuid[]) AND r.workspace_id=$1", 1), ws, p, after, limit, allowed)
 	if e != nil {
 		return nil, e
 	}
@@ -130,13 +133,17 @@ func (h *Handler) ListWorkspaceGitBindings(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
+	allowed, ok := h.accessibleProjectIDs(w, r, ws)
+	if !ok {
+		return
+	}
 	after, e := gitUUID(r.URL.Query().Get("cursor"))
 	if e != nil {
 		writeError(w, http.StatusBadRequest, "invalid cursor")
 		return
 	}
 	limit := gitLimit(r)
-	items, e := h.listGitBindings(r.Context(), ws, p, after, limit+1)
+	items, e := h.listGitBindings(r.Context(), ws, p, after, limit+1, allowed)
 	if e != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list Git bindings")
 		return
@@ -192,18 +199,22 @@ func (h *Handler) gitOverview(w http.ResponseWriter, r *http.Request, projectSco
 	if !ok {
 		return
 	}
+	allowed, ok := h.accessibleProjectIDs(w, r, ws)
+	if !ok {
+		return
+	}
 	var count, projects, connected, prs int64
 	e := h.DB.QueryRow(r.Context(), `SELECT count(*),count(DISTINCT r.project_id),count(*) FILTER(WHERE c.id IS NOT NULL OR i.id IS NOT NULL)
  FROM project_resource r JOIN project p ON p.id=r.project_id AND p.workspace_id=r.workspace_id
  LEFT JOIN project_repo_binding b ON b.resource_id=r.id AND b.workspace_id=r.workspace_id AND b.project_id=r.project_id
  LEFT JOIN vcs_connection c ON b.connection_kind='vcs' AND c.id=b.connection_id AND c.workspace_id=r.workspace_id
  LEFT JOIN github_installation i ON b.connection_kind='github_app' AND i.id=b.connection_id AND i.workspace_id=r.workspace_id
- WHERE r.resource_type='github_repo' AND r.workspace_id=$1 AND ($2::uuid IS NULL OR r.project_id=$2)`, ws, p).Scan(&count, &projects, &connected)
+ WHERE r.resource_type='github_repo' AND r.workspace_id=$1 AND ($2::uuid IS NULL OR r.project_id=$2) AND r.project_id=ANY($3::uuid[])`, ws, p, allowed).Scan(&count, &projects, &connected)
 	if e != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load Git overview")
 		return
 	}
-	if e = h.DB.QueryRow(r.Context(), gitMatchedSQL+` SELECT count(*) FROM dedup`, ws, p).Scan(&prs); e != nil {
+	if e = h.DB.QueryRow(r.Context(), strings.ReplaceAll(gitMatchedSQL, "WHERE b.workspace_id=$1", "WHERE b.workspace_id=$1 AND b.project_id=ANY($3::uuid[])")+` SELECT count(*) FROM dedup`, ws, p, allowed).Scan(&prs); e != nil {
 		writeError(w, http.StatusInternalServerError, "failed to count Git pull requests")
 		return
 	}
@@ -215,7 +226,7 @@ func (h *Handler) gitOverview(w http.ResponseWriter, r *http.Request, projectSco
 			return
 		}
 		resp["repo_mode"] = project.RepoMode
-		bindings, e := h.listGitBindings(r.Context(), ws, p, pgtype.UUID{}, 100)
+		bindings, e := h.listGitBindings(r.Context(), ws, p, pgtype.UUID{}, 100, allowed)
 		if e != nil {
 			writeError(w, http.StatusInternalServerError, "failed to load Git repositories")
 			return
@@ -303,7 +314,17 @@ func (h *Handler) gitPRList(w http.ResponseWriter, r *http.Request, projectScope
 		return
 	}
 	limit := gitLimit(r)
-	rows, e := h.DB.Query(r.Context(), gitPRListSQL, ws, p, state, r.URL.Query().Get("repository"), t, cursor, r.URL.Query().Get("linked_only") == "true", limit+1, taskID, strings.TrimSpace(r.URL.Query().Get("task_query")))
+	allowed, ok := h.accessibleProjectIDs(w, r, ws)
+	if !ok {
+		return
+	}
+	if taskID.Valid && !h.taskProjectAccessible(r, ws, taskID) {
+		writeError(w, http.StatusForbidden, "project access required")
+		return
+	}
+	scopedSQL := strings.ReplaceAll(gitPRListSQL, "WHERE b.workspace_id=$1", "WHERE b.workspace_id=$1 AND b.project_id=ANY($11::uuid[])")
+	scopedSQL = strings.ReplaceAll(scopedSQL, "t.workspace_id=$1", "t.workspace_id=$1 AND (t.project_id IS NULL OR t.project_id=ANY($11::uuid[]))")
+	rows, e := h.DB.Query(r.Context(), scopedSQL, ws, p, state, r.URL.Query().Get("repository"), t, cursor, r.URL.Query().Get("linked_only") == "true", limit+1, taskID, strings.TrimSpace(r.URL.Query().Get("task_query")), allowed)
 	if e != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list Git pull requests")
 		return
@@ -396,6 +417,9 @@ func (h *Handler) gitPRList(w http.ResponseWriter, r *http.Request, projectScope
 		seen := map[string]int{}
 		for _, mirrorID := range x.mirrorIDs {
 			for _, task := range links[x.source+":"+uuidToString(mirrorID)] {
+				if task.ProjectID != nil && !h.projectAccessible(r, ws, parseUUID(*task.ProjectID)) {
+					continue
+				}
 				if index, ok := seen[task.ID]; ok {
 					old := &x.item.Tasks[index]
 					old.ReferenceOnly = old.ReferenceOnly && task.ReferenceOnly

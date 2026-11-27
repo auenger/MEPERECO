@@ -45,6 +45,8 @@ export interface ChatSession {
   /** Number of unread assistant messages (after the read cursor). List-only;
    *  optional so older clients / non-list payloads stay valid. */
   unread_count?: number;
+  /** True when an unread group message mentions this member or everyone. */
+  has_unread_mention?: boolean;
   /** Latest message in the session, or null when empty. List-only. */
   last_message?: ChatLastMessage | null;
   /** True when the user has pinned this chat to the top of the list.

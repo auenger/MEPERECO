@@ -177,3 +177,14 @@ https://studio.meper.cn/updates/desktop/
 - 已验证正式 HTTPS 首页、登录页、下载页、API 和更新元数据（HTTP 200），安装包 HEAD 与 Range（206），以及上传后的 SHA-512。
 - 当前安装包用于内测：Mac 为 ad-hoc 签名、未公证，Windows 无 Authenticode 发布者签名。真实安装与跨版本自动更新仍需在目标系统验证；正式分发前配置相应签名证书。
 - Apple Silicon 本机构建 Windows 时，旧版 Wine 与内置 x86 macOS NSIS 工具不可运行。本次使用原生 JS PE 资源编辑保留 MEPERStudio 图标和版本信息，配合本机 ARM64 `makensis` 构建 NSIS。签名正式版本优先在受支持的 Windows 构建环境生成。
+
+
+## 8. 1.0.1 实际升级问题与后续修复（2026-11-27）
+
+正式更新源已发布 1.0.1。Mac 1.0.0 可下载 ZIP，但点击 Restart now 或普通重启后版本仍为 1.0.0。核验实际安装包及 1.0.1 ZIP 内应用可执行文件：两者均为 ad-hoc 签名，designated requirement 是各自不同的 cdhash，因此新版本无法满足旧版本的签名要求。不是更新源或下载中断问题。Electron-updater 的 Mac `update-downloaded` 事件仅表示 ZIP 已可交给 Squirrel，不能认定系统安装器已就绪。
+
+后续代码修复：区分下载、原生准备、就绪、安装、失败状态；Mac 等待 Electron native updater 的 `update-downloaded` 事件才启用重启安装。安装超时和异常可见，设置页可恢复查看状态、手动下载，通知支持中英文。已知 ad-hoc 安装仅检查版本并提供手动下载安装入口，不再反复尝试不能满足签名要求的自动安装。保留 Windows/Linux 原有安装机制；自动安装就绪的通知同时提供立即重启和跳转下载页两种操作，所有桌面平台的设置页始终提供下载页入口。
+
+后续正式 macOS 分发需要 **Developer ID Application** 签名、公证，并保持相同的有效签名身份；当前使用 ad-hoc 签名的 1.0.0/1.0.1 客户端需先从下载页手动安装一次新签名版本，之后才能真正验证连续跨版本自动更新。不要将 ZIP 已下载当成跨版本升级成功。发布时使用实际已安装的上个正式签名版本验证点击重启、正常退出安装、重启后版本号变化。
+
+单元测试：`node --experimental-strip-types --test scripts/test-desktop-update-lifecycle.mjs`。

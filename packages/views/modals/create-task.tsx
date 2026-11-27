@@ -57,6 +57,7 @@ import { StatusIcon, StatusPicker, PriorityIcon, PriorityPicker, StagePicker, As
 import { maxSiblingStage } from "../tasks/components/pickers/stage-picker";
 import { ProjectPicker } from "../projects/components/project-picker";
 import { WorkflowAssignmentPicker } from "../workflows/components";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { useTaskTriggerPreview } from "../tasks/hooks/use-task-trigger-preview";
 import { useActorName } from "@silieco/core/workspace/hooks";
 import { useCurrentWorkspace, useWorkspacePaths } from "@silieco/core/paths";
@@ -209,6 +210,7 @@ export function ManualCreatePanel({
   setIsExpanded: (v: boolean) => void;
 }) {
   const { t } = useT("modals");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const { t: tEditor } = useT("editor");
   const { t: tResources } = useT("resources");
   const router = useNavigation();
@@ -480,7 +482,7 @@ export function ManualCreatePanel({
     onSubmit: async (): Promise<boolean> => {
       // An SOP assignment is atomic: a Task may be project-only, but it may
       // never be attached to a run without a Stage.
-      if (workflowInstanceId && !workflowStageId) {
+      if (sopEnabled && workflowInstanceId && !workflowStageId) {
         toast.error(t(($) => $.create_task.stage_required));
         return false;
       }
@@ -518,7 +520,7 @@ export function ManualCreatePanel({
         // Stage is only meaningful for a sub-task (relative to its siblings).
         stage: parentTaskId && stage != null ? stage : undefined,
         project_id: projectId,
-        ...(workflowInstanceId && workflowStageId
+        ...(sopEnabled && workflowInstanceId && workflowStageId
           ? {
               workflow_instance_id: workflowInstanceId,
               workflow_stage_id: workflowStageId,
@@ -793,8 +795,8 @@ export function ManualCreatePanel({
     const carry: Record<string, unknown> = {};
     if (parentTaskId) carry.parent_task_id = parentTaskId;
     if (carryParentIdentifier) carry.parent_task_identifier = carryParentIdentifier;
-    if (workflowInstanceId) carry.workflow_instance_id = workflowInstanceId;
-    if (workflowStageId) carry.workflow_stage_id = workflowStageId;
+    if (sopEnabled && workflowInstanceId) carry.workflow_instance_id = workflowInstanceId;
+    if (sopEnabled && workflowStageId) carry.workflow_stage_id = workflowStageId;
     onSwitchMode?.(Object.keys(carry).length > 0 ? carry : null);
   };
 
@@ -1006,7 +1008,7 @@ export function ManualCreatePanel({
                 />
               )}
 
-              <WorkflowAssignmentPicker
+              {sopEnabled && <WorkflowAssignmentPicker
                 projectId={projectId}
                 workflowInstanceId={workflowInstanceId}
                 workflowStageId={workflowStageId}
@@ -1014,7 +1016,7 @@ export function ManualCreatePanel({
                   setWorkflowInstanceId(assignment.workflowInstanceId);
                   setWorkflowStageId(assignment.workflowStageId);
                 }}
-              />
+              />}
 
               {/* Stage — only relevant when creating a sub-task under a parent */}
               {parentTaskId && (

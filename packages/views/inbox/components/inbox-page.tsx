@@ -27,6 +27,7 @@ import {
 import { TaskDetail } from "../../tasks/components";
 import { ErrorBoundary } from "@silieco/ui/components/common/error-boundary";
 import { useNavigation } from "../../navigation";
+import { useAppForeground } from "../../common/use-app-foreground";
 import { toast } from "sonner";
 import {
   MoreHorizontal,
@@ -219,11 +220,12 @@ export function InboxPage() {
   // The mutation flips `read: true` optimistically, so this effect settles
   // in one pass and can't loop. Kept in a `useEffect` rather than inlined
   // in handleSelect so URL-driven selection triggers it too.
+  const appForeground = useAppForeground();
   const markReadMutate = markReadMutation.mutate;
   const selectedId = selected?.id;
   const selectedRead = selected?.read;
   useEffect(() => {
-    if (!selectedId || selectedRead) return;
+    if (!appForeground || !selectedId || selectedRead) return;
     markReadMutate(selectedId, {
       onError: (err) =>
         toast.error(
@@ -232,7 +234,7 @@ export function InboxPage() {
             : t(($) => $.errors.mark_read_failed),
         ),
     });
-  }, [selectedId, selectedRead, markReadMutate, t]);
+  }, [appForeground, selectedId, selectedRead, markReadMutate, t]);
 
   const handleSelect = (item: InboxItem) => {
     setSelectedKey(item.task_id ?? item.id);

@@ -56,10 +56,13 @@ export type WSEventType =
   | "task_reaction:removed"
   | "chat:message"
   | "chat:done"
+  | "chat:notification"
   | "chat:cancel_finalized"
   | "chat:session_read"
   | "chat:session_deleted"
   | "chat:session_updated"
+  | "project:resources_changed"
+  | "project:access_changed"
   | "project:created"
   | "project:updated"
   | "project:deleted"
@@ -366,7 +369,17 @@ export interface ChatMessageEventPayload {
   role: "user" | "assistant";
   content: string;
   run_id?: string;
+  sender_user_id?: string;
   created_at: string;
+}
+
+export interface ChatNotificationPayload {
+  workspace_id: string;
+  chat_session_id: string;
+  message_id: string;
+  recipient_id: string;
+  created_at: string;
+  mentioned: boolean;
 }
 
 export interface ChatDonePayload {
@@ -426,6 +439,8 @@ export interface ChatCancelFinalizedPayload {
 
 export interface ChatSessionReadPayload {
   chat_session_id: string;
+  workspace_id?: string;
+  recipient_id?: string;
 }
 
 export interface ChatSessionDeletedPayload {
@@ -523,6 +538,7 @@ export interface WSEventPayloadMap {
   "activity:created": ActivityCreatedPayload;
   "chat:message": ChatMessageEventPayload;
   "chat:done": ChatDonePayload;
+  "chat:notification": ChatNotificationPayload;
   "chat:cancel_finalized": ChatCancelFinalizedPayload;
   "chat:session_read": ChatSessionReadPayload;
   "chat:session_deleted": ChatSessionDeletedPayload;

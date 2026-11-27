@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/realtime"
 	"github.com/auenger/MEPERECO/core/internal/util"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // scopeAuthQuerier is the narrow subset of db.Queries used by the scope
@@ -69,7 +69,10 @@ func (a *dbScopeAuthorizer) AuthorizeScope(ctx context.Context, userID, workspac
 			if err != nil {
 				return scopeLookupErr(err)
 			}
-			return task.WorkspaceID == wsUUID, nil
+			if task.WorkspaceID != wsUUID {
+				return false, nil
+			}
+			return a.projectAllowed(ctx, wsUUID, userID, task.ProjectID)
 		}
 		// Chat tasks: only the chat session's creator may subscribe, mirroring
 		// the HTTP layer's creator-only access on chat resources.
@@ -109,6 +112,10 @@ func (a *dbScopeAuthorizer) authorizeChatMember(ctx context.Context, session db.
 	if err != nil {
 		return false, nil
 	}
+	allowedProject, err := a.projectAllowed(ctx, session.WorkspaceID, userID, session.ProjectID)
+	if err != nil || !allowedProject {
+		return false, err
+	}
 	if session.Kind != "group" {
 		return session.CreatorID == uidUUID, nil
 	}
@@ -120,4 +127,21 @@ func (a *dbScopeAuthorizer) authorizeChatMember(ctx context.Context, session db.
 		return scopeLookupErr(err)
 	}
 	return allowed, nil
+}
+
+func (a *dbScopeAuthorizer) projectAllowed(ctx context.Context, ws pgtype.UUID, userID string, project pgtype.UUID) (bool, error) {
+	if !project.Valid {
+		return true, nil
+	}
+	uid, err := util.ParseUUID(userID)
+	if err != nil {
+		return false, nil
+	}
+	q, ok := a.q.(interface {
+		CanAccessProject(context.Context, pgtype.UUID, pgtype.UUID, pgtype.UUID) (bool, error)
+	})
+	if !ok {
+		return false, nil
+	}
+	return q.CanAccessProject(ctx, ws, uid, project)
 }

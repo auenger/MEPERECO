@@ -70,7 +70,9 @@ import { useT } from "../../i18n";
 import { useProjectStatusLabels, useProjectPriorityLabels } from "./labels";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 import { ProjectSopDesigner } from "../../workflows/components";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { ProjectTaskSurface } from "./project-task-surface";
+import { ProjectMembersDialog } from "./project-members-dialog";
 import { ProjectWorkResources } from "../../resources";
 
 // ---------------------------------------------------------------------------
@@ -100,6 +102,7 @@ function PropRow({
 
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const { t } = useT("projects");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const statusLabels = useProjectStatusLabels();
   const priorityLabels = useProjectPriorityLabels();
   const wsId = useWorkspaceId();
@@ -143,16 +146,23 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const descEditorRef = useRef<ContentEditorRef>(null);
   const isMobile = useIsMobile();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const [propertiesOpen, setPropertiesOpen] = useState(true);
   const [progressOpen, setProgressOpen] = useState(true);
   const [descriptionOpen, setDescriptionOpen] = useState(true);
   const section = router.searchParams.get("section");
-  const workflowRunId = router.searchParams.get("run") || undefined;
+  const requestedRunId = router.searchParams.get("run") || undefined;
+  const workflowRunId = sopEnabled ? requestedRunId : undefined;
   const activeSection = workflowRunId
     ? "run"
-    : section === "sop" ? "sop"
+    : sopEnabled && section === "sop" ? "sop"
       : section === "resources" || section === "git" || section === "files" ? "resources" : "tasks";
   const resourceTab = section === "git" || section === "files" ? section : parseWorkResourceTab(router.searchParams.get("tab"));
+  useEffect(() => {
+    if (!sopEnabled && !useSopVisibilityStore.getState().enabled && (requestedRunId || section === "sop")) {
+      router.replace(wsPaths.projectDetail(projectId));
+    }
+  }, [sopEnabled, requestedRunId, section, router, wsPaths, projectId]);
 
   // Sidebar panel
   const { defaultLayout, onLayoutChanged } = useDefaultLayout({
@@ -487,7 +497,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                   <FileText className="size-3.5" />
                   {t(($) => $.detail.resource_tab)}
                 </Button>
-                <Button
+                {sopEnabled && <Button
                   variant={activeSection === "sop" ? "secondary" : "ghost"}
                   size="sm"
                   className="h-7 gap-1.5 px-2.5 text-caption"
@@ -497,7 +507,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                 >
                   <GitBranch className="size-3.5" />
                   SOP
-                </Button>
+                </Button>}
               </div>
               <Button
                 variant="ghost"
@@ -534,6 +544,9 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                   {isWorkspaceAdmin && (
                     <>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setMembersDialogOpen(true)}>
+                        {t(($) => $.access.manage)}
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
                         onClick={() => setDeleteDialogOpen(true)}
@@ -605,6 +618,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
       </ResizablePanelGroup>
 
       {/* Delete confirmation */}
+      {isWorkspaceAdmin && <ProjectMembersDialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen} projectId={projectId} members={members} />}
       {isWorkspaceAdmin && (
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>

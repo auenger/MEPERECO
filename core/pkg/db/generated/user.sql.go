@@ -254,6 +254,75 @@ func (q *Queries) PatchUserOnboarding(ctx context.Context, arg PatchUserOnboardi
 	return i, err
 }
 
+const searchWorkspaceInviteCandidates = `-- name: SearchWorkspaceInviteCandidates :many
+SELECT u.id, u.name, u.email, u.avatar_url
+FROM "user" u
+WHERE (
+    CASE WHEN $1::boolean THEN
+        lower(split_part(u.email, '@', 2)) = $2::text
+    ELSE
+        strpos(lower(u.name), $2::text) > 0
+        OR strpos(lower(u.email), $2::text) > 0
+    END
+)
+AND NOT EXISTS (
+    SELECT 1 FROM member m
+    WHERE m.workspace_id = $3 AND m.user_id = u.id
+)
+AND NOT EXISTS (
+    SELECT 1 FROM workspace_invitation wi
+    WHERE wi.workspace_id = $3
+      AND wi.status = 'pending' AND wi.expires_at > now()
+      AND (wi.invitee_user_id = u.id OR lower(wi.invitee_email) = lower(u.email))
+)
+ORDER BY (lower(u.email) = $2::text) DESC, lower(u.name), lower(u.email), u.id
+LIMIT 31 OFFSET $4::integer
+`
+
+type SearchWorkspaceInviteCandidatesParams struct {
+	DomainOnly  bool        `json:"domain_only"`
+	SearchTerm  string      `json:"search_term"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	PageOffset  int32       `json:"page_offset"`
+}
+
+type SearchWorkspaceInviteCandidatesRow struct {
+	ID        pgtype.UUID `json:"id"`
+	Name      string      `json:"name"`
+	Email     string      `json:"email"`
+	AvatarUrl pgtype.Text `json:"avatar_url"`
+}
+
+func (q *Queries) SearchWorkspaceInviteCandidates(ctx context.Context, arg SearchWorkspaceInviteCandidatesParams) ([]SearchWorkspaceInviteCandidatesRow, error) {
+	rows, err := q.db.Query(ctx, searchWorkspaceInviteCandidates,
+		arg.DomainOnly,
+		arg.SearchTerm,
+		arg.WorkspaceID,
+		arg.PageOffset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchWorkspaceInviteCandidatesRow{}
+	for rows.Next() {
+		var i SearchWorkspaceInviteCandidatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.AvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setStarterContentState = `-- name: SetStarterContentState :one
 UPDATE "user" SET
     starter_content_state = $2,

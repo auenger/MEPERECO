@@ -346,8 +346,9 @@ export function ChatPage() {
         contextItems={groupMentionItems}
         projects={c.projects}
         projectId={c.activeProjectId}
+        projectContextLocked={c.isGroupSession && !!c.activeProjectId}
         projectContextUnsupported={c.projectContextUnsupported}
-        onProjectChange={changeProjectContext}
+        onProjectChange={c.isGroupSession && c.activeProjectId ? undefined : changeProjectContext}
         isProjectUpdating={c.isProjectUpdating}
         focusRequest={c.focusInputRequest}
       />
@@ -359,6 +360,7 @@ export function ChatPage() {
       open={creatingGroup}
       onOpenChange={setCreatingGroup}
       members={c.members}
+      projects={c.projects}
       agents={c.availableAgents}
       currentUserId={c.user?.id}
       onCreated={(session) => {
@@ -374,6 +376,7 @@ export function ChatPage() {
       session={c.currentSession}
       onOpenChange={setManagingGroup}
       members={c.members}
+      projects={c.projects}
       agents={c.availableAgents}
       currentUserId={c.user?.id}
       onCreated={(session) => {

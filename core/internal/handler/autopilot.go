@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
 	"github.com/auenger/MEPERECO/core/internal/service"
@@ -20,6 +18,8 @@ import (
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/db/relational"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // computeNextRun delegates to the shared cron helper in the service package.
@@ -420,6 +420,13 @@ func (h *Handler) ListAutopilots(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	visible := autopilots[:0]
+	for _, row := range autopilots {
+		if h.projectAccessible(r, row.Autopilot.WorkspaceID, row.Autopilot.ProjectID) {
+			visible = append(visible, row)
+		}
+	}
+	autopilots = visible
 	resp := make([]AutopilotResponse, len(autopilots))
 	for i, row := range autopilots {
 		// Omit subscribers to avoid an N+1; GET /api/autopilots/{id} is
@@ -1018,6 +1025,9 @@ func (h *Handler) parseAutopilotProjectID(
 		WorkspaceID: workspaceID,
 	}); err != nil {
 		writeError(w, http.StatusBadRequest, "project_id must reference a project in this workspace")
+		return pgtype.UUID{}, false
+	}
+	if !h.requireProjectAccess(w, r, workspaceID, projectID) {
 		return pgtype.UUID{}, false
 	}
 	return projectID, true

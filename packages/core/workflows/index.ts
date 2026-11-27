@@ -30,3 +30,4 @@ export {
 export { parseWorkflowDraft, stripWorkflowDraft, workflowDesignerPrompt, workflowChatDisplayContent, workflowDraftFromPrompt } from "./designer";
 export type { WorkflowTextDraft } from "./designer";
 export * from "./chat-editor-store";
+export { useSopVisibilityStore, isSopRoute } from "./visibility-store";

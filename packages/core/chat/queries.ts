@@ -50,10 +50,10 @@ export function isAgentRunMessageRunId(runId: string | null | undefined): runId 
   return typeof runId === "string" && UUID_PATTERN.test(runId);
 }
 
-export function chatSessionsOptions(wsId: string) {
+export function chatSessionsOptions(wsId: string, workspaceSlug?: string) {
   return queryOptions({
     queryKey: chatKeys.sessions(wsId),
-    queryFn: () => api.listChatSessions({ status: "all" }),
+    queryFn: () => api.listChatSessions({ status: "all", workspaceSlug }),
     staleTime: Infinity,
   });
 }

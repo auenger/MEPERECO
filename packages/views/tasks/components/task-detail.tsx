@@ -62,6 +62,7 @@ import { TaskAgentActivityIndicator } from "./task-agent-activity-indicator";
 import { SubTasksAgentWorkingChip } from "./sub-tasks-agent-working-chip";
 import { ProjectPicker } from "../../projects/components/project-picker";
 import { WorkflowAssignmentPicker } from "../../workflows/components";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { LocalDirectoryHint } from "../../projects/components/local-directory-hint";
 import { CommentCard } from "./comment-card";
 import { CommentInput } from "./comment-input";
@@ -906,6 +907,7 @@ interface TaskDetailProps {
 
 export function TaskDetail({ taskId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "silieco_task_detail_layout", highlightCommentId }: TaskDetailProps) {
   const { t } = useT("tasks");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const timeAgo = useTimeAgo();
   const id = taskId;
   const backOrReplace = useBackOrReplace();
@@ -1794,7 +1796,7 @@ export function TaskDetail({ taskId, onDelete, onDone, defaultSidebarOpen = true
               onUpdate={handleUpdateField}
             />
           </PropRow>
-          {task.project_id && (
+          {sopEnabled && task.project_id && (
             <PropRow label="SOP / Stage">
               <div className="flex min-w-0 flex-wrap gap-1">
                 <WorkflowAssignmentPicker

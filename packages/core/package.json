@@ -22,6 +22,7 @@
     "./api/ws-client": "./api/ws-client.ts",
     "./config": "./config/index.ts",
     "./auth/agent-art": "./auth/agent-art.ts",
+    "./auth/password-policy": "./auth/password-policy.ts",
     "./auth": "./auth/index.ts",
     "./workspace": "./workspace/index.ts",
     "./workspace/queries": "./workspace/queries.ts",

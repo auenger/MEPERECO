@@ -35,6 +35,7 @@ FROM attachment a
 WHERE a.workspace_id = $1
   AND a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,$3::uuid,a.id)
   AND (
       EXISTS (
           SELECT 1 FROM task source_task
@@ -60,12 +61,13 @@ WHERE a.workspace_id = $1
 `
 
 type CountProjectFileResourcesParams struct {
+	ViewerID    pgtype.UUID `json:"viewer_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	ProjectID   pgtype.UUID `json:"project_id"`
 }
 
 func (q *Queries) CountProjectFileResources(ctx context.Context, arg CountProjectFileResourcesParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countProjectFileResources, arg.WorkspaceID, arg.ProjectID)
+	row := q.db.QueryRow(ctx, countProjectFileResources, arg.WorkspaceID, arg.ProjectID, arg.ViewerID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -77,6 +79,7 @@ FROM attachment a
 WHERE a.workspace_id = $1
   AND a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,$2::uuid,a.id)
   AND (
       a.task_id IS NOT NULL
       OR EXISTS (
@@ -86,8 +89,13 @@ WHERE a.workspace_id = $1
   )
 `
 
-func (q *Queries) CountWorkspaceFileResources(ctx context.Context, workspaceID pgtype.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countWorkspaceFileResources, workspaceID)
+type CountWorkspaceFileResourcesParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ViewerID    pgtype.UUID `json:"viewer_id"`
+}
+
+func (q *Queries) CountWorkspaceFileResources(ctx context.Context, arg CountWorkspaceFileResourcesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspaceFileResources, arg.WorkspaceID, arg.ViewerID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -396,11 +404,13 @@ LEFT JOIN task i ON i.id = a.task_id AND i.workspace_id = a.workspace_id
 LEFT JOIN project p ON p.id = i.project_id AND p.workspace_id = a.workspace_id
 WHERE a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,$5::uuid,a.id)
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT $3 OFFSET $2
 `
 
 type ListProjectFileResourcesParams struct {
+	ViewerID    pgtype.UUID `json:"viewer_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	PageOffset  int32       `json:"page_offset"`
 	PageLimit   int32       `json:"page_limit"`
@@ -435,6 +445,7 @@ func (q *Queries) ListProjectFileResources(ctx context.Context, arg ListProjectF
 		arg.PageOffset,
 		arg.PageLimit,
 		arg.ProjectID,
+		arg.ViewerID,
 	)
 	if err != nil {
 		return nil, err
@@ -570,11 +581,13 @@ LEFT JOIN task i ON i.id = a.task_id AND i.workspace_id = a.workspace_id
 LEFT JOIN project p ON p.id = i.project_id AND p.workspace_id = a.workspace_id
 WHERE a.chat_session_id IS NULL
   AND a.chat_message_id IS NULL
+  AND project_attachment_accessible(a.workspace_id,$4::uuid,a.id)
 ORDER BY a.created_at DESC, a.id DESC
 LIMIT $3 OFFSET $2
 `
 
 type ListWorkspaceFileResourcesParams struct {
+	ViewerID    pgtype.UUID `json:"viewer_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	PageOffset  int32       `json:"page_offset"`
 	PageLimit   int32       `json:"page_limit"`
@@ -603,7 +616,7 @@ type ListWorkspaceFileResourcesRow struct {
 }
 
 func (q *Queries) ListWorkspaceFileResources(ctx context.Context, arg ListWorkspaceFileResourcesParams) ([]ListWorkspaceFileResourcesRow, error) {
-	rows, err := q.db.Query(ctx, listWorkspaceFileResources, arg.WorkspaceID, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.Query(ctx, listWorkspaceFileResources, arg.WorkspaceID, arg.PageOffset, arg.PageLimit, arg.ViewerID)
 	if err != nil {
 		return nil, err
 	}

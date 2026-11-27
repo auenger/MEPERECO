@@ -35,6 +35,10 @@ export function useProjectsRealtime() {
         qc.invalidateQueries({ queryKey: projectKeys.list(wsId) });
 
       return [
+        ws.on("project:access_changed", () => {
+          void qc.resetQueries();
+        }),
+        ws.on("project:resources_changed", () => { void qc.invalidateQueries(); }),
         ws.on("project:created", (payload) => {
           upsertIntoProjectsList(qc, wsId, payload.project);
         }),

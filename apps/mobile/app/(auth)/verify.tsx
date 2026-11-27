@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { TextField } from "@/components/ui/text-field";
 import { api } from "@/data/api";
+import { PASSWORD_POLICY, validNewPassword } from "@silieco/core/auth/password-policy";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Text } from "@/components/ui/text";
@@ -82,13 +83,14 @@ export default function Verify() {
 
   const complete = async () => {
     if (submitting) return;
-    if (Array.from(password).length < 12 || password !== confirmPassword) {setError("Use at least 12 characters and matching passwords."); return;}
+    if (!validNewPassword(password)) { setError(`Use at least ${PASSWORD_POLICY.min} characters (up to ${PASSWORD_POLICY.maxBytes} bytes).`); return; }
+    if (password !== confirmPassword) { setError("Passwords do not match."); return; }
     setSubmitting(true);setError(null);
     try { await acceptLogin(await api.completePassword(passwordToken, password)); router.replace("/"); }
     catch (err) { setError(mapAuthError(err, "Couldn't save password.")); }
     finally { setSubmitting(false); }
   };
-  if (passwordToken) return <DutyScreen phase="received" title="Set a password" description="Email verified. Use at least 12 characters (up to 72 bytes).">
+  if (passwordToken) return <DutyScreen phase="received" title="Set a password" description={`Email verified. Use at least ${PASSWORD_POLICY.min} characters (up to ${PASSWORD_POLICY.maxBytes} bytes).`}>
     <View className="gap-2">
       <Text>New password</Text>
       <View className="relative"><TextField accessibilityLabel="New password" secureTextEntry={!showPassword} autoComplete="new-password" autoCapitalize="none" value={password} onChangeText={setPassword} className="pr-12"/><Pressable accessibilityRole="button" accessibilityLabel={showPassword ? "Hide password" : "Show password"} onPress={()=>setShowPassword(!showPassword)} className="absolute right-3 top-0 bottom-0 justify-center"><Ionicons name={showPassword?"eye-off-outline":"eye-outline"} size={20} color="#64748b"/></Pressable></View>

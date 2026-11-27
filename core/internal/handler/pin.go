@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
 )
 
 // PinnedItemResponse carries pin metadata only. Title / status / identifier /
@@ -67,6 +67,12 @@ func (h *Handler) ListPins(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]PinnedItemResponse, 0, len(pins))
 	for _, p := range pins {
+		if p.ItemType == "project" && !h.projectAccessible(r, p.WorkspaceID, p.ItemID) {
+			continue
+		}
+		if p.ItemType == "task" && !h.taskProjectAccessible(r, p.WorkspaceID, p.ItemID) {
+			continue
+		}
 		resp = append(resp, pinnedItemToResponse(p))
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -102,6 +108,10 @@ func (h *Handler) CreatePin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if (req.ItemType == "project" && !h.projectAccessible(r, wsUUID, itemUUID)) || (req.ItemType == "task" && !h.taskProjectAccessible(r, wsUUID, itemUUID)) {
+		writeError(w, http.StatusForbidden, "project access required")
+		return
+	}
 	// Verify the item exists in this workspace
 	switch req.ItemType {
 	case "task":

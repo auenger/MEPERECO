@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/projectgit"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ProjectResourceResponse is the JSON shape returned by the project resource API.
@@ -241,6 +241,9 @@ func (h *Handler) loadProjectForResource(w http.ResponseWriter, r *http.Request,
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "project not found")
+		return db.Project{}, false
+	}
+	if !h.requireProjectAccess(w, r, wsUUID, project.ID) {
 		return db.Project{}, false
 	}
 	return project, true

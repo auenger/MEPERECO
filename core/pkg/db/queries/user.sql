@@ -6,6 +6,30 @@ WHERE id = $1;
 SELECT * FROM "user"
 WHERE email = $1;
 
+-- name: SearchWorkspaceInviteCandidates :many
+SELECT u.id, u.name, u.email, u.avatar_url
+FROM "user" u
+WHERE (
+    CASE WHEN sqlc.arg(domain_only)::boolean THEN
+        lower(split_part(u.email, '@', 2)) = sqlc.arg(search_term)::text
+    ELSE
+        strpos(lower(u.name), sqlc.arg(search_term)::text) > 0
+        OR strpos(lower(u.email), sqlc.arg(search_term)::text) > 0
+    END
+)
+AND NOT EXISTS (
+    SELECT 1 FROM member m
+    WHERE m.workspace_id = sqlc.arg(workspace_id) AND m.user_id = u.id
+)
+AND NOT EXISTS (
+    SELECT 1 FROM workspace_invitation wi
+    WHERE wi.workspace_id = sqlc.arg(workspace_id)
+      AND wi.status = 'pending' AND wi.expires_at > now()
+      AND (wi.invitee_user_id = u.id OR lower(wi.invitee_email) = lower(u.email))
+)
+ORDER BY (lower(u.email) = sqlc.arg(search_term)::text) DESC, lower(u.name), lower(u.email), u.id
+LIMIT 31 OFFSET sqlc.arg(page_offset)::integer;
+
 -- name: GetUsersByIDs :many
 -- Batch lookup from the GLOBAL user table (not gated on membership, so departed
 -- members still render). Used to enrich attribution initiator / originator refs on

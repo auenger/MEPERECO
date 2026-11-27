@@ -8,14 +8,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	"github.com/auenger/MEPERECO/core/internal/logger"
 	obsmetrics "github.com/auenger/MEPERECO/core/internal/metrics"
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/db/relational"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var nonAlpha = regexp.MustCompile(`[^a-zA-Z]`)
@@ -624,6 +624,7 @@ func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		"member": h.memberWithUserResponse(updatedMember, user),
 	})
 
+	h.publish(protocol.EventProjectAccessChanged, workspaceID, "member", userID, map[string]any{"recipient_id": uuidToString(updatedMember.UserID), "workspace_id": workspaceID})
 	writeJSON(w, http.StatusOK, h.memberWithUserResponse(updatedMember, user))
 }
 

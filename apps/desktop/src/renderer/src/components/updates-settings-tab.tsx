@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, ArrowDownToLine, Check, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowDownToLine, Check, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@silieco/ui/components/ui/button";
 import { Switch } from "@silieco/ui/components/ui/switch";
 import { useT } from "@silieco/views/i18n";
 import { SettingsCard, SettingsRow, SettingsTab } from "@silieco/views/settings";
 import { toast } from "sonner";
+import { openUpdateDownload, requestUpdateInstall, useDesktopUpdateState } from "./use-desktop-update";
 
 type CheckState =
   | { status: "idle" }
@@ -15,6 +16,7 @@ type CheckState =
 
 export function UpdatesSettingsTab() {
   const { t } = useT("settings");
+  const update = useDesktopUpdateState();
   const [state, setState] = useState<CheckState>({ status: "idle" });
   const [automaticUpdates, setAutomaticUpdates] = useState(true);
   const [preferencesReady, setPreferencesReady] = useState(false);
@@ -61,16 +63,16 @@ export function UpdatesSettingsTab() {
 
   const handleCheck = useCallback(async () => {
     setState({ status: "checking" });
-    const result = await window.updater.checkForUpdates();
-    if (!result.ok) {
-      setState({ status: "error", message: result.error });
-      return;
+    try {
+      const result = await window.updater.checkForUpdates();
+      if (!result.ok) {
+        setState({ status: "error", message: result.error });
+        return;
+      }
+      setState(result.available ? { status: "available", latestVersion: result.latestVersion } : { status: "up-to-date" });
+    } catch (error) {
+      setState({ status: "error", message: String(error) });
     }
-    setState(
-      result.available
-        ? { status: "available", latestVersion: result.latestVersion }
-        : { status: "up-to-date" },
-    );
   }, []);
 
   return (
@@ -103,13 +105,13 @@ export function UpdatesSettingsTab() {
           description={
             <>
               <p>{t(($) => $.desktop.updates.check_section_description)}</p>
-              {state.status === "up-to-date" && (
+              {state.status === "up-to-date" && update.status === "idle" && (
                 <p className="mt-2 inline-flex items-center gap-1.5">
                   <Check className="size-3.5 text-success" />
                   {t(($) => $.desktop.updates.up_to_date)}
                 </p>
               )}
-              {state.status === "available" && (
+              {state.status === "available" && update.status === "idle" && (
                 <p className="mt-2 inline-flex items-center gap-1.5">
                   <ArrowDownToLine className="size-3.5 text-primary" />
                   {t(($) => $.desktop.updates.downloading, {
@@ -130,7 +132,7 @@ export function UpdatesSettingsTab() {
             variant="outline"
             size="sm"
             onClick={handleCheck}
-            disabled={state.status === "checking"}
+            disabled={state.status === "checking" || ["downloading", "preparing", "installing"].includes(update.status)}
           >
             {state.status === "checking" ? (
               <>
@@ -140,6 +142,32 @@ export function UpdatesSettingsTab() {
             ) : (
               t(($) => $.desktop.updates.check_now)
             )}
+          </Button>
+        </SettingsRow>
+        {update.status !== "idle" && (
+          <SettingsRow label={t(($) => $.desktop.updates.status_title)} align="start" description={
+            <div className="space-y-1.5">
+              <p>{update.status === "downloading" ? t(($) => $.desktop.updates.download_progress, { version: update.version, percent: Math.round(update.percent) })
+                : update.status === "preparing" ? t(($) => $.desktop.updates.preparing, { version: update.version })
+                : update.status === "ready" ? t(($) => $.desktop.updates.ready, { version: update.version })
+                : update.status === "installing" ? t(($) => $.desktop.updates.installing, { version: update.version })
+                : update.status === "manual" ? t(($) => $.desktop.updates.manual, { version: update.version })
+                : t(($) => $.desktop.updates.failed, { version: update.version })}</p>
+              {update.status === "downloading" && <progress className="w-full h-1.5 accent-primary" value={update.percent} max={100} />}
+              {update.status === "error" && <p className="break-all text-destructive">{update.message}</p>}
+            </div>
+          }>
+            {update.status === "ready" && <Button size="sm" onClick={() => void requestUpdateInstall(t(($) => $.desktop.updates.failed_title))}>{t(($) => $.desktop.updates.restart_now)}</Button>}
+            {update.status === "installing" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+          </SettingsRow>
+        )}
+        <SettingsRow
+          label={t(($) => $.desktop.updates.manual_download_title)}
+          description={t(($) => $.desktop.updates.manual_download_description)}
+        >
+          <Button size="sm" variant="outline" onClick={() => void openUpdateDownload(t(($) => $.desktop.updates.download_open_failed))}>
+            <ExternalLink className="size-3.5" />
+            {t(($) => $.desktop.updates.manual_download)}
           </Button>
         </SettingsRow>
       </SettingsCard>

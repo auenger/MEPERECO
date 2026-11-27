@@ -3,6 +3,7 @@
 import { agentRunsKeys } from "../agent-runs/queries";
 import { useEffect, useRef } from "react";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import type { WSClient } from "../api/ws-client";
 import type { StoreApi, UseBoundStore } from "zustand";
 import type { AuthState } from "../auth/store";
@@ -41,10 +42,14 @@ import { workspaceKeys, workspaceListOptions } from "../workspace/queries";
 import { isWorkspaceDeletePending } from "../workspace/pending-delete";
 import {
   showWebNotification,
+  reconcileWebNotifications,
   type SystemNotificationPayload,
 } from "../platform/system-notification";
 import type { Workspace } from "../types/workspace";
-import { chatKeys, sortChatSessions, syncLatestChatMessageQueries } from "../chat/queries";
+import { chatKeys, chatSessionsOptions, sortChatSessions, syncLatestChatMessageQueries } from "../chat/queries";
+import type { ChatMessageEventPayload, ChatNotificationPayload, ChatSessionReadPayload } from "../types/events";
+import { authorizedNoticeContent, authorizedUnreadNoticeSession, chatContentMentionsUser, createChatNoticeDedupe, legacyChatDoneHint, legacyChatMessageHint, type ChatNoticeHint } from "../chat/notification-hints";
+import { stripMentionMarkdown } from "../markdown/strip-mention-markdown";
 import { useChatStore } from "../chat";
 import { applyObservedRunMessageBatch } from "../chat/run-cache";
 import { resolvePostAuthDestination, useHasOnboarded } from "../paths";
@@ -232,7 +237,7 @@ export function applyChatSessionUpdatedToCache(
             status: payload.status ?? s.status,
             updated_at: payload.updated_at ?? s.updated_at,
             ...(payload.status === "archived"
-              ? { unread_count: 0, has_unread: false }
+              ? { unread_count: 0, has_unread: false, has_unread_mention: false }
               : {}),
           }
         : s,
@@ -578,6 +583,9 @@ export function useRealtimeSync(
 ) {
   const { authStore } = stores;
   const qc = useQueryClient();
+  const { i18n } = useTranslation("chat");
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
 
   // Captured via ref so the (rare) hasOnboarded change doesn't re-subscribe
   // every WS handler in this effect. The resolver reads `.current` at the
@@ -809,7 +817,7 @@ export function useRealtimeSync(
       "subscriber:added", "subscriber:removed",
       "daemon:heartbeat",
       // Chat events are handled explicitly below; do not double-invalidate.
-      "chat:message", "chat:done", "chat:cancel_finalized", "chat:session_read",
+      "chat:message", "chat:done", "chat:notification", "chat:cancel_finalized", "chat:session_read",
       "chat:session_deleted", "chat:session_updated",
       // run:message stays out of the prefix path because it fires per
       // streamed message during a long run — invalidating the snapshot on
@@ -824,6 +832,32 @@ export function useRealtimeSync(
     ]);
 
     const unsubAny = ws.onAny((msg) => {
+      if (msg.type === "project:resources_changed") {
+        debouncedRefresh("project-resources", () => {
+          const wsId = getCurrentWsId();
+          if (wsId) for (const key of [projectKeys.all(wsId), taskKeys.all(wsId), workflowKeys.all(wsId), chatKeys.sessions(wsId)]) {
+            void qc.invalidateQueries({ queryKey: key });
+          }
+        });
+        return;
+      }
+      if (msg.type === "project:access_changed") {
+        const wsId = getCurrentWsId();
+        if (wsId) {
+          const payload = msg.payload as { project_id?: string; granted?: boolean };
+          const chatState = useChatStore.getState?.();
+          const sessions = qc.getQueryData<import("../types/chat").ChatSession[]>(chatKeys.sessions(wsId));
+          const active = sessions?.find(session => session.id === chatState?.activeSessionId);
+          if (active && payload.granted !== true && (!payload.project_id || active.project_id === payload.project_id)) {
+            chatState?.setActiveSession(null);
+          }
+          // A permission change is rare. Reset all query data (including
+          // task timelines and chat transcripts whose keys omit workspace ID)
+          // so stale confidential rows are not retained during a refetch.
+          void qc.resetQueries();
+        }
+        return;
+      }
       if (specificEvents.has(msg.type)) return;
       const prefix = msg.type.split(":")[0] ?? "";
       const refresh = refreshMap[prefix];
@@ -1202,8 +1236,61 @@ export function useRealtimeSync(
       if (id) qc.invalidateQueries({ queryKey: chatKeys.sessions(id) });
     };
 
-    const unsubChatMessage = ws.on("chat:message", (p) => {
-      const payload = p as { chat_session_id: string };
+    // Both the existing workspace events and the newer personal event can
+    // trigger native notifications. In either case the permission-filtered
+    // session list is the authority for access and unread state.
+    const claimChatNotice = createChatNoticeDedupe();
+    let chatNoticeActive = true;
+    const notifyChat = async (event: ChatNoticeHint) => {
+      const userId = authStore.getState().user?.id;
+      if (!chatNoticeActive || !userId || event.recipient_id !== userId || !event.workspace_id || !event.message_id || !event.chat_session_id) return;
+      const key = chatKeys.sessions(event.workspace_id);
+      if (event.workspace_id !== getCurrentWsId()) {
+        void qc.invalidateQueries({ queryKey: key, refetchType: "none" });
+      }
+      if (typeof document !== "undefined" && document.hasFocus()) return;
+      if (!claimChatNotice(event)) return;
+      const slug = await resolveInboxSourceSlug(qc, event.workspace_id);
+      if (!chatNoticeActive || !slug || authStore.getState().user?.id !== userId) return;
+      try {
+        const preference = await qc.ensureQueryData(notificationPreferenceOptions(event.workspace_id, slug));
+        if (preference?.preferences?.system_notifications === "muted") return;
+      } catch { /* default to enabled */ }
+      try {
+        const sessions = await qc.fetchQuery({ ...chatSessionsOptions(event.workspace_id, slug), staleTime: 0 });
+        const session = authorizedUnreadNoticeSession(sessions, event);
+        if (!chatNoticeActive || !session || authStore.getState().user?.id !== userId) return;
+        if (typeof document !== "undefined" && document.hasFocus()) return;
+        // Core cannot depend on the views package's selector type augmentation.
+        // Resolve the localized template directly from the shared chat bundle.
+        const i18n = i18nRef.current;
+        const localized = (key: string, fallback: string) => {
+          const value = i18n.getResource(i18n.resolvedLanguage ?? i18n.language, "chat", key);
+          return typeof value === "string" ? value : fallback;
+        };
+        const content = authorizedNoticeContent(session, event);
+        const preview = stripMentionMarkdown(content.replace(/```[\s\S]*?```/g, " ")).replace(/\s+/g, " ").trim().slice(0, 240);
+        const mentioned = event.mentioned ?? (session.kind === "group" && chatContentMentionsUser(content, userId));
+        const title = (mentioned
+          ? localized("list.mention_notification", "Someone mentioned you in {{title}}")
+          : localized("list.new_message_notification", "{{title}} · New message"))
+          .replace("{{title}}", () => session.title);
+        const payload: SystemNotificationPayload = {
+          kind: "chat", slug, itemId: event.message_id, taskKey: session.id,
+          title: title.slice(0, 512), body: preview || localized("list.new_message", "You have a new chat message"),
+        };
+        const desktopAPI = (globalThis as unknown as { desktopAPI?: { showNotification?: (payload: SystemNotificationPayload) => void } }).desktopAPI;
+        chatWsLogger.info("chat notification requested", { sessionId: session.id, messageId: event.message_id, mentioned, source: event.legacyRole ? "workspace" : "personal" });
+        if (desktopAPI?.showNotification) desktopAPI.showNotification(payload);
+        else showWebNotification(payload);
+      } catch { /* session not accessible / fetch failed: no banner */ }
+    };
+    const unsubChatNotification = ws.on("chat:notification", (p) => {
+      void notifyChat(p as ChatNotificationPayload);
+    });
+
+    const unsubChatMessage = ws.on("chat:message", (p, actorId, actorType) => {
+      const payload = p as ChatMessageEventPayload;
       chatWsLogger.info("chat:message (global)", { chat_session_id: payload.chat_session_id });
       syncLatestChatMessageQueries(qc, payload.chat_session_id);
       qc.invalidateQueries({ queryKey: chatKeys.pendingRun(payload.chat_session_id) });
@@ -1211,6 +1298,8 @@ export function useRealtimeSync(
       // lifecycle event. Refresh list order, preview and each participant's
       // unread count directly from the server-owned read cursor.
       invalidateSessionLists();
+      const notice = legacyChatMessageHint(getCurrentWsId(), authStore.getState().user?.id, payload, actorId, actorType);
+      if (notice) void notifyChat(notice);
       // NOTE: intentionally does NOT touch the pending aggregate. chat:message
       // fires per streamed message with no status; the aggregate is maintained
       // by the task lifecycle handlers below (SILI-4159).
@@ -1243,6 +1332,8 @@ export function useRealtimeSync(
       // the aggregate on every turn (SILI-4159).
       // Assistant message just landed → has_unread may have flipped to true.
       invalidateSessionLists();
+      const notice = legacyChatDoneHint(getCurrentWsId(), authStore.getState().user?.id, payload);
+      if (notice) void notifyChat(notice);
     });
 
     // Deferred cancellation outcome (#5219): the server settles the
@@ -1409,10 +1500,27 @@ export function useRealtimeSync(
       invalidateSessionLists();
     });
 
-    const unsubChatSessionRead = ws.on("chat:session_read", (p) => {
-      const payload = p as { chat_session_id: string };
+    const unsubChatSessionRead = ws.on("chat:session_read", async (p) => {
+      const payload = p as ChatSessionReadPayload;
       chatWsLogger.info("chat:session_read (global)", payload);
-      invalidateSessionLists();
+      const userId = authStore.getState().user?.id;
+      if (payload.recipient_id && payload.recipient_id !== userId) return;
+      if (!payload.workspace_id || payload.workspace_id === getCurrentWsId()) {
+        invalidateSessionLists();
+        return;
+      }
+      // Personal read cursor updates also reach devices viewing other spaces.
+      // Refresh the correct cache and close its already-shown notifications.
+      const slug = await resolveInboxSourceSlug(qc, payload.workspace_id);
+      if (!slug || authStore.getState().user?.id !== userId) return;
+      try {
+        const sessions = await qc.fetchQuery({ ...chatSessionsOptions(payload.workspace_id, slug), staleTime: 0 });
+        if (authStore.getState().user?.id !== userId) return;
+        const desktopAPI = (globalThis as unknown as { desktopAPI?: { reconcileNotifications?: (payload: { slug: string; unreadChatIds: string[] }) => void } }).desktopAPI;
+        const readState = { slug, unreadChatIds: sessions.filter((s) => s.status !== "archived" && (s.unread_count ?? 0) > 0).map((s) => s.id) };
+        desktopAPI?.reconcileNotifications?.(readState);
+        reconcileWebNotifications(readState);
+      } catch { void qc.invalidateQueries({ queryKey: chatKeys.sessions(payload.workspace_id), refetchType: "none" }); }
     });
 
     // chat:session_updated fires after the creator renames, pins, or archives
@@ -1490,6 +1598,8 @@ export function useRealtimeSync(
       if (runMessageTimer) clearTimeout(runMessageTimer);
       unsubChatMessage();
       unsubChatDone();
+      chatNoticeActive = false;
+      unsubChatNotification();
       unsubChatCancelFinalized();
       unsubRunQueued();
       unsubRunDispatch();

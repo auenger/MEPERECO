@@ -4,6 +4,7 @@ import { FileText, FolderKanban, GitBranch, Plus, Route, SquarePen } from "lucid
 import type { Project, WorkflowInstance } from "@silieco/core/types";
 import { useWorkspacePaths } from "@silieco/core/paths";
 import { useModalStore } from "@silieco/core/modals";
+import { useSopVisibilityStore } from "@silieco/core/workflows";
 import { cn } from "@silieco/ui/lib/utils";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@silieco/ui/components/ui/sidebar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@silieco/ui/components/ui/dropdown-menu";
@@ -30,6 +31,7 @@ function ProjectMark({ project }: { project: Project }) {
 
 function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstance[] }) {
   const { t } = useT("layout");
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const p = useWorkspacePaths();
   const { pathname, searchParams } = useNavigation();
   const href = p.projectDetail(project.id);
@@ -41,7 +43,7 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
   const links = [
     { label: t(($) => $.tab.task), href, icon: SquarePen, active: active && !resourceActive && !runId && section !== "sop" },
     { label: t(($) => $.nav.resources), href: p.projectResources(project.id), icon: FileText, active: active && !runId && resourceActive },
-    { label: "SOP", href: p.projectSop(project.id), icon: GitBranch, active: active && !filesActive && !runId && section === "sop" },
+    ...(sopEnabled ? [{ label: "SOP", href: p.projectSop(project.id), icon: GitBranch, active: active && !filesActive && !runId && section === "sop" }] : []),
   ];
 
   return (
@@ -61,7 +63,7 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
               <item.icon className="size-4" />{item.label}
             </DropdownMenuItem>
           ))}
-          <DropdownMenuSeparator />
+          {sopEnabled && <><DropdownMenuSeparator />
           <div className="flex items-center justify-between px-2 py-1.5 text-caption text-muted-foreground">
             <span>{t(($) => $.sidebar.project_runs)}</span><span>{runs.length}</span>
           </div>
@@ -73,7 +75,7 @@ function ProjectMenu({ project, runs }: { project: Project; runs: WorkflowInstan
                 </DropdownMenuItem>
               ))}
             </div>
-          ) : <p className="px-2 pb-2 text-caption text-muted-foreground">{t(($) => $.sidebar.no_project_runs)}</p>}
+          ) : <p className="px-2 pb-2 text-caption text-muted-foreground">{t(($) => $.sidebar.no_project_runs)}</p>}</>}
         </DropdownMenuContent>
       </DropdownMenu>
     </SidebarMenuItem>

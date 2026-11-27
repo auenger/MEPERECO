@@ -1,62 +1,61 @@
-import { useEffect, useState } from "react";
-import { RefreshCw, X } from "lucide-react";
-
-// Downloads run silently in the background (main process has
-// autoDownload=true). The renderer only renders UI once the package is fully
-// downloaded and waiting for a restart.
-type UpdateState =
-  | { status: "idle" }
-  | { status: "ready"; version: string };
+import { useState } from "react";
+import { AlertCircle, ArrowDownToLine, Loader2, RefreshCw, X } from "lucide-react";
+import { useT } from "@silieco/views/i18n";
+import { Button } from "@silieco/ui/components/ui/button";
+import { openUpdateDownload, requestUpdateInstall, useDesktopUpdateState } from "./use-desktop-update";
 
 export function UpdateNotification() {
-  const [state, setState] = useState<UpdateState>({ status: "idle" });
-  const [dismissed, setDismissed] = useState(false);
+  const { t } = useT("settings");
+  const state = useDesktopUpdateState();
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    const cleanup = window.updater.onUpdateDownloaded((info) => {
-      setState({ status: "ready", version: info.version });
-      setDismissed(false);
-    });
-    return cleanup;
-  }, []);
-
-  if (state.status === "idle") return null;
-  if (dismissed) return null;
+  if (state.status === "idle" || state.status === "downloading" || state.status === "preparing") return null;
+  const key = `${state.version}:${state.status}`;
+  if (dismissedKey === key) return null;
+  const installing = state.status === "installing";
+  const ready = state.status === "ready";
+  const failed = state.status === "error";
+  const Icon = installing ? Loader2 : failed ? AlertCircle : ready ? RefreshCw : ArrowDownToLine;
+  const title = installing ? t(($) => $.desktop.updates.installing_title)
+    : failed ? t(($) => $.desktop.updates.failed_title)
+    : ready ? t(($) => $.desktop.updates.ready_title)
+    : t(($) => $.desktop.updates.manual_title);
+  const description = installing ? t(($) => $.desktop.updates.installing, { version: state.version })
+    : failed ? t(($) => $.desktop.updates.failed, { version: state.version })
+    : ready ? t(($) => $.desktop.updates.ready, { version: state.version })
+    : t(($) => $.desktop.updates.manual, { version: state.version });
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 rounded-lg border border-border bg-background p-4 shadow-lg animate-in slide-in-from-bottom-2 fade-in duration-300">
-      <button
-        type="button"
-        onClick={() => setDismissed(true)}
-        className="absolute top-2 right-2 rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <X className="size-3.5" />
-      </button>
-
+    <div role="status" className="fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-background p-4 shadow-lg animate-in slide-in-from-bottom-2 fade-in duration-300">
+      {!installing && (
+        <button type="button" aria-label={t(($) => $.desktop.updates.later)} onClick={() => setDismissedKey(key)}
+          className="absolute top-2 right-2 rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors">
+          <X className="size-3.5" />
+        </button>
+      )}
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-md bg-success/10 p-1.5">
-          <RefreshCw className="size-4 text-success" />
+        <div className={failed ? "mt-0.5 rounded-md bg-destructive/10 p-1.5" : "mt-0.5 rounded-md bg-success/10 p-1.5"}>
+          <Icon className={`size-4 ${failed ? "text-destructive" : "text-success"} ${installing ? "animate-spin" : ""}`} />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-body font-medium">Update ready</p>
-          <p className="text-caption text-muted-foreground mt-0.5">
-            v{state.version} will be applied on next launch.
-          </p>
-          <div className="mt-2 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1.5 text-caption font-medium text-foreground hover:bg-accent transition-colors"
-            >
-              Later
-            </button>
-            <button
-              type="button"
-              onClick={() => window.updater.installUpdate()}
-              className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-caption font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
-              Restart now
-            </button>
+        <div className="flex-1 min-w-0 pr-2">
+          <p className="text-body font-medium">{title}</p>
+          <p className="text-caption text-muted-foreground mt-0.5">{description}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {ready && (
+              <Button size="sm" onClick={() => void requestUpdateInstall(t(($) => $.desktop.updates.failed_title))}>
+                {t(($) => $.desktop.updates.restart_now)}
+              </Button>
+            )}
+            {!installing && (
+              <>
+                <Button size="sm" variant={ready ? "outline" : "default"} onClick={() => void openUpdateDownload(t(($) => $.desktop.updates.download_open_failed))}>
+                  {t(($) => $.desktop.updates.manual_download)}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setDismissedKey(key)}>
+                  {t(($) => $.desktop.updates.later)}
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

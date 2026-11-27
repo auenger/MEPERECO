@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { TriangleAlert } from "lucide-react";
+import { LockKeyhole, TriangleAlert } from "lucide-react";
 import { cn } from "@silieco/ui/lib/utils";
 import {
   ContentEditor,
@@ -109,6 +109,7 @@ interface ChatInputProps {
   /** Optional project context for the draft or current chat session. */
   projects?: Project[];
   projectId?: string | null;
+  projectContextLocked?: boolean;
   onProjectChange?: (projectId: string | null) => void;
   isProjectUpdating?: boolean;
   /** True when the active agent's daemon is too old to inject the project
@@ -149,6 +150,7 @@ export function ChatInput({
   contextItems,
   projects = [],
   projectId,
+  projectContextLocked,
   onProjectChange,
   isProjectUpdating,
   projectContextUnsupported,
@@ -611,7 +613,13 @@ export function ChatInput({
       >
         {selectedProject && (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pt-2">
-            <div
+            {projectContextLocked ? (
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-surface-border bg-surface-raised px-2 py-1 text-caption" title={t(($) => $.group.project_hint)}>
+                <LockKeyhole className="size-3 shrink-0" />
+                <span className="truncate">{selectedProject.title}</span>
+                <span className="text-muted-foreground">{t(($) => $.group.project_locked)}</span>
+              </span>
+            ) : <div
               className={cn(
                 "inline-flex max-w-full",
                 !projectSelectionEnabled && "pointer-events-none opacity-60",
@@ -631,7 +639,7 @@ export function ChatInput({
                   />
                 }
               />
-            </div>
+            </div>}
             {projectContextUnsupported && (
               <span className="inline-flex min-w-0 items-center gap-1 text-caption text-warning">
                 <TriangleAlert className="size-3 shrink-0" />

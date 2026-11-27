@@ -12,10 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/auenger/MEPERECO/core/internal/analytics"
 	"github.com/auenger/MEPERECO/core/internal/auth"
 	"github.com/auenger/MEPERECO/core/internal/cloudruntime"
@@ -36,6 +32,10 @@ import (
 	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"github.com/auenger/MEPERECO/core/pkg/featureflag"
 	"github.com/auenger/MEPERECO/core/pkg/llm"
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // randomID returns a random 16-byte hex string used as a request ID for
@@ -789,6 +789,9 @@ func (h *Handler) loadTaskForUser(w http.ResponseWriter, r *http.Request, taskID
 	// silently returns false for non-identifier strings, falling through to
 	// the UUID path below.
 	if task, ok := h.resolveTaskByIdentifier(r.Context(), taskID, workspaceID); ok {
+		if !h.requireProjectAccess(w, r, task.WorkspaceID, task.ProjectID) {
+			return db.Task{}, false
+		}
 		return task, true
 	}
 
@@ -810,6 +813,9 @@ func (h *Handler) loadTaskForUser(w http.ResponseWriter, r *http.Request, taskID
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "task not found")
+		return db.Task{}, false
+	}
+	if !h.requireProjectAccess(w, r, task.WorkspaceID, task.ProjectID) {
 		return db.Task{}, false
 	}
 	return task, true
@@ -948,6 +954,10 @@ func (h *Handler) loadInboxItemForUser(w http.ResponseWriter, r *http.Request, i
 	}
 
 	if item.RecipientType != "member" || uuidToString(item.RecipientID) != userID {
+		writeError(w, http.StatusNotFound, "inbox item not found")
+		return db.InboxItem{}, false
+	}
+	if !h.taskProjectAccessible(r, wsUUID, item.TaskID) {
 		writeError(w, http.StatusNotFound, "inbox item not found")
 		return db.InboxItem{}, false
 	}

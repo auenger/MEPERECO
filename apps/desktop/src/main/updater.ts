@@ -1,5 +1,7 @@
 import { autoUpdater, type UpdateDownloadedEvent } from "electron-updater";
-import { app, type BrowserWindow, ipcMain } from "electron";
+import { app, autoUpdater as nativeAutoUpdater, type BrowserWindow, ipcMain } from "electron";
+import { spawnSync } from "node:child_process";
+import { createUpdateLifecycle, isAdHocMacSignature } from "./update-lifecycle";
 import type {
   ManualUpdateCheckResult,
   UpdaterPreferences,
@@ -58,7 +60,8 @@ const PERIODIC_CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 type RendererChannel =
   | "updater:update-available"
   | "updater:download-progress"
-  | "updater:update-downloaded";
+  | "updater:update-downloaded"
+  | "updater:state";
 
 function isDestroyedObjectError(err: unknown): boolean {
   return err instanceof Error && err.message.includes("Object has been destroyed");
@@ -81,35 +84,6 @@ function sendToLiveRenderer(
   }
 }
 
-// Single-flight guard around checkForUpdates(). With autoDownload=true the
-// startup, periodic, and manual triggers can all kick off downloads, and
-// overlapping calls have caused duplicate download warnings in the past
-// (see electronjs.org/docs/latest/api/auto-updater). Coalesce concurrent
-// callers onto the same in-flight promise.
-let inFlightCheck: Promise<unknown> | null = null;
-function checkForUpdatesOnce(): Promise<unknown> {
-  if (inFlightCheck) return inFlightCheck;
-  const p = autoUpdater
-    .checkForUpdates()
-    .then((result) => {
-      // checkForUpdates resolves as soon as metadata is fetched; the actual
-      // download (when autoDownload=true) is exposed on result.downloadPromise.
-      // Without a handler a download failure becomes an unhandled rejection
-      // in the main process — Node may terminate it on future versions.
-      void (result as { downloadPromise?: Promise<unknown> } | null)?.downloadPromise?.catch(
-        (err) => {
-          console.error("Failed to download update:", err);
-        },
-      );
-      return result;
-    })
-    .finally(() => {
-      if (inFlightCheck === p) inFlightCheck = null;
-    });
-  inFlightCheck = p;
-  return p;
-}
-
 export function setupAutoUpdater(
   getMainWindow: () => BrowserWindow | null,
   updateFeedUrl?: string,
@@ -122,6 +96,57 @@ export function setupAutoUpdater(
   if (updateFeedUrl) {
     autoUpdater.setFeedURL({ provider: "generic", url: updateFeedUrl });
   }
+  // A macOS ad-hoc signature has a designated requirement tied to the
+  // executable's hash. A different version cannot satisfy it; let the OS
+  // enforce signatures and offer a manual installer instead of a false restart.
+  const isMac = process.platform === "darwin";
+  const signature = isMac && app.isPackaged
+    ? spawnSync("/usr/bin/codesign", ["-d", "--verbose=2", app.getPath("exe")], {
+        encoding: "utf8", timeout: 3000,
+      }) : null;
+  const manualOnly = signature !== null && (
+    signature.status === 0 && isAdHocMacSignature(signature.stderr ?? "")
+  );
+  autoUpdater.autoDownload = !manualOnly;
+  autoUpdater.autoInstallOnAppQuit = !manualOnly;
+  const lifecycle = createUpdateLifecycle({
+    requiresNativePreparation: isMac,
+    manualOnly,
+    publish(state) {
+      sendToLiveRenderer(getMainWindow(), "updater:state", state);
+      if (state.status === "ready") {
+        sendToLiveRenderer(getMainWindow(), "updater:update-downloaded", { version: state.version });
+      }
+    },
+    install: () => autoUpdater.quitAndInstall(false, true),
+  });
+  if (isMac) nativeAutoUpdater.on("update-downloaded", () => lifecycle.nativeReady());
+  // Metadata resolution alone does not mean downloading/native preparation
+  // has finished. Reuse the result while an update is active, rather than
+  // stacking Squirrel requests or replacing an installer about to restart.
+  type CheckResult = Awaited<ReturnType<typeof autoUpdater.checkForUpdates>>;
+  let inFlightCheck: Promise<CheckResult> | null = null;
+  let latestResult: CheckResult = null;
+  function checkForUpdatesOnce(): Promise<CheckResult> {
+    if (inFlightCheck) return inFlightCheck;
+    const state = lifecycle.getState();
+    if (latestResult?.isUpdateAvailable && ["downloading", "preparing", "ready", "installing"].includes(state.status)) {
+      return Promise.resolve(latestResult);
+    }
+    const p = autoUpdater.checkForUpdates().then((result) => {
+      latestResult = result;
+      void result?.downloadPromise?.catch((err) => {
+        console.error("Failed to download update:", err);
+        lifecycle.error(err);
+      });
+      return result;
+    }).finally(() => {
+      if (inFlightCheck === p) inFlightCheck = null;
+    });
+    inFlightCheck = p;
+    return p;
+  }
+
   const preferencesFilePath = updaterPreferencesPath(app.getPath("userData"));
   let automaticUpdatesEnabled =
     DEFAULT_UPDATER_PREFERENCES.automaticUpdates;
@@ -182,6 +207,7 @@ export function setupAutoUpdater(
   };
 
   autoUpdater.on("update-available", (info) => {
+    lifecycle.available(info.version);
     // Forwarded for renderer-side state tracking only; the notification UI
     // does not render an "available" affordance with autoDownload=true.
     sendToLiveRenderer(getMainWindow(), "updater:update-available", {
@@ -190,32 +216,31 @@ export function setupAutoUpdater(
     });
   });
 
+  autoUpdater.on("update-not-available", () => lifecycle.notAvailable());
+  autoUpdater.on("update-cancelled", () => lifecycle.error(new Error("Update download cancelled.")));
+
   autoUpdater.on("download-progress", (progress) => {
+    lifecycle.progress(progress.percent);
     sendToLiveRenderer(getMainWindow(), "updater:download-progress", {
       percent: progress.percent,
     });
   });
 
   autoUpdater.on("update-downloaded", (info: UpdateDownloadedEvent) => {
-    sendToLiveRenderer(getMainWindow(), "updater:update-downloaded", {
-      version: info.version,
-      releaseNotes: info.releaseNotes,
-    });
+    lifecycle.downloaded(info.version);
   });
 
   autoUpdater.on("error", (err) => {
     console.error("Auto-updater error:", err);
+    lifecycle.error(err);
   });
 
-  // Retained for IPC back-compat with older renderer bundles. With
-  // autoDownload=true the renderer no longer triggers this path.
+  ipcMain.handle("updater:get-state", () => lifecycle.getState());
   ipcMain.handle("updater:download", () => {
+    if (manualOnly) throw new Error("This installation requires a manual update.");
     return autoUpdater.downloadUpdate();
   });
-
-  ipcMain.handle("updater:install", () => {
-    autoUpdater.quitAndInstall(false, true);
-  });
+  ipcMain.handle("updater:install", () => lifecycle.requestInstall());
 
   ipcMain.handle(
     "updater:get-preferences",
@@ -255,9 +280,7 @@ export function setupAutoUpdater(
 
   ipcMain.handle("updater:check", async (): Promise<ManualUpdateCheckResult> => {
     try {
-      const result = (await checkForUpdatesOnce()) as
-        | { updateInfo: { version: string }; isUpdateAvailable?: boolean }
-        | null;
+      const result = await checkForUpdatesOnce();
       const currentVersion = app.getVersion();
       // Trust electron-updater's own decision rather than re-deriving it from
       // a version-string compare. The two diverge for pre-release channels,

@@ -1,8 +1,12 @@
 "use client";
 
-import { ChevronRight, UserRound } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, UserRound, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { MemberRole } from "@silieco/core/types";
+import { useAuthStore } from "@silieco/core/auth";
+import { Button } from "@silieco/ui/components/ui/button";
+import { MemberProjectAccessDialog } from "./member-project-access-dialog";
 import { useWorkspaceId } from "@silieco/core/hooks";
 import { useCurrentWorkspace } from "@silieco/core/paths";
 import { memberListOptions } from "@silieco/core/workspace/queries";
@@ -20,6 +24,10 @@ export function MemberDetailPage({ userId }: { userId: string }) {
   const workspace = useCurrentWorkspace();
   const { data: members = [], isLoading } = useQuery(memberListOptions(wsId));
   const member = members.find((m) => m.user_id === userId) ?? null;
+  const currentUserId = useAuthStore(s => s.user?.id);
+  const role = members.find(m => m.user_id === currentUserId)?.role;
+  const canManageProjectAccess = (role === "owner" || role === "admin") && member?.role === "member";
+  const [accessOpen, setAccessOpen] = useState(false);
 
   if (isLoading && !member) {
     return <MemberDetailSkeleton />;
@@ -70,8 +78,11 @@ export function MemberDetailPage({ userId }: { userId: string }) {
             {member.email}
           </p>
         </div>
+        {canManageProjectAccess && <Button variant="outline" size="sm" onClick={() => setAccessOpen(true)}>
+          <ShieldCheck className="size-4" />{t(($) => $.project_access.manage)}
+        </Button>}
       </div>
-
+      {canManageProjectAccess && <MemberProjectAccessDialog open={accessOpen} onOpenChange={setAccessOpen} userId={userId} memberName={member.name} />}
       <ActorTasksPanel actorType="member" actorId={userId} />
     </div>
   );

@@ -68,8 +68,8 @@ func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
-	if email == "" {
-		writeError(w, http.StatusBadRequest, "email is required")
+	if !validVerificationEmail(email) {
+		writeError(w, http.StatusBadRequest, "valid email is required")
 		return
 	}
 

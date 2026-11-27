@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/auenger/MEPERECO/core/internal/util"
+	db "github.com/auenger/MEPERECO/core/pkg/db/generated"
 	"log/slog"
 	"strings"
 
@@ -21,17 +24,20 @@ import (
 // for a Redis-backed relay or a feature-flagged dual-write implementation
 // without touching any of the event listeners below. This is Phase 0 of the
 // horizontal-scaling plan tracked in SILI-1138.
-func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
+func registerListeners(bus *events.Bus, b realtime.Broadcaster, q *db.Queries) {
 	// Personal events should NOT be broadcast to the whole workspace.
 	personalEvents := map[string]bool{
-		protocol.EventInboxNew:           true,
-		protocol.EventInboxRead:          true,
-		protocol.EventInboxArchived:      true,
-		protocol.EventInboxUnarchived:    true,
-		protocol.EventInboxBatchRead:     true,
-		protocol.EventInboxBatchArchived: true,
-		protocol.EventInvitationCreated:  true,
-		protocol.EventInvitationRevoked:  true,
+		protocol.EventInboxNew:             true,
+		protocol.EventProjectAccessChanged: true,
+		protocol.EventChatNotification:     true,
+		protocol.EventChatSessionRead:      true,
+		protocol.EventInboxRead:            true,
+		protocol.EventInboxArchived:        true,
+		protocol.EventInboxUnarchived:      true,
+		protocol.EventInboxBatchRead:       true,
+		protocol.EventInboxBatchArchived:   true,
+		protocol.EventInvitationCreated:    true,
+		protocol.EventInvitationRevoked:    true,
 	}
 
 	// Helper: marshal event and send to a specific user.
@@ -39,13 +45,40 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 		if recipientID == "" {
 			return
 		}
+		if e.Type == protocol.EventInboxNew || e.Type == protocol.EventChatNotification || e.Type == protocol.EventChatSessionRead {
+			ws, err := util.ParseUUID(e.WorkspaceID)
+			if err != nil {
+				return
+			}
+			user, err := util.ParseUUID(recipientID)
+			if err != nil {
+				return
+			}
+			scope := resolveProjectEventScope(context.Background(), q, e, ws)
+			if scope.resolved && !projectEventAllowed(context.Background(), q, scope, ws, user) {
+				return
+			}
+			if !scope.resolved && e.Type != protocol.EventInboxNew {
+				return
+			}
+		}
 		data, err := json.Marshal(map[string]any{"type": e.Type, "payload": e.Payload, "actor_id": e.ActorID, "actor_type": e.ActorType})
 		if err != nil {
 			return
 		}
 		realtime.M.RecordEvent(e.Type)
-		b.SendToUser(recipientID, data)
+		if e.Type == protocol.EventProjectAccessChanged {
+			b.BroadcastToScope(realtime.ScopeWorkspaceUser, e.WorkspaceID+"/"+recipientID, data)
+		} else {
+			b.SendToUser(recipientID, data)
+		}
 	}
+	bus.Subscribe(protocol.EventProjectAccessChanged, func(e events.Event) {
+		if p, ok := e.Payload.(map[string]any); ok {
+			uid, _ := p["recipient_id"].(string)
+			sendToRecipient(b, e, uid)
+		}
+	})
 
 	// inbox:new — extract recipient from nested item
 	bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
@@ -59,6 +92,16 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 		}
 		recipientID, _ := item["recipient_id"].(string)
 		sendToRecipient(b, e, recipientID)
+	})
+	bus.Subscribe(protocol.EventChatNotification, func(e events.Event) {
+		if payload, ok := e.Payload.(protocol.ChatNotificationPayload); ok {
+			sendToRecipient(b, e, payload.RecipientID)
+		}
+	})
+	bus.Subscribe(protocol.EventChatSessionRead, func(e events.Event) {
+		if payload, ok := e.Payload.(protocol.ChatSessionReadPayload); ok {
+			sendToRecipient(b, e, payload.RecipientID)
+		}
 	})
 
 	// inbox:read, inbox:archived, inbox:unarchived, inbox:batch-read,
@@ -167,21 +210,31 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 			return
 		}
 
-		// Phase 1 (SILI-1138): the per-resource scope routing for high-frequency
-		// task/chat events is intentionally NOT enabled yet. The server-side
-		// pieces — Hub.subscribe/unsubscribe protocol, ScopeAuthorizer, Redis
-		// Streams relay — have all landed, but the client (WSClient + the
-		// per-page chat/task hooks) does not yet send `subscribe` frames or
-		// replay subscriptions on reconnect. Routing these events through
-		// `BroadcastToScope("task"|"chat", ...)` today would silently drop
-		// every chat/task message on the floor, breaking the live chat
-		// timeline, chat unread badges, and pending-task UI.
-		//
-		// Until the client lands its scope-subscription PR, we keep
-		// task/chat events on workspace fanout (same behavior as before this
-		// PR). The `Event.TaskID` / `Event.ChatSessionID` hints are still
-		// populated by producers so that flipping the switch later is a
-		// one-line change here. See review on PR #1429 for context.
+		// Resource events carrying project data must not fan out to the
+		// full workspace. Resolve scope at delivery time, including revocations.
+		if e.WorkspaceID != "" && projectSensitiveEvent(e.Type) {
+			ctx := context.Background()
+			ws, err := util.ParseUUID(e.WorkspaceID)
+			if err != nil {
+				return
+			}
+			scope := resolveProjectEventScope(ctx, q, e, ws)
+			if !scope.resolved {
+				// Deleted rows no longer have lineage. Invalidate without IDs,
+				// titles, transcripts, or other confidential fields.
+				b.BroadcastToWorkspace(e.WorkspaceID, []byte(`{"type":"project:resources_changed","payload":{}}`))
+				return
+			}
+			recipients, err := projectEventAudience(ctx, q, scope, ws)
+			if err != nil {
+				return
+			}
+			for _, uid := range recipients {
+				b.BroadcastToScope(realtime.ScopeWorkspaceUser, e.WorkspaceID+"/"+util.UUIDToString(uid), data)
+			}
+
+			return
+		}
 
 		if e.WorkspaceID != "" {
 			realtime.M.RecordEvent(e.Type)

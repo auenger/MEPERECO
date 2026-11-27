@@ -71,7 +71,7 @@ import { useT } from "../../i18n";
 import { useNavigation } from "../../navigation";
 import { useWorkspacePaths } from "@silieco/core/paths";
 
-import { useWorkflowChatEditorStore, prepareWorkflowChat, acceptWorkflowChat, failWorkflowChat, finishWorkflowChat } from "@silieco/core/workflows";
+import { useWorkflowChatEditorStore, prepareWorkflowChat, acceptWorkflowChat, failWorkflowChat, finishWorkflowChat, useSopVisibilityStore } from "@silieco/core/workflows";
 import { WorkflowChatReplyAction } from "../../workflows/components/workflow-chat-reply-action";
 import { WorkflowChatStatus } from "../../workflows/components/workflow-chat-status";
 
@@ -120,6 +120,7 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
   // it starts from a large stable base and only subtracts the count of loaded
   // prepended rows, so concurrent server inserts cannot drift the scroll anchor.
   const workflowEditor = useWorkflowChatEditorStore((s) => s.editor);
+  const sopEnabled = useSopVisibilityStore((state) => state.enabled);
   const workflowSessionId = useWorkflowChatEditorStore((s) => s.sessionId);
   const workflowRequest = useWorkflowChatEditorStore((s) => s.request);
   const { messages: rawMessages, firstItemIndex } = useChatMessageWindow(activeSessionId, rawMessagePages);
@@ -499,7 +500,7 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
       // draft is never cleared, before the roundtrip settles — a slow send never
       // reads as "posted but the box is still full", and a rejected one keeps
       // the draft for retry (ChatInput never cleared it).
-      const workflowSend = !isGroupSession ? prepareWorkflowChat(wsId, sessionId, content) : null;
+      const workflowSend = sopEnabled && !isGroupSession ? prepareWorkflowChat(wsId, sessionId, content) : null;
       let result;
       try {
         result = await api.sendChatMessage(sessionId, workflowSend?.content ?? finalContent, attachmentIds);
@@ -601,6 +602,7 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
       activeSessionId,
       activeAgent,
       isGroupSession,
+      sopEnabled,
       isAgentArchived,
       ensureSession,
       cancelChatRun,
@@ -824,7 +826,7 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
       }}
     >
       <ChatResizeHandles onDragStart={startDrag} anchor={anchor} />
-      {workflowEditor?.wsId === wsId && (!workflowSessionId || workflowSessionId === activeSessionId) && <WorkflowChatStatus />}
+      {sopEnabled && workflowEditor?.wsId === wsId && (!workflowSessionId || workflowSessionId === activeSessionId) && <WorkflowChatStatus />}
       {/* Header — ⊕ new + session dropdown | window tools */}
       <div className="flex items-center justify-between border-b px-4 py-2.5 gap-2">
         <div className="flex items-center gap-1 min-w-0">
@@ -904,7 +906,7 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
         <ChatMessageList
           key={activeSessionId}
           messages={messages}
-          renderMessageAction={(message) => message.role === "assistant" && message.run_id && activeSessionId ? (
+          renderMessageAction={(message) => sopEnabled && message.role === "assistant" && message.run_id && activeSessionId ? (
             <WorkflowChatReplyAction wsId={wsId} sessionId={activeSessionId} runId={message.run_id}
               content={message.content} pending={!!pendingRunId}
               prompt={messages.find((item) => item.role === "user" && item.run_id === message.run_id)?.content ?? ""} />
@@ -977,7 +979,8 @@ export function ChatWindow({ anchor = "bottom", onSendingChange }: {
         placeholderOverride={isGroupSession ? t(($) => $.group.input_placeholder) : undefined}
         projects={projects}
         projectId={activeProjectId}
-        onProjectChange={handleProjectChange}
+        projectContextLocked={currentSession?.kind === "group" && !!activeProjectId}
+        onProjectChange={currentSession?.kind === "group" && activeProjectId ? undefined : handleProjectChange}
         projectContextUnsupported={projectContextSupport === false}
         isProjectUpdating={
           setSessionProject.isPending || (!!activeSessionId && !currentSession)
@@ -1152,6 +1155,7 @@ function SessionDropdown({
   onSelectSession: (session: ChatSession) => void;
 }) {
   const { t } = useT("chat");
+  const appForeground = useAppForeground();
   const wsId = useWorkspaceId();
   const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents]);
   const activeSession = sessions.find((s) => s.id === activeSessionId);
@@ -1333,7 +1337,8 @@ function SessionDropdown({
     const pendingRun = pendingRunBySessionId.get(session.id);
     const isRunning = !!pendingRun;
     const showCompleted = completedFlashIds.has(session.id) && !isCurrent;
-    const showUnread = session.has_unread && !isCurrent;
+    const showUnread = session.has_unread && (!isCurrent || !appForeground);
+    const mentioned = showUnread && session.has_unread_mention;
     const isRenaming = renamingId === session.id;
     const isConfirmingStop = confirmingStopId === session.id && !!pendingRun;
     const isConfirmingAction = isConfirmingStop;
@@ -1402,6 +1407,7 @@ function SessionDropdown({
               }}
             >
               {titleText}
+              {mentioned && <span className="ml-1.5 text-caption font-medium text-destructive">{t(($) => $.list.mentioned_me)}</span>}
             </div>
           )}
         </div>

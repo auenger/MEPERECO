@@ -325,12 +325,12 @@ func main() {
 	} else {
 		slog.Info("realtime: REDIS_URL not set — using in-memory hub (single-node mode)")
 	}
-	registerListeners(bus, broadcaster)
 
 	analyticsClient := analytics.NewFromEnv()
 	defer analyticsClient.Close()
 
 	queries := db.New(pool)
+	registerListeners(bus, broadcaster, queries)
 	hub.SetAuthorizer(newScopeAuthorizer(queries))
 	// Order matters: subscriber listeners must register BEFORE notification listeners.
 	// The notification listener queries the subscriber table to determine recipients,
@@ -338,6 +338,7 @@ func main() {
 	registerSubscriberListeners(bus, queries)
 	registerActivityListeners(bus, queries)
 	registerNotificationListeners(bus, queries)
+	registerChatNotificationListeners(bus, queries)
 
 	metricsConfig := obsmetrics.ConfigFromEnv()
 	var metricsServer *http.Server

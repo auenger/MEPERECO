@@ -7,6 +7,7 @@ export const workspaceKeys = {
   list: () => ["workspaces", "list"] as const,
   members: (wsId: string) => ["workspaces", wsId, "members"] as const,
   invitations: (wsId: string) => ["workspaces", wsId, "invitations"] as const,
+  inviteCandidates: (wsId: string) => ["workspaces", wsId, "invite-candidates"] as const,
   myInvitations: () => ["invitations", "mine"] as const,
   agents: (wsId: string) => ["workspaces", wsId, "agents"] as const,
   squads: (wsId: string) => ["workspaces", wsId, "squads"] as const,
@@ -118,6 +119,16 @@ export function invitationListOptions(wsId: string) {
   return queryOptions({
     queryKey: workspaceKeys.invitations(wsId),
     queryFn: () => api.listWorkspaceInvitations(wsId),
+  });
+}
+
+export function inviteCandidatesOptions(wsId: string, search: string, page: number) {
+  return queryOptions({
+    queryKey: [...workspaceKeys.inviteCandidates(wsId), search, page] as const,
+    queryFn: ({ signal }) => api.searchInviteCandidates(wsId, search, page, signal),
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 

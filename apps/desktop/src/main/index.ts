@@ -68,6 +68,9 @@ import { AuthSessionCoordinator } from "./auth-session-coordinator";
 import {
   NotificationGate,
   parseNativeNotificationPayload,
+  parseNativeNotificationReadState,
+  shouldDismissReadNotification,
+  type NativeNotificationPayload,
 } from "./notification-gate";
 
 // Guards against registering the will-download handler more than once on the
@@ -146,6 +149,7 @@ const authSessionCoordinator = new AuthSessionCoordinator<BrowserWindow>(
   },
 );
 const notificationGate = new NotificationGate();
+const activeNotifications = new Map<string, { notification: Notification; payload: NativeNotificationPayload }>();
 const mainRendererMessages = new MainRendererMessageQueue();
 let desktopInitialized = false;
 let authSessionGeneration = 0;
@@ -840,6 +844,10 @@ if (!gotTheLock) {
         if (accountInvalidated) {
           authSessionGeneration += 1;
           mainRendererMessages.clear("inbox:open");
+          for (const { notification } of activeNotifications.values()) notification.close();
+          activeNotifications.clear();
+          app.dock?.setBadge("");
+          app.setBadgeCount(0);
         }
         return;
       }
@@ -886,6 +894,11 @@ if (!gotTheLock) {
         title: payload.title,
         body: payload.body,
       });
+      const notificationKey = `${payload.kind ?? "inbox"}:${payload.itemId}`;
+      activeNotifications.set(notificationKey, { notification, payload });
+      notification.on("close", () => {
+        if (activeNotifications.get(notificationKey)?.notification === notification) activeNotifications.delete(notificationKey);
+      });
       const notificationSessionGeneration = authSessionGeneration;
       notification.on("click", () => {
         // A banner emitted for user A must not navigate after the main window
@@ -894,12 +907,27 @@ if (!gotTheLock) {
         // Recreate the main window when an task-only window outlived it, then
         // wait for the inbox listener before delivering the navigation.
         dispatchToMainRenderer("inbox:open", {
+          kind: payload.kind,
           slug: payload.slug,
           itemId: payload.itemId,
           taskKey: payload.taskKey,
         });
       });
       notification.show();
+    });
+
+    // Reconcile native banners with the authoritative unread cache whenever
+    // items are read (including another device), archived or deleted.
+    ipcMain.on("notification:reconcile", (event, value: unknown) => {
+      if (BrowserWindow.fromWebContents(event.sender) !== mainWindow || !authSessionCoordinator.hasActiveMainSession()) return;
+      const state = parseNativeNotificationReadState(value);
+      if (!state) return;
+      for (const [key, entry] of activeNotifications) {
+        if (shouldDismissReadNotification(entry.payload, state)) {
+          activeNotifications.delete(key);
+          entry.notification.close();
+        }
+      }
     });
 
     // IPC: update the dock / taskbar unread badge. Values above 99 render as

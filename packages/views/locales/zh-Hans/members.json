@@ -1,4 +1,13 @@
 {
+  "project_access": {
+    "manage": "项目权限",
+    "description": "选择该员工可访问的项目。取消授权后，员工将无法访问项目及其任务、资源和绑定群聊。",
+    "empty": "空间还没有项目",
+    "failed": "更新项目权限失败",
+    "load_failed": "无法加载项目权限",
+    "loading": "正在加载项目…",
+    "done": "完成"
+  },
   "role": {
     "owner": "所有者",
     "admin": "管理员",

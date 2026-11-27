@@ -1,4 +1,13 @@
 {
+  "access": {
+    "manage": "Project access",
+    "description": "Workspace administrators always have access. Grant employees access to this project, its tasks and resources.",
+    "loading": "Loading project access…",
+    "failed": "Could not update project access",
+    "load_failed": "Could not load project access",
+    "admin": "Administrator · always has access",
+    "done": "Done"
+  },
   "icon_picker": {
     "upload": "Upload image",
     "reset": "Reset",

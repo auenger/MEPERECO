@@ -104,6 +104,8 @@ export interface ExtraSettingsTab {
   value: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** Localized status text for an optional attention dot. */
+  notice?: string;
   content: React.ReactNode;
 }
 
@@ -185,9 +187,12 @@ export function SettingsPage({ extraAccountTabs }: SettingsPageProps = {}) {
               key={tab.value}
               value={tab.value}
               className={SETTINGS_TAB_TRIGGER_CLASS}
+              aria-label={tab.notice ? `${tab.label} · ${tab.notice}` : undefined}
+              title={tab.notice}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
+              {tab.notice && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-destructive" />}
             </TabsTrigger>
           ))}
 

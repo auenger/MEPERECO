@@ -1,7 +1,7 @@
 import type { ChatSession } from "../types/chat";
 
 /**
- * The chat unread badge number: total unread assistant *messages* across
+ * The chat unread badge number: total unread *messages* across
  * sessions (IM-style), NOT the number of sessions with unread.
  *
  * Single source of truth for every surface that renders an aggregate chat
@@ -25,7 +25,7 @@ export function countUnreadChatMessages(
   if (!sessions) return 0;
   return sessions.reduce(
     (sum, s) =>
-      s.id === excludeSessionId ? sum : sum + (s.unread_count ?? 0),
+      s.id === excludeSessionId || s.status === "archived" ? sum : sum + (s.unread_count ?? 0),
     0,
   );
 }

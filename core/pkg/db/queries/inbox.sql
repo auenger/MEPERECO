@@ -105,7 +105,10 @@ RETURNING recipient_type, recipient_id;
 
 -- name: CountUnreadInbox :one
 SELECT count(*) FROM inbox_item
-WHERE workspace_id = $1 AND recipient_type = $2 AND recipient_id = $3 AND read = false AND archived = false;
+WHERE workspace_id = $1 AND recipient_type = $2 AND recipient_id = $3 AND read = false AND archived = false
+AND (task_id IS NULL OR EXISTS (SELECT 1 FROM task t JOIN member m ON m.workspace_id=t.workspace_id AND m.user_id=$3
+    WHERE t.id=inbox_item.task_id AND t.workspace_id=inbox_item.workspace_id
+    AND (t.project_id IS NULL OR m.role IN ('owner','admin') OR EXISTS (SELECT 1 FROM project_member pm WHERE pm.project_id=t.project_id AND pm.member_id=m.id))));
 
 -- name: CountUnreadInboxByWorkspace :many
 -- Per-workspace unread inbox counts for a recipient member, matching the
@@ -127,6 +130,8 @@ FROM (
     WHERE i.recipient_type = 'member'
       AND i.recipient_id = $1
       AND i.archived = false
+      AND (i.task_id IS NULL OR EXISTS (SELECT 1 FROM task t WHERE t.id=i.task_id AND t.workspace_id=i.workspace_id
+        AND (t.project_id IS NULL OR m.role IN ('owner','admin') OR EXISTS (SELECT 1 FROM project_member pm WHERE pm.project_id=t.project_id AND pm.member_id=m.id))))
     ORDER BY i.workspace_id, COALESCE(i.task_id, i.id), i.created_at DESC
 ) newest
 WHERE newest.read = false

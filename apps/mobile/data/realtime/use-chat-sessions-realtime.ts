@@ -6,9 +6,8 @@
  * the user is on — so when they DO open Chat tab, the dropdown / sheet
  * already reflects reality (latest titles, has_unread flags, deletions).
  *
- * Events handled here are listing-level only — per-session events
- * (chat:message, run:*) belong in `use-chat-session-realtime.ts` because
- * they target a specific session id known only inside the chat screen.
+ * Group human messages can arrive without a run; their list-level unread
+ * counts need refreshing even when no chat screen is mounted.
  */
 import { useQueryClient } from "@tanstack/react-query";
 import { chatKeys } from "@/data/queries/chat";
@@ -27,6 +26,7 @@ export function useChatSessionsRealtime() {
         qc.invalidateQueries({ queryKey: chatKeys.sessions(wsId) });
 
       return [
+        ws.on("chat:message", invalidateSessions),
         // chat:done flips `has_unread` server-side; refetch so the dot shows
         // even when the user isn't in the chat screen.
         ws.on("chat:done", invalidateSessions),

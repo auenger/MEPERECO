@@ -90,3 +90,15 @@ export interface Invitation {
   inviter_email?: string;
   workspace_name?: string;
 }
+
+export interface InviteCandidate {
+  id: string;
+  name: string;
+  email: string;
+  avatar_url: string | null;
+}
+
+export interface InviteCandidatesResponse {
+  items: InviteCandidate[];
+  has_more: boolean;
+}

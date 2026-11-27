@@ -14,10 +14,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/websocket"
 	"github.com/auenger/MEPERECO/core/internal/auth"
 	"github.com/auenger/MEPERECO/core/pkg/protocol"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/websocket"
 )
 
 // MembershipChecker verifies a user belongs to a workspace.
@@ -323,6 +323,7 @@ func (h *Hub) Run() {
 			h.subscribe(client, ScopeWorkspace, client.workspaceID)
 			if client.userID != "" {
 				h.subscribe(client, ScopeUser, client.userID)
+				h.subscribe(client, ScopeWorkspaceUser, client.workspaceID+"/"+client.userID)
 			}
 			slog.Info("ws client connected", "workspace_id", client.workspaceID, "user_id", client.userID, "total_clients", total)
 

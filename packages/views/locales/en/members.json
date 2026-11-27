@@ -1,4 +1,13 @@
 {
+  "project_access": {
+    "manage": "Project access",
+    "description": "Choose the projects this employee can access. Revoking access hides project tasks, resources, and linked group chats.",
+    "empty": "No projects in this workspace",
+    "failed": "Could not update project access",
+    "load_failed": "Could not load project access",
+    "loading": "Loading projects…",
+    "done": "Done"
+  },
   "role": {
     "owner": "Owner",
     "admin": "Admin",

@@ -72,6 +72,8 @@ const (
 	// Chat events
 	EventChatMessage = "chat:message"
 	EventChatDone    = "chat:done"
+	// Personal, recipient-scoped hint for a newly persisted chat message.
+	EventChatNotification = "chat:notification"
 	// EventChatCancelFinalized carries the deferred outcome of a cancelled
 	// chat task once the daemon has flushed its transcript (or the sweeper
 	// grace period expired): either a late "Stopped." assistant message or a
@@ -83,6 +85,7 @@ const (
 	EventChatSessionUpdated  = "chat:session_updated"
 
 	// Project events
+	EventProjectAccessChanged   = "project:access_changed"
 	EventProjectCreated         = "project:created"
 	EventProjectUpdated         = "project:updated"
 	EventProjectDeleted         = "project:deleted"
